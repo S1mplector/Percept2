@@ -8017,6 +8017,10 @@ public class PuppeteerWindow extends Stage {
         }
     }
 
+    java.io.File getSourceScriptFile() {
+        return scriptTargetFile;
+    }
+
     public void showAssetImporterWindow() {
         if (assetImporterWindow != null) {
             assetImporterWindow.show();
@@ -9061,6 +9065,20 @@ public class PuppeteerWindow extends Stage {
         return selection;
     }
 
+    private record ResolvedCharacterContext(com.jvn.core.vn.VnCharacter character, String characterId) {
+        static final ResolvedCharacterContext EMPTY = new ResolvedCharacterContext(null, null);
+    }
+
+    private ResolvedCharacterContext resolveCharacterForDiagnostics() {
+        File scriptFile = getSourceScriptFile();
+        if (scriptFile == null) return ResolvedCharacterContext.EMPTY;
+        String characterId = inferExpressionTargetFromSelection();
+        if (characterId == null || characterId.isBlank()) return ResolvedCharacterContext.EMPTY;
+        com.jvn.core.vn.VnCharacter character = PuppeteerCharacterRigResolver.resolve(scriptFile, characterId);
+        if (character == null) return ResolvedCharacterContext.EMPTY;
+        return new ResolvedCharacterContext(character, characterId);
+    }
+
     private List<String> expressionTargetSuggestions() {
         LinkedHashSet<String> targets = new LinkedHashSet<>();
         String inferred = inferExpressionTargetFromSelection();
@@ -10003,12 +10021,15 @@ public class PuppeteerWindow extends Stage {
     private void performCopyExportedCodeToClipboard() {
         try {
             String code = CodeExporter.export(project);
+            ResolvedCharacterContext rigContext = resolveCharacterForDiagnostics();
             List<TimelineDiagnostic.Message> findings = new ArrayList<>(
                 PuppeteerVerification.diagnose(
                     project,
                     knownSceneEntities(),
                     projectRoot,
-                    PuppeteerVerification.Mode.EXPORT_CODE
+                    PuppeteerVerification.Mode.EXPORT_CODE,
+                    rigContext.character(),
+                    rigContext.characterId()
                 )
             );
             findings.addAll(TimelineDiagnostic.diagnoseDsl(code));
@@ -10316,12 +10337,15 @@ public class PuppeteerWindow extends Stage {
     public void refreshExportPreview() {
         try {
             codePreview.setCode(compactExport ? CodeExporter.exportCompact(project) : CodeExporter.export(project));
+            ResolvedCharacterContext rigContext = resolveCharacterForDiagnostics();
             List<TimelineDiagnostic.Message> diags = new ArrayList<>(
                 PuppeteerVerification.diagnose(
                     project,
                     knownSceneEntities(),
                     projectRoot,
-                    PuppeteerVerification.Mode.EXPORT_CODE
+                    PuppeteerVerification.Mode.EXPORT_CODE,
+                    rigContext.character(),
+                    rigContext.characterId()
                 )
             );
             diags.addAll(TimelineDiagnostic.diagnoseDsl(codePreview.getCode()));
@@ -12171,11 +12195,14 @@ public class PuppeteerWindow extends Stage {
     public KeyframeSelectionModel getSelectionModel() { return selectionModel; }
 
     public void showRuntimeVerificationReport() {
+        ResolvedCharacterContext rigContext = resolveCharacterForDiagnostics();
         List<TimelineDiagnostic.Message> findings = PuppeteerVerification.diagnose(
             project,
             knownSceneEntities(),
             projectRoot,
-            PuppeteerVerification.Mode.REGISTER_RUNTIME
+            PuppeteerVerification.Mode.REGISTER_RUNTIME,
+            rigContext.character(),
+            rigContext.characterId()
         );
         boolean hasErrors = findings.stream().anyMatch(message -> message.severity() == TimelineDiagnostic.Severity.ERROR);
         boolean hasWarnings = findings.stream().anyMatch(message -> message.severity() == TimelineDiagnostic.Severity.WARNING);
@@ -12236,11 +12263,14 @@ public class PuppeteerWindow extends Stage {
             return;
         }
         project.setName(name);
+        ResolvedCharacterContext rigContext = resolveCharacterForDiagnostics();
         List<TimelineDiagnostic.Message> findings = PuppeteerVerification.diagnose(
             project,
             knownSceneEntities(),
             projectRoot,
-            PuppeteerVerification.Mode.REGISTER_RUNTIME
+            PuppeteerVerification.Mode.REGISTER_RUNTIME,
+            rigContext.character(),
+            rigContext.characterId()
         );
         boolean hasErrors = findings.stream().anyMatch(message -> message.severity() == TimelineDiagnostic.Severity.ERROR);
         boolean hasWarnings = findings.stream().anyMatch(message -> message.severity() == TimelineDiagnostic.Severity.WARNING);
@@ -12296,6 +12326,8 @@ public class PuppeteerWindow extends Stage {
 
         boolean hasOrbitPivotRisk = findings.stream()
             .anyMatch(message -> message.description().contains(PuppeteerVerification.ORBIT_PIVOT_RISK_MARKER));
+        boolean hasUnresolvedLayerProxies = findings.stream()
+            .anyMatch(message -> message.description().contains(PuppeteerVerification.UNRESOLVED_LAYER_PROXY_MARKER));
 
         VBox body = new VBox(10);
         body.setFillWidth(true);
@@ -12317,6 +12349,15 @@ public class PuppeteerWindow extends Stage {
         }
         javafx.scene.control.CheckBox strictCheckRef = strictOrbitCheck;
 
+        javafx.scene.control.CheckBox strictUnresolvedLayerCheck = null;
+        if (hasUnresolvedLayerProxies) {
+            strictUnresolvedLayerCheck = new javafx.scene.control.CheckBox(
+                "Treat unresolved-layer warnings as blocking for this registration");
+            strictUnresolvedLayerCheck.setStyle("-fx-text-fill: #d0d0d0; -fx-font-size: 11px;");
+            body.getChildren().add(strictUnresolvedLayerCheck);
+        }
+        javafx.scene.control.CheckBox strictUnresolvedLayerCheckRef = strictUnresolvedLayerCheck;
+
         overlayDialog.showDialog(
             hasWarnings ? "Register Timeline With Warnings?" : "Register Timeline?",
             "Review exactly what Puppeteer will do before it saves and registers \"" + name + "\".",
@@ -12329,6 +12370,18 @@ public class PuppeteerWindow extends Stage {
                         "Strict validation is on for this registration. Resolve the orbit-pivot warnings below before registering.",
                         findings.stream()
                             .filter(message -> message.description().contains(PuppeteerVerification.ORBIT_PIVOT_RISK_MARKER))
+                            .toList(),
+                        null,
+                        null
+                    );
+                    return;
+                }
+                if (strictUnresolvedLayerCheckRef != null && strictUnresolvedLayerCheckRef.isSelected()) {
+                    showVerificationOverlay(
+                        "Registration Blocked",
+                        "Strict validation is on for this registration. Resolve the unresolved-layer warnings below before registering.",
+                        findings.stream()
+                            .filter(message -> message.description().contains(PuppeteerVerification.UNRESOLVED_LAYER_PROXY_MARKER))
                             .toList(),
                         null,
                         null
@@ -12453,9 +12506,26 @@ public class PuppeteerWindow extends Stage {
             ));
         }
 
+        List<TimelineDiagnostic.Message> unresolvedLayerFindings = new ArrayList<>();
+        ResolvedCharacterContext rigContext = resolveCharacterForDiagnostics();
+        if (rigContext.character() != null) {
+            for (TimelineDiagnostic.Message message : PuppeteerVerification.diagnose(
+                project,
+                knownSceneEntities(),
+                projectRoot,
+                PuppeteerVerification.Mode.EXPORT_CODE,
+                rigContext.character(),
+                rigContext.characterId()
+            )) {
+                if (message.description().contains(PuppeteerVerification.UNRESOLVED_LAYER_PROXY_MARKER)) {
+                    unresolvedLayerFindings.add(message);
+                }
+            }
+        }
+
         javafx.scene.control.CheckBox strictOrbitCheck = null;
         if (!orbitRiskFindings.isEmpty()) {
-            Label warningHeader = new Label("Warnings that will be accepted if you continue:");
+            Label warningHeader = new Label("Orbit-pivot warnings that will be accepted if you continue:");
             warningHeader.setStyle("-fx-text-fill: #ffe2a8; -fx-font-size: 11px; -fx-font-weight: bold;");
             body.getChildren().add(warningHeader);
             body.getChildren().add(buildVerificationContent(orbitRiskFindings));
@@ -12466,6 +12536,20 @@ public class PuppeteerWindow extends Stage {
         }
         javafx.scene.control.CheckBox strictCheckRef = strictOrbitCheck;
         List<TimelineDiagnostic.Message> orbitRiskFindingsRef = orbitRiskFindings;
+
+        javafx.scene.control.CheckBox strictUnresolvedLayerCheck = null;
+        if (!unresolvedLayerFindings.isEmpty()) {
+            Label unresolvedLayerHeader = new Label("Unresolved-layer warnings that will be accepted if you continue:");
+            unresolvedLayerHeader.setStyle("-fx-text-fill: #ffe2a8; -fx-font-size: 11px; -fx-font-weight: bold;");
+            body.getChildren().add(unresolvedLayerHeader);
+            body.getChildren().add(buildVerificationContent(unresolvedLayerFindings));
+            strictUnresolvedLayerCheck = new javafx.scene.control.CheckBox(
+                "Treat unresolved-layer warnings as blocking for this action");
+            strictUnresolvedLayerCheck.setStyle("-fx-text-fill: #d0d0d0; -fx-font-size: 11px;");
+            body.getChildren().add(strictUnresolvedLayerCheck);
+        }
+        javafx.scene.control.CheckBox strictUnresolvedLayerCheckRef = strictUnresolvedLayerCheck;
+        List<TimelineDiagnostic.Message> unresolvedLayerFindingsRef = unresolvedLayerFindings;
 
         overlayDialog.showDialog(
             title,
@@ -12478,6 +12562,16 @@ public class PuppeteerWindow extends Stage {
                         "Action Blocked",
                         "Strict validation is on for this action. Resolve the orbit-pivot warnings below before continuing.",
                         orbitRiskFindingsRef,
+                        null,
+                        null
+                    );
+                    return;
+                }
+                if (strictUnresolvedLayerCheckRef != null && strictUnresolvedLayerCheckRef.isSelected()) {
+                    showVerificationOverlay(
+                        "Action Blocked",
+                        "Strict validation is on for this action. Resolve the unresolved-layer warnings below before continuing.",
+                        unresolvedLayerFindingsRef,
                         null,
                         null
                     );

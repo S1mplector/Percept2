@@ -9,6 +9,8 @@ import java.util.List;
 import java.util.Set;
 
 import com.jvn.core.animation.TimelineDataDiagnostics;
+import com.jvn.core.vn.LayerTargetNaming;
+import com.jvn.core.vn.VnCharacter;
 
 final class PuppeteerVerification {
     private static final int MAX_TIMELINE_NAME_LENGTH = 96;
@@ -34,6 +36,17 @@ final class PuppeteerVerification {
         File projectRoot,
         Mode mode
     ) {
+        return diagnose(project, knownEntities, projectRoot, mode, null, null);
+    }
+
+    static List<TimelineDiagnostic.Message> diagnose(
+        AnimationProject project,
+        Set<String> knownEntities,
+        File projectRoot,
+        Mode mode,
+        VnCharacter character,
+        String characterId
+    ) {
         if (project == null) {
             return Collections.emptyList();
         }
@@ -46,6 +59,7 @@ final class PuppeteerVerification {
         diagnoseAudioFiles(project, projectRoot, messages);
         diagnoseSceneEntityAssets(project, projectRoot, messages);
         diagnoseOrbitPivotRisk(project, messages);
+        diagnoseUnresolvedLayerProxies(project, character, characterId, knownEntities, messages);
 
         if (mode == Mode.REGISTER_RUNTIME) {
             diagnoseRuntimeRegistration(project, messages);
@@ -232,6 +246,67 @@ final class PuppeteerVerification {
                 quickFix
             ));
         }
+    }
+
+    static final String UNRESOLVED_LAYER_PROXY_MARKER = "does not resolve to a runtime proxy";
+
+    private static void diagnoseUnresolvedLayerProxies(
+        AnimationProject project,
+        VnCharacter character,
+        String characterId,
+        Set<String> knownEntities,
+        List<TimelineDiagnostic.Message> messages
+    ) {
+        if (character == null || characterId == null || characterId.isBlank()) return;
+        if (knownEntities == null || knownEntities.isEmpty()) return;
+        Set<String> known = knownEntities;
+
+        for (EntityTrack track : project.getTracks()) {
+            if (track == null) continue;
+            String layerId = track.getEntityName();
+            if (layerId == null || layerId.isBlank()) continue;
+            List<VnCharacter.LayerGroup> groupChain = character.getLayerGroupChainForLayer(layerId);
+            if (!character.getLayerIds().contains(layerId) && groupChain.isEmpty()) continue;
+
+            int keyframeCount = trackKeyframeCount(track);
+            if (keyframeCount == 0) continue;
+
+            List<String> candidates = new ArrayList<>(
+                LayerTargetNaming.declaredLayerTargetNames(character, characterId, null, layerId)
+            );
+            for (VnCharacter.LayerGroup group : groupChain) {
+                candidates.addAll(LayerTargetNaming.groupTargetNames(characterId, "neutral", group.id()));
+                for (String declaredExpression : character.getExpressionLayerIdsByName().keySet()) {
+                    candidates.addAll(
+                        LayerTargetNaming.groupTargetNames(characterId, declaredExpression, group.id())
+                    );
+                }
+            }
+            if (candidates.stream().anyMatch(known::contains)) continue;
+
+            messages.add(new TimelineDiagnostic.Message(
+                TimelineDiagnostic.Severity.WARNING,
+                layerId,
+                "Layer '" + layerId + "' has " + keyframeCount + " keyframes but "
+                    + UNRESOLVED_LAYER_PROXY_MARKER,
+                "Check that '" + layerId + "' is included in this expression's layer id list "
+                    + "(@charlayer/expressionLayerIds), and that the Puppeteer rig "
+                    + "(config/puppeteer/rig.properties) matches the current track naming. "
+                    + "This check compares against the current editor scene's entities, which may not "
+                    + "exactly match what the running game actually animates — verify in a live preview if unsure."
+            ));
+        }
+    }
+
+    private static int trackKeyframeCount(EntityTrack track) {
+        int count = 0;
+        for (PropertyType property : PropertyType.values()) {
+            count += track.getKeyframes(property).size();
+        }
+        for (String key : track.getAnimatedCustomProperties()) {
+            count += track.getCustomKeyframes(key).size();
+        }
+        return count;
     }
 
     private static void diagnoseRuntimeRegistration(

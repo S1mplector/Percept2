@@ -20,7 +20,7 @@ public final class LayerTargetNaming {
         StringBuilder out = new StringBuilder();
         for (int i = 0; i < value.length(); i++) {
             char ch = value.charAt(i);
-            if (Character.isLetterOrDigit(ch) || ch == '_') {
+            if (Character.isLetterOrDigit(ch) || ch == '_' || ch == '-') {
                 out.append(ch);
             } else {
                 out.append('_');

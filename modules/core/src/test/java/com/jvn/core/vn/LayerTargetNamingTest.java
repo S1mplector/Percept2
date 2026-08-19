@@ -10,9 +10,10 @@ class LayerTargetNamingTest {
 
     @Test
     void selectorSafeNameCollapsesUnsafeCharacters() {
-        assertEquals("hero_arm_l", LayerTargetNaming.selectorSafeName("hero arm-l"));
+        assertEquals("hero_arm-l", LayerTargetNaming.selectorSafeName("hero arm-l"));
         assertEquals("abc", LayerTargetNaming.selectorSafeName("__abc__"));
         assertEquals("", LayerTargetNaming.selectorSafeName(null));
+        assertEquals("arm-l", LayerTargetNaming.selectorSafeName("arm-l"));
     }
 
     @Test
