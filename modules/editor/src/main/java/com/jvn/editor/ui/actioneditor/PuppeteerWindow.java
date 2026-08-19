@@ -12180,7 +12180,10 @@ public class PuppeteerWindow extends Stage {
         }
         details.add("This will not insert or edit any .vns script line; reference it manually with @external jes_timeline " + name + " when needed.");
 
-        VBox body = buildActionDetailsContent(details);
+        VBox body = new VBox(10);
+        body.setFillWidth(true);
+        body.getChildren().add(buildExportSummaryContent(name));
+        body.getChildren().add(buildActionDetailsContent(details));
         if (hasWarnings) {
             Label warningHeader = new Label("Warnings that will be accepted if you continue:");
             warningHeader.setStyle("-fx-text-fill: #ffe2a8; -fx-font-size: 11px; -fx-font-weight: bold;");
@@ -12290,10 +12293,16 @@ public class PuppeteerWindow extends Stage {
         List<String> details,
         Runnable onContinue
     ) {
+        String previewName = tfTimelineName.getText() != null ? tfTimelineName.getText().trim() : "";
+        VBox body = new VBox(10);
+        body.setFillWidth(true);
+        body.getChildren().add(buildExportSummaryContent(previewName.isBlank() ? project.getName() : previewName));
+        body.getChildren().add(buildActionDetailsContent(details));
+
         overlayDialog.showDialog(
             title,
             header,
-            buildActionDetailsContent(details),
+            body,
             ActionEditorDialogOverlay.ActionSpec.neutral("Cancel", overlayDialog::hideOverlay).defaultFocus(true),
             ActionEditorDialogOverlay.ActionSpec.accent(actionLabel, () -> {
                 if (onContinue != null) {
@@ -12301,6 +12310,55 @@ public class PuppeteerWindow extends Stage {
                 }
             })
         );
+    }
+
+    private VBox buildExportSummaryContent(String timelineName) {
+        String safeName = timelineName == null || timelineName.isBlank() ? project.getName() : timelineName;
+        String code = CodeExporter.exportNamed(project, safeName, exportNestedBlocks);
+        TimelineData data = project.toTimelineData(safeName);
+        TimelineExportSummary summary = TimelineExportSummary.of(project, code, data);
+
+        VBox content = new VBox(4);
+        content.setFillWidth(true);
+        content.setMaxWidth(520);
+        content.setStyle(
+            "-fx-background-color: #14202b;"
+                + "-fx-background-radius: 6;"
+                + "-fx-border-color: #2c4257;"
+                + "-fx-border-radius: 6;"
+                + "-fx-padding: 8 10;"
+        );
+
+        Label statsLine = new Label(String.format(
+            Locale.ROOT,
+            "%d lines (%d metadata comments, %d script actions) - %d tracks - %d actions - %.1fs duration",
+            summary.totalLineCount(),
+            summary.commentLineCount(),
+            summary.actionLineCount(),
+            summary.trackCount(),
+            summary.actionCount(),
+            summary.durationMs() / 1000.0
+        ));
+        statsLine.setWrapText(true);
+        statsLine.setStyle("-fx-text-fill: #d8eefc; -fx-font-size: 11px; -fx-font-weight: bold;");
+        content.getChildren().add(statsLine);
+
+        if (!summary.affectedEntityNames().isEmpty()) {
+            Label affected = new Label("Affected: " + String.join(", ", summary.affectedEntityNames()));
+            affected.setWrapText(true);
+            affected.setStyle("-fx-text-fill: #9eb8d8; -fx-font-size: 11px;");
+            content.getChildren().add(affected);
+        }
+
+        if (summary.isLarge()) {
+            Label warning = new Label(
+                "Large export - may increase editor parse time and runtime script load.");
+            warning.setWrapText(true);
+            warning.setStyle("-fx-text-fill: #ffe2a8; -fx-font-size: 11px; -fx-font-weight: bold;");
+            content.getChildren().add(warning);
+        }
+
+        return content;
     }
 
     private VBox buildActionDetailsContent(List<String> details) {
