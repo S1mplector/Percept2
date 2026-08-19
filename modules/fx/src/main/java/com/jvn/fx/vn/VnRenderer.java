@@ -1585,24 +1585,7 @@ public class VnRenderer {
       String expression,
       String layerId
   ) {
-    String safeCharacter = selectorSafeName(characterId);
-    String safeLayer = selectorSafeName(layerId);
-    if (safeCharacter.isBlank() || safeLayer.isBlank()) return List.of();
-    LinkedHashSet<String> names = new LinkedHashSet<>();
-    names.add(safeCharacter + "_" + safeLayer);
-    String currentExpression = selectorSafeName(expression == null || expression.isBlank() ? "neutral" : expression);
-    if (!currentExpression.isBlank()) {
-      names.add(safeCharacter + "_" + currentExpression + "_" + safeLayer);
-    }
-    if (character != null) {
-      for (String declaredExpression : character.getExpressionLayerIdsByName().keySet()) {
-        String safeExpression = selectorSafeName(declaredExpression);
-        if (!safeExpression.isBlank()) {
-          names.add(safeCharacter + "_" + safeExpression + "_" + safeLayer);
-        }
-      }
-    }
-    return List.copyOf(names);
+    return com.jvn.core.vn.LayerTargetNaming.declaredLayerTargetNames(character, characterId, expression, layerId);
   }
 
   private Entity2D firstProxy(List<String> targetNames) {
@@ -1656,14 +1639,7 @@ public class VnRenderer {
   }
 
   private List<String> timelineLayerTargetNames(String characterId, String expression, String layerId) {
-    String safeCharacter = selectorSafeName(characterId);
-    String safeExpression = selectorSafeName(expression == null || expression.isBlank() ? "neutral" : expression);
-    String safeLayer = selectorSafeName(layerId);
-    if (safeCharacter.isBlank() || safeExpression.isBlank() || safeLayer.isBlank()) return List.of();
-    LinkedHashSet<String> names = new LinkedHashSet<>();
-    names.add(safeCharacter + "_" + safeExpression + "_" + safeLayer);
-    names.add(safeCharacter + "_" + safeLayer);
-    return List.copyOf(names);
+    return com.jvn.core.vn.LayerTargetNaming.layerTargetNames(characterId, expression, layerId);
   }
 
   private List<GroupLayerTarget> timelineGroupTargets(
@@ -1685,14 +1661,7 @@ public class VnRenderer {
   }
 
   static List<String> timelineGroupTargetNames(String characterId, String expression, String groupId) {
-    String safeCharacter = selectorSafeNameStatic(characterId);
-    String safeExpression = selectorSafeNameStatic(expression == null || expression.isBlank() ? "neutral" : expression);
-    String safeGroup = selectorSafeNameStatic(groupId);
-    if (safeCharacter.isBlank() || safeExpression.isBlank() || safeGroup.isBlank()) return List.of();
-    LinkedHashSet<String> names = new LinkedHashSet<>();
-    names.add(safeCharacter + "_" + safeGroup);
-    names.add(safeCharacter + "_" + safeExpression + "_" + safeGroup);
-    return List.copyOf(names);
+    return com.jvn.core.vn.LayerTargetNaming.groupTargetNames(characterId, expression, groupId);
   }
 
   private String fallbackLayerId(String path, int index) {
@@ -1717,25 +1686,9 @@ public class VnRenderer {
   }
 
   private String selectorSafeName(String raw) {
-    return selectorSafeNameStatic(raw);
+    return com.jvn.core.vn.LayerTargetNaming.selectorSafeName(raw);
   }
 
-  private static String selectorSafeNameStatic(String raw) {
-    String value = raw == null ? "" : raw.trim();
-    StringBuilder out = new StringBuilder();
-    for (int i = 0; i < value.length(); i++) {
-      char ch = value.charAt(i);
-      if (Character.isLetterOrDigit(ch) || ch == '_' || ch == '-') {
-        out.append(ch);
-      } else {
-        out.append('_');
-      }
-    }
-    String cleaned = out.toString().replaceAll("_+", "_");
-    while (cleaned.startsWith("_")) cleaned = cleaned.substring(1);
-    while (cleaned.endsWith("_")) cleaned = cleaned.substring(0, cleaned.length() - 1);
-    return cleaned;
-  }
 
   public static List<String> parseLayerPaths(String imagePathSpec) {
     if (imagePathSpec == null || imagePathSpec.isBlank()) return List.of();
