@@ -12358,6 +12358,22 @@ public class PuppeteerWindow extends Stage {
         }
         javafx.scene.control.CheckBox strictUnresolvedLayerCheckRef = strictUnresolvedLayerCheck;
 
+        Label playbackHeader = new Label("Timeline playback:");
+        playbackHeader.setStyle("-fx-text-fill: #d8eefc; -fx-font-size: 11px; -fx-font-weight: bold;");
+        javafx.scene.control.ToggleGroup playbackGroup = new javafx.scene.control.ToggleGroup();
+        javafx.scene.control.RadioButton nonBlockingOption = new javafx.scene.control.RadioButton(
+            "Non-blocking - dialogue can continue during playback");
+        nonBlockingOption.setToggleGroup(playbackGroup);
+        nonBlockingOption.setSelected(true);
+        nonBlockingOption.setStyle("-fx-text-fill: #d0d0d0; -fx-font-size: 11px;");
+        javafx.scene.control.RadioButton blockingOption = new javafx.scene.control.RadioButton(
+            "Blocking - VNS waits for the timeline to finish before advancing");
+        blockingOption.setToggleGroup(playbackGroup);
+        blockingOption.setStyle("-fx-text-fill: #d0d0d0; -fx-font-size: 11px;");
+        body.getChildren().add(playbackHeader);
+        body.getChildren().add(nonBlockingOption);
+        body.getChildren().add(blockingOption);
+
         overlayDialog.showDialog(
             hasWarnings ? "Register Timeline With Warnings?" : "Register Timeline?",
             "Review exactly what Puppeteer will do before it saves and registers \"" + name + "\".",
@@ -12388,12 +12404,16 @@ public class PuppeteerWindow extends Stage {
                     );
                     return;
                 }
-                performRegisterTimeline(name, onSuccess);
+                performRegisterTimeline(name, onSuccess, blockingOption.isSelected());
             })
         );
     }
 
     private boolean performRegisterTimeline(String name, Runnable onSuccess) {
+        return performRegisterTimeline(name, onSuccess, false);
+    }
+
+    private boolean performRegisterTimeline(String name, Runnable onSuccess, boolean blockingPlayback) {
         try {
             List<TimelineDiagnostic.Message> nameFindings = PuppeteerVerification.validateTimelineName(name);
             boolean hasNameErrors = nameFindings.stream()
@@ -12411,7 +12431,7 @@ public class PuppeteerWindow extends Stage {
             project.setName(name);
             project.setSceneEntitySnapshots(captureSceneEntitySnapshots());
             TimelineData data = project.toTimelineData(name);
-            String code = CodeExporter.exportNamed(project, name, exportNestedBlocks);
+            String code = CodeExporter.exportNamed(project, name, exportNestedBlocks, blockingPlayback);
             codePreview.setCode(code);
             boolean saved = saveTimelineFile(name, code);
             if (!saved) {

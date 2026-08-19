@@ -1120,7 +1120,6 @@ draft.
 - **Snapshot is static** — the VNS snapshot at launch time captures the state up to the cursor line; it does not update if the VNS script changes while Puppeteer is open
 - **No drag-from-asset-picker** — assets are added via button click; drag-and-drop onto the preview is not yet implemented
 - **Group baking is scalar timeline output** — curved group rotation/scale is baked to child position samples for runtime playback; very long arcs may produce denser exported JES
-- **Async-only playback** — `[call jes_timeline ...]` always runs asynchronously; there is no blocking variant (use `[wait N]` to synchronize)
 - **No timeline chaining** — there is no built-in way to sequence named timelines; chain them manually with `[wait]` between `[call]` commands
 
 ---

@@ -1160,7 +1160,12 @@ Undoable operations include:
 4. If blocking errors exist, registration is stopped and a report is shown
 5. If warnings exist, you can review them and continue intentionally
 6. Puppeteer shows a confirmation popup with an export summary (line/comment/action counts, track and action counts, duration, affected entity names, and a large-export warning when applicable) followed by the exact registration work: diagnostics validation, `.jes` output path, metadata persistence, `TimelineRegistry` registration, draft cleanup, and any follow-up action such as closing the window
-7. When registration succeeds, the animation is:
+7. Choose the timeline's playback mode in the same dialog:
+   - **Non-blocking** (default) — dialogue and script execution can continue while the timeline plays; the generated usage comment is `@external jes_timeline <name>`
+   - **Blocking** — VNS waits for the timeline to finish before advancing; the generated usage comment is `@external jes_timeline <name> wait`
+
+   This only changes the usage hint comment written into the exported `.jes` file — Puppeteer never inserts or edits `.vns` script lines. Add `[call jes_timeline <name>]` (non-blocking) or `[call jes_timeline <name> wait]` (blocking) to your VNS script manually, matching the mode you chose.
+8. When registration succeeds, the animation is:
    - converted to `TimelineData` and stored in `TimelineRegistry`
    - exported as JES code to `scripts/timelines/<name>.jes`
    - marked as saved (title shows "saved & registered")
@@ -1176,7 +1181,7 @@ Click **Copy Code** (button in the right code panel) or use **Ctrl/Cmd+Shift+C**
 | **Standard** | `CodeExporter.export()` | Full timeline with all events |
 | **With Groups** | `CodeExporter.exportWithGroups()` | Includes group comment annotations |
 | **Incremental** | `CodeExporter.exportIncremental()` | Only changed properties (compared to initial snapshot) |
-| **Named** | `CodeExporter.exportNamed()` | Adds header comments with timeline name, VNS usage hint, and Puppeteer metadata such as scene snapshots, stage context, groups, locks, constraints, anchors, orbit anchors, and eye-focus rigs |
+| **Named** | `CodeExporter.exportNamed()` | Adds header comments with timeline name, a VNS usage hint reflecting the chosen blocking/non-blocking playback mode, and Puppeteer metadata such as scene snapshots, stage context, groups, locks, constraints, anchors, orbit anchors, and eye-focus rigs |
 
 Named exports are the best format for animations you expect to reopen in
 Puppeteer later. Runtime parsers ignore the metadata comments, but

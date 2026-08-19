@@ -57,6 +57,21 @@ class TimelineExportSummaryTest {
     }
 
     @Test
+    void exportNamedDefaultsToNonBlockingUsageComment() {
+        AnimationProject project = sampleProject();
+        String code = CodeExporter.exportNamed(project, "demo", false);
+        assertTrue(code.contains("// Usage in VNS: @external jes_timeline demo\n"));
+        assertFalse(code.contains("jes_timeline demo wait"));
+    }
+
+    @Test
+    void exportNamedEmitsWaitTokenWhenBlockingRequested() {
+        AnimationProject project = sampleProject();
+        String code = CodeExporter.exportNamed(project, "demo", false, true);
+        assertTrue(code.contains("// Usage in VNS: @external jes_timeline demo wait\n"));
+    }
+
+    @Test
     void countsLinesSplitBetweenMetadataCommentsAndScriptActions() {
         AnimationProject project = sampleProject();
         TimelineData data = project.toTimelineData("demo");

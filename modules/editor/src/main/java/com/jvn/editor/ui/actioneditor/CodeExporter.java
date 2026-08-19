@@ -23,10 +23,18 @@ public class CodeExporter {
     }
 
     public static String exportNamed(AnimationProject project, String name, boolean exportNestedBlocks) {
+        return exportNamed(project, name, exportNestedBlocks, false);
+    }
+
+    public static String exportNamed(AnimationProject project, String name, boolean exportNestedBlocks, boolean blocking) {
         String body = export(project, exportNestedBlocks);
         StringBuilder sb = new StringBuilder();
         sb.append("// Timeline: ").append(name).append("\n");
-        sb.append("// Usage in VNS: @external jes_timeline ").append(name).append("\n\n");
+        sb.append("// Usage in VNS: @external jes_timeline ").append(name);
+        if (blocking) {
+            sb.append(" wait");
+        }
+        sb.append("\n\n");
         appendSceneEntityMetadata(sb, project);
         appendStageMetadata(sb, project);
         appendEditorProjectMetadata(sb, project);
