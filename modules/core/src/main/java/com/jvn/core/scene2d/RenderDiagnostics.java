@@ -21,6 +21,18 @@ public final class RenderDiagnostics {
     }
   }
 
+  /**
+   * Warn-once for an asset (image, video, etc.) that failed to load. {@code context} disambiguates
+   * repeated uses of the same path (e.g. a distinct sprite layer or UI slot) so each is reported once.
+   */
+  public static void missingAsset(String path, String context) {
+    if (path == null || path.isBlank()) return;
+    String key = "asset:" + path + ':' + context;
+    if (REPORTED.add(key)) {
+      log.warn("Missing asset '{}'{}", path, context == null ? "" : " (" + context + ")");
+    }
+  }
+
   /** Clears warning de-duplication state. Intended for isolated tests and renderer reinitialization. */
   public static void reset() {
     REPORTED.clear();

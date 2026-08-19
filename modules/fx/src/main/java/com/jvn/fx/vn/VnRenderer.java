@@ -29,6 +29,7 @@ import com.jvn.core.localization.Localization;
 import com.jvn.core.scene2d.Entity2D;
 import com.jvn.core.scene2d.ParticleEmitter2D;
 import com.jvn.core.scene2d.Sprite2D;
+import com.jvn.fx.scene2d.MissingAssetPlaceholder;
 import com.jvn.core.ui.BoundsPointCodec;
 import com.jvn.core.vn.BubbleAnchor;
 import com.jvn.core.vn.CharacterPosition;
@@ -1000,7 +1001,10 @@ public class VnRenderer {
     for (LayerDrawPlanEntry planEntry : plan) {
       if (planEntry.alpha() <= 0.001) continue;
       Image layerImage = loadSpriteLayerImage(planEntry.path());
-      if (layerImage == null) continue;
+      if (layerImage == null) {
+        MissingAssetPlaceholder.report(gc, planEntry.path(), "layer:" + planEntry.layerId(), x, y, spriteWidth, spriteHeight);
+        continue;
+      }
       gc.save();
       if (planEntry.alpha() < 0.999) gc.setGlobalAlpha(planEntry.alpha());
       drawCharacterImage(layerImage, planEntry.path(), x, y, spriteWidth, spriteHeight, width, height, stage);
@@ -1173,7 +1177,11 @@ public class VnRenderer {
     if (!hasLayerProxy && !eyeFocus.active()) return false;
 
     for (SpriteLayer layer : layers) {
-      if (layer == null || !isLoadedImage(layer.image())) continue;
+      if (layer == null) continue;
+      if (!isLoadedImage(layer.image())) {
+        MissingAssetPlaceholder.report(gc, layer.path(), "layer:" + layer.layerId(), defaultX, defaultY, spriteWidth, spriteHeight);
+        continue;
+      }
       SpriteLayer drawLayer = layer;
       double nudgeX = 0.0;
       double nudgeY = 0.0;
@@ -1183,7 +1191,10 @@ public class VnRenderer {
             || (!selectedLayerPresent && layer.layerId().equals(eyeFocus.replacementSlotLayerId()));
         if (!drawSelected) continue;
         Image selectedImage = loadSpriteLayerImage(eyeFocus.selectedPath());
-        if (!isLoadedImage(selectedImage)) continue;
+        if (!isLoadedImage(selectedImage)) {
+          MissingAssetPlaceholder.report(gc, eyeFocus.selectedPath(), "layer:" + eyeFocus.selectedLayerId(), defaultX, defaultY, spriteWidth, spriteHeight);
+          continue;
+        }
         drawLayer = new SpriteLayer(
             eyeFocus.selectedPath(),
             eyeFocus.selectedLayerId(),

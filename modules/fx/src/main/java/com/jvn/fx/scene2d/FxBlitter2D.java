@@ -250,8 +250,8 @@ public class FxBlitter2D implements Blitter2D {
       markOwnerDirty();
       gc.drawImage(resolveProcessedImage(classpath, img), x, y, w, h);
     } else {
-      reportMissing(classpath);
-      drawMissingPlaceholder(x, y, w, h);
+      markOwnerDirty();
+      MissingAssetPlaceholder.report(gc, classpath, null, x, y, w, h);
     }
   }
 
@@ -270,8 +270,8 @@ public class FxBlitter2D implements Blitter2D {
       markOwnerDirty();
       gc.drawImage(resolveProcessedImage(classpath, img), sx, sy, sw, sh, dx, dy, dw, dh);
     } else {
-      reportMissing(classpath);
-      drawMissingPlaceholder(dx, dy, dw, dh);
+      markOwnerDirty();
+      MissingAssetPlaceholder.report(gc, classpath, null, dx, dy, dw, dh);
     }
   }
 
@@ -694,16 +694,6 @@ public class FxBlitter2D implements Blitter2D {
     return output;
   }
 
-  private void drawMissingPlaceholder(double x, double y, double w, double h) {
-    markOwnerDirty();
-    gc.setFill(Color.color(1, 0, 1, 0.8)); // magenta box
-    gc.fillRect(x, y, w, h);
-    gc.setStroke(Color.color(0, 0, 0, 0.9));
-    gc.setLineWidth(Math.max(1, Math.min(w, h) * 0.05));
-    gc.strokeLine(x, y, x + w, y + h);
-    gc.strokeLine(x + w, y, x, y + h);
-  }
-
   private void drawVideo(String path, double dx, double dy, double dw, double dh, double sx, double sy, double sw, double sh, boolean isRegion) {
       MediaPlayer player = videoPlayers.get(path);
       if (player == null && !missing.contains(path)) {
@@ -719,7 +709,7 @@ public class FxBlitter2D implements Blitter2D {
               MediaView view = new MediaView(player);
               videoViews.put(path, view);
           } else {
-              reportMissing(path);
+              missing.add(path);
           }
       }
       
@@ -750,13 +740,7 @@ public class FxBlitter2D implements Blitter2D {
           }
       }
       
-      drawMissingPlaceholder(dx, dy, dw, dh);
-  }
-
-  private void reportMissing(String path) {
-    if (path == null || path.isBlank()) return;
-    if (missing.add(path)) {
-      log.warn("FX: missing image asset '{}'", path);
-    }
+      markOwnerDirty();
+      MissingAssetPlaceholder.report(gc, path, "video", dx, dy, dw, dh);
   }
 }
