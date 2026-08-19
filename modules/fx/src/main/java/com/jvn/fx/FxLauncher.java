@@ -543,6 +543,10 @@ public class FxLauncher extends Application {
           } else {
             drawDefaultScene(w, h);
           }
+          if (vnRenderer != null) {
+            com.jvn.core.diagnostics.DrawCallStats drawStats = vnRenderer.getDrawCallStats();
+            hudData.setDrawCallStats(drawStats.getCharacterLayerDraws(), drawStats.getOtherDraws());
+          }
           hudOverlay.render(gc, w, h);
           hideRuntimeLoadingOverlayAfterFirstFrame();
         }

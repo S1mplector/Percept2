@@ -235,6 +235,7 @@ public class VnRenderer {
   // Reusable per-frame lists to reduce GC pressure (cleared + re-populated each frame)
   private final List<CharacterRenderEntry> reusableCharacterEntries = new ArrayList<>();
   private final List<LayeredSceneDraw> reusableLayeredDraws = new ArrayList<>();
+  private final com.jvn.core.diagnostics.DrawCallStats drawCallStats = new com.jvn.core.diagnostics.DrawCallStats();
   // Expression path specifications are immutable for a rendered scenario. Caching their
   // layer lists avoids splitting and allocating once per character on every frame.
   private final Map<String, List<String>> layerPathCache = new HashMap<>();
@@ -321,8 +322,13 @@ public class VnRenderer {
   /**
    * Render the complete VN scene
    */
+  public com.jvn.core.diagnostics.DrawCallStats getDrawCallStats() {
+    return drawCallStats;
+  }
+
   public void render(VnState state, VnScenario scenario, double width, double height) {
     RenderThreadGuard.requireFxThread("VnRenderer.render");
+    drawCallStats.reset();
     this.currentState = state;
     syncAccessibilitySettings(state);
     applyRuntimeCharacterFramingOverrides(state);
@@ -595,6 +601,7 @@ public class VnRenderer {
 
   private void renderParticles(double width, double height) {
     if (particleEmitter.getParticleCount() <= 0 && renderedParticleCommand == null) return;
+    drawCallStats.incrementOther();
     particleBlitter.setViewport(width, height);
     particleBlitter.push();
     particleBlitter.translate(particleEmitter.getX(), particleEmitter.getY());
@@ -616,6 +623,7 @@ public class VnRenderer {
   private void renderBackground(VnBackground background, VnStagePreset stage, double width, double height, String timelineEntityId) {
     String backgroundPath = resolveBackgroundPath(background, stage);
     if (backgroundPath == null || backgroundPath.isBlank()) return;
+    drawCallStats.incrementOther();
     Image img = loadImage(backgroundPath);
     com.jvn.core.scene2d.Entity2D proxy = timelineAccessor != null
         && background != null
@@ -1790,6 +1798,7 @@ public class VnRenderer {
                                   double canvasHeight,
                                   VnStagePreset stage) {
     if (source == null) return;
+    drawCallStats.incrementCharacterLayer();
     if (stage == null || stage.getLights().isEmpty()) {
       gc.drawImage(source, x, y, drawWidth, drawHeight);
       return;
@@ -1921,6 +1930,7 @@ public class VnRenderer {
       decayVisualizer(0.86, true);
       return;
     }
+    drawCallStats.incrementOther();
     int activeBars = settings.bars();
     if (activeBars <= 0) {
       decayVisualizer(0.86, true);

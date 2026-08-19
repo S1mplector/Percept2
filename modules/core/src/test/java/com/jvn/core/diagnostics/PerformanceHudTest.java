@@ -49,4 +49,13 @@ class PerformanceHudTest {
     hud.setActiveTimelines(3);
     assertEquals(3, hud.getActiveTimelines());
   }
+
+  @Test
+  void drawCallStatsTracked() {
+    PerformanceHud hud = new PerformanceHud();
+    hud.setDrawCallStats(5, 2);
+    assertEquals(5, hud.getCharacterLayerDrawCalls());
+    assertEquals(2, hud.getOtherDrawCalls());
+    assertEquals(7, hud.getTotalDrawCalls());
+  }
 }
