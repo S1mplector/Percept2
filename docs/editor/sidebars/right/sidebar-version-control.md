@@ -102,7 +102,7 @@ via JGit's `RemoteAddCommand`.
 
 | Element | Description |
 |---------|-------------|
-| **GitHub token status label** | "GitHub: connected" or "GitHub: not connected" |
+| **GitHub token status label** | "GitHub: not connected" (no token stored), "GitHub: checking..." (stored token is being verified against GitHub), "GitHub: connected" (token verified), or "GitHub: not authorized" (stored token was rejected by GitHub) |
 | **Sign In / Change** | Button — opens the GitHub sign-in dialog (label changes to "Change" once connected) |
 | **Remove** | Button — clears the stored token; only visible when connected |
 
@@ -185,8 +185,9 @@ that aren't in your local history — those are still lost once the push succeed
 
 Both buttons require typing the current branch name into a confirmation dialog before the action
 button enables — a lighter Yes/No dialog was judged too easy to click through for an operation
-this hard to reverse. **Send Online** also runs the same [preflight check](#github-sign-in) as a
-normal push before **Force Push** proceeds.
+this hard to reverse. **Force Push** additionally runs its own [preflight check](#github-sign-in),
+the same one **Send Online** runs, before this confirmation dialog is shown. **Force Pull** does not
+run a preflight check, since it only reads from the remote and does not need push credentials.
 
 ---
 

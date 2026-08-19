@@ -526,7 +526,7 @@ Built-in timeline-backed properties such as matrix channels and DOF channels rou
 | Create Group | `+ Group` button | Group name input |
 | Load Clip | Load clip button | Clip selector list |
 | Eye Focus / Look At | `Edit > Eye Focus / Look At...` | Character/expression, source point, target point, dead zone, max nudge, strength, keypad layer mapping |
-| Register Timeline confirmation | Register button or `File > Save & Register` | Exact save path, metadata/write steps, diagnostics status, optional follow-up action |
+| Register Timeline confirmation | Register button or `File > Save & Register` | Export summary (line/comment/action counts, track and action counts, duration, affected entities, large-export warning), exact save path, metadata/write steps, diagnostics status, optional follow-up action |
 | Unsaved close confirmation | close window with dirty or preview state | `Save & Register`, `Discard`, `Cancel` |
 | Save / register error dialogs | save failures, parse failures | Error details and dismiss |
 
@@ -1147,7 +1147,7 @@ Undoable operations include:
 3. Puppeteer runs runtime verification (see [Timeline Diagnostics](#timeline-diagnostics) below)
 4. If blocking errors exist, registration is stopped and a report is shown
 5. If warnings exist, you can review them and continue intentionally
-6. Puppeteer shows a confirmation popup listing the exact registration work: diagnostics validation, `.jes` output path, metadata persistence, `TimelineRegistry` registration, draft cleanup, and any follow-up action such as closing the window
+6. Puppeteer shows a confirmation popup with an export summary (line/comment/action counts, track and action counts, duration, affected entity names, and a large-export warning when applicable) followed by the exact registration work: diagnostics validation, `.jes` output path, metadata persistence, `TimelineRegistry` registration, draft cleanup, and any follow-up action such as closing the window
 7. When registration succeeds, the animation is:
    - converted to `TimelineData` and stored in `TimelineRegistry`
    - exported as JES code to `scripts/timelines/<name>.jes`

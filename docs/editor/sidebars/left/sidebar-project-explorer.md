@@ -84,7 +84,7 @@ Right-click any item in the tree to access:
 | **New Folder...** | Prompts for a name, creates a subdirectory under the selected directory |
 | **Rename...** | Renames the selected file or directory via a text input dialog |
 | **Delete** | Deletes the selected file or directory with a confirmation prompt |
-| **Reveal in Finder** | Opens the containing directory in the OS file manager (macOS Finder, Windows Explorer, etc.) |
+| **Reveal in JVN Path Explorer** | Opens the containing directory in JVN's in-app path browser |
 
 ### File Creation Details
 

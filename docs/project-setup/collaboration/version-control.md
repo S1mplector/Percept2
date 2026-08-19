@@ -22,10 +22,10 @@ for the full panel reference, including GitHub sign-in and repository creation.
 ## Panel Operations
 
 - `Refresh`: reads branch/sync/change status
-- `Init Repo`: initializes repo and writes managed Git defaults
-- `Commit All`: stages all changes and commits with provided message
-- `Pull --rebase`: pulls with `--rebase --autostash`
-- `Push`: pushes current branch
+- `Initialize`: initializes repo and writes managed Git defaults
+- `Save Snapshot`: stages all changes and commits with provided message
+- `Get Updates`: pulls with `--rebase --autostash`
+- `Send Online`: pushes current branch
 
 Changed files are listed and can be opened directly by double-clicking an entry.
 
