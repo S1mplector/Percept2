@@ -12,6 +12,17 @@ class DrawCallStatsTest {
     assertEquals(0, stats.getCharacterLayerDraws());
     assertEquals(0, stats.getOtherDraws());
     assertEquals(0, stats.getTotalDraws());
+    assertEquals(0, stats.getStageLightingRecomposites());
+  }
+
+  @Test
+  void stageLightingRecompositesTrackedAndReset() {
+    DrawCallStats stats = new DrawCallStats();
+    stats.incrementStageLightingRecomposite();
+    stats.incrementStageLightingRecomposite();
+    assertEquals(2, stats.getStageLightingRecomposites());
+    stats.reset();
+    assertEquals(0, stats.getStageLightingRecomposites());
   }
 
   @Test

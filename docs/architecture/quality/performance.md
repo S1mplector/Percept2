@@ -60,6 +60,17 @@ several layers each) as the main cost; a high total with a low `char` count inst
 points at background/effects work. The counter resets every frame and only tracks call
 counts, not GPU time, so pair it with JFR when you need actual timings.
 
+The HUD's `Relights` line counts stage-lighting recomposites: full per-pixel relights of
+a character layer (`VnStageLightingSupport.buildLitCharacter`), which only run when the
+active stage has lights and the lit-bitmap cache misses. The cache key snaps character
+position to a small pixel grid (`VnRenderer.LIGHTING_CACHE_POSITION_GRID_PX`), so idle
+bob/breathing jitter reuses the previous frame's lit bitmap instead of relighting every
+frame; a real position change, expression/layer swap, stage change, or resize still
+invalidates it correctly. A `Relights` count near zero during a static, lit scene means
+the cache is holding; a count that tracks the frame rate during rapid expression swaps
+or idle animation means something is defeating the cache (e.g. a new custom transition
+path bypassing `drawCharacterImage`) and is worth investigating.
+
 The `:testkit:jmh` suite is useful for deterministic CPU-side microbenchmarks, but it
 does not prove which GPU rendered a JavaFX window. In particular, do not use the
 placeholder `RenderFrameBench` as an adapter-usage test.

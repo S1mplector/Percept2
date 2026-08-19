@@ -546,6 +546,7 @@ public class FxLauncher extends Application {
           if (vnRenderer != null) {
             com.jvn.core.diagnostics.DrawCallStats drawStats = vnRenderer.getDrawCallStats();
             hudData.setDrawCallStats(drawStats.getCharacterLayerDraws(), drawStats.getOtherDraws());
+            hudData.setStageLightingRecomposites(drawStats.getStageLightingRecomposites());
           }
           hudOverlay.render(gc, w, h);
           hideRuntimeLoadingOverlayAfterFirstFrame();

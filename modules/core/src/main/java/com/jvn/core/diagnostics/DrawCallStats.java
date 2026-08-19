@@ -12,10 +12,12 @@ public final class DrawCallStats {
 
   private int characterLayerDraws = 0;
   private int otherDraws = 0;
+  private int stageLightingRecomposites = 0;
 
   public void reset() {
     characterLayerDraws = 0;
     otherDraws = 0;
+    stageLightingRecomposites = 0;
   }
 
   public void incrementCharacterLayer() {
@@ -26,7 +28,13 @@ public final class DrawCallStats {
     otherDraws++;
   }
 
+  /** Count a stage-lighting cache miss — a full per-pixel relight of a character layer. */
+  public void incrementStageLightingRecomposite() {
+    stageLightingRecomposites++;
+  }
+
   public int getCharacterLayerDraws() { return characterLayerDraws; }
   public int getOtherDraws() { return otherDraws; }
   public int getTotalDraws() { return characterLayerDraws + otherDraws; }
+  public int getStageLightingRecomposites() { return stageLightingRecomposites; }
 }

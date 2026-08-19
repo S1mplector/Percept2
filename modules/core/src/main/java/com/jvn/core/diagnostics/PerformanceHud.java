@@ -25,6 +25,7 @@ public final class PerformanceHud {
   private int activeTimelines = 0;
   private int characterLayerDrawCalls = 0;
   private int otherDrawCalls = 0;
+  private int stageLightingRecomposites = 0;
 
   /** Update metrics with the current frame timestamp (nanoseconds from {@code System.nanoTime()}). */
   public void tick(long nowNanos) {
@@ -56,6 +57,11 @@ public final class PerformanceHud {
     this.otherDrawCalls = otherDraws;
   }
 
+  /** Update the stage-lighting recomposite count for the frame just rendered (cache misses). */
+  public void setStageLightingRecomposites(int count) {
+    this.stageLightingRecomposites = count;
+  }
+
   public double getFps() { return fps; }
   public long getHeapMb() { return heapMb; }
   public long getImageCacheHits() { return imageCacheHits; }
@@ -64,6 +70,7 @@ public final class PerformanceHud {
   public int getCharacterLayerDrawCalls() { return characterLayerDrawCalls; }
   public int getOtherDrawCalls() { return otherDrawCalls; }
   public int getTotalDrawCalls() { return characterLayerDrawCalls + otherDrawCalls; }
+  public int getStageLightingRecomposites() { return stageLightingRecomposites; }
 
   /** Hit rate in [0,1], or NaN if no accesses yet. */
   public double getImageCacheHitRate() {

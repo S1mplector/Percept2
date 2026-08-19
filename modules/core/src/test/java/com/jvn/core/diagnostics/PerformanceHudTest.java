@@ -58,4 +58,11 @@ class PerformanceHudTest {
     assertEquals(2, hud.getOtherDrawCalls());
     assertEquals(7, hud.getTotalDrawCalls());
   }
+
+  @Test
+  void stageLightingRecompositesTracked() {
+    PerformanceHud hud = new PerformanceHud();
+    hud.setStageLightingRecomposites(4);
+    assertEquals(4, hud.getStageLightingRecomposites());
+  }
 }

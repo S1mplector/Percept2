@@ -148,6 +148,12 @@ public class VnRenderer {
   private static final double DEFAULT_CHARACTER_BASELINE_Y = 1.0;
   private static final int VISUALIZER_BAR_COUNT = VnAudioVisualizerConfig.MAX_BARS;
   private static final int MAX_CACHED_LAYER_PATH_SPECS = 256;
+  // Position is bucketed to this grid (in scene pixels) when building the stage-lighting
+  // cache key, so idle-bob/breathing jitter of a few pixels reuses the last lit bitmap
+  // instead of forcing a full per-pixel relight every frame. Lighting falloff is smooth
+  // over distances far larger than this, so the visual difference is imperceptible; any
+  // movement crossing a bucket boundary still relights correctly.
+  private static final double LIGHTING_CACHE_POSITION_GRID_PX = 4.0;
   private static final String VAR_CHARACTER_HEIGHT_FACTOR = "ui.characterHeightFactor";
   private static final String VAR_CHARACTER_BASELINE_Y = "ui.characterBaselineY";
   private static final String VAR_DIALOGUE_FADE_MS = "ui.dialogueFadeMs";
@@ -1803,14 +1809,40 @@ public class VnRenderer {
       gc.drawImage(source, x, y, drawWidth, drawHeight);
       return;
     }
-    String key = spriteTag
-        + "|stage:" + stage.getCacheToken()
-        + "|pos:" + Math.round(x) + "," + Math.round(y)
+    String key = stageCharacterCacheKey(spriteTag, stage.getCacheToken(), x, y, drawWidth, drawHeight, canvasWidth, canvasHeight);
+    boolean[] missed = {false};
+    Image lit = stageCharacterCache.computeIfAbsent(key, unused -> {
+      missed[0] = true;
+      return VnStageLightingSupport.buildLitCharacter(source, spriteTag, x, y, drawWidth, drawHeight, canvasWidth, canvasHeight, stage);
+    });
+    if (missed[0]) drawCallStats.incrementStageLightingRecomposite();
+    gc.drawImage(lit, x, y, drawWidth, drawHeight);
+  }
+
+  /**
+   * Builds the stage-lighting cache key for a character layer. Position is snapped to
+   * {@link #LIGHTING_CACHE_POSITION_GRID_PX} so idle-bob/breathing jitter reuses the last
+   * lit bitmap instead of forcing a relight every frame; the draw itself still uses the
+   * exact float position passed separately to {@code gc.drawImage}. Everything else that
+   * can change rendered output (sprite identity, stage/lighting config, drawn size, canvas
+   * size) stays exact so a real change always invalidates the cache.
+   */
+  static String stageCharacterCacheKey(
+      String spriteTag,
+      String stageCacheToken,
+      double x,
+      double y,
+      double drawWidth,
+      double drawHeight,
+      double canvasWidth,
+      double canvasHeight) {
+    long gx = Math.round(x / LIGHTING_CACHE_POSITION_GRID_PX);
+    long gy = Math.round(y / LIGHTING_CACHE_POSITION_GRID_PX);
+    return spriteTag
+        + "|stage:" + stageCacheToken
+        + "|pos:" + gx + "," + gy
         + "|size:" + Math.round(drawWidth) + "x" + Math.round(drawHeight)
         + "|canvas:" + Math.round(canvasWidth) + "x" + Math.round(canvasHeight);
-    Image lit = stageCharacterCache.computeIfAbsent(key, unused ->
-        VnStageLightingSupport.buildLitCharacter(source, spriteTag, x, y, drawWidth, drawHeight, canvasWidth, canvasHeight, stage));
-    gc.drawImage(lit, x, y, drawWidth, drawHeight);
   }
 
   private void drawLayerStack(List<String> layerPaths, double x, double y, double width, double height) {
