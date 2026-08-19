@@ -1017,8 +1017,10 @@ public class VnRenderer {
     List<String> layerIds = character.getExpressionLayerIds(expression);
     List<String> layerPaths = layerPathsFor(character.getExpressionPath(expression));
     Map<String, String> byId = new LinkedHashMap<>();
-    for (int i = 0; i < layerIds.size() && i < layerPaths.size(); i++) {
-      byId.put(layerIds.get(i), layerPaths.get(i));
+    for (int i = 0; i < layerIds.size(); i++) {
+      String layerId = layerIds.get(i);
+      String path = i < layerPaths.size() ? layerPaths.get(i) : character.getLayerPath(layerId);
+      if (path != null) byId.put(layerId, path);
     }
     return byId;
   }
