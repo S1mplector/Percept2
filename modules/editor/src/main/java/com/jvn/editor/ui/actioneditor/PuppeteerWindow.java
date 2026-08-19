@@ -185,6 +185,11 @@ public class PuppeteerWindow extends Stage {
     public final AnimationProject project;
     public JesScene2D scene;
 
+    private final PuppeteerExpressionOverride expressionOverride = new PuppeteerExpressionOverride();
+    private List<PuppeteerExpressionOverride.SpriteSnapshot> expressionPreviewSnapshot = List.of();
+    private String expressionPreviewTarget;
+    private String expressionPreviewExpression;
+
     private final EntitySelector entitySelector;
     public final TimelinePanel timelinePanel;
     public final KeyframeEditor keyframeEditor;
@@ -565,6 +570,7 @@ public class PuppeteerWindow extends Stage {
         keyframeEditor.setCameraState(animationPreview.getCamera().getX(), animationPreview.getCamera().getY(), animationPreview.getCamera().getZoom());
 
         timelinePanel.setOnTargetSelectionChanged((name, isGroup) -> {
+            clearExpressionPreview();
             keyframeEditor.setSelectionContext(
                 selectionLabel(name, isGroup),
                 isGroup,
@@ -597,6 +603,7 @@ public class PuppeteerWindow extends Stage {
         });
 
         entitySelector.setOnSelectionChanged((name, isGroup) -> {
+            clearExpressionPreview();
             timelinePanel.setSelectedTarget(name, isGroup);
             if (!isGroup) {
                 animationPreview.selectEntities(entitySelector.getSelectedEntityNames(), name);
@@ -741,6 +748,7 @@ public class PuppeteerWindow extends Stage {
         });
 
         timelinePanel.setOnPlayheadChanged(time -> {
+            clearExpressionPreview();
             this.project.setPlayheadMs(time);
             updateTimeLabel();
             updatePreview();
@@ -8292,6 +8300,7 @@ public class PuppeteerWindow extends Stage {
 
     public void play() {
         if (project.isPlaying()) return;
+        clearExpressionPreview();
         project.setPlaying(true);
         lastNanos = System.nanoTime();
         playbackTimelineRefreshGate.reset();
@@ -9143,6 +9152,49 @@ public class PuppeteerWindow extends Stage {
             }
         }
         return applied > 0;
+    }
+
+    void previewExpression(String rawTarget, String expression) {
+        clearExpressionPreview();
+        if (scene == null || rawTarget == null || rawTarget.isBlank()
+            || expression == null || expression.isBlank()) return;
+        List<ExpressionLayerCandidate> candidates = expressionLayerCandidates(rawTarget);
+        if (candidates.isEmpty()) return;
+        List<com.jvn.core.scene2d.Sprite2D> sprites = new ArrayList<>();
+        for (ExpressionLayerCandidate candidate : candidates) {
+            if (candidate != null && candidate.sprite() != null) sprites.add(candidate.sprite());
+        }
+        expressionPreviewSnapshot = expressionOverride.snapshot(sprites);
+        boolean applied = applyLayeredExpressionCue(rawTarget, expression, Map.of());
+        if (!applied) {
+            expressionOverride.revert(expressionPreviewSnapshot);
+            expressionPreviewSnapshot = List.of();
+            return;
+        }
+        expressionPreviewTarget = rawTarget;
+        expressionPreviewExpression = expression;
+        animationPreview.render();
+    }
+
+    void clearExpressionPreview() {
+        if (expressionPreviewSnapshot.isEmpty()) return;
+        expressionOverride.revert(expressionPreviewSnapshot);
+        expressionPreviewSnapshot = List.of();
+        expressionPreviewTarget = null;
+        expressionPreviewExpression = null;
+        if (animationPreview != null) animationPreview.render();
+    }
+
+    boolean isExpressionPreviewActive() {
+        return !expressionPreviewSnapshot.isEmpty();
+    }
+
+    String getExpressionPreviewEntityName() {
+        return expressionPreviewTarget;
+    }
+
+    String getExpressionPreviewName() {
+        return expressionPreviewExpression;
     }
 
     private List<ExpressionLayerSpec> resolveExpressionLayerSpecs(String rawTarget,
