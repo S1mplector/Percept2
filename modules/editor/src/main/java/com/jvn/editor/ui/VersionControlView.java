@@ -2069,13 +2069,57 @@ result of your most recent actions."""));
   }
 
   private void updateGitHubTokenStatus() {
-    boolean connected = githubTokenStore.hasToken();
-    githubTokenStatusLabel.setText(connected ? "GitHub: connected" : "GitHub: not connected");
+    boolean present = githubTokenStore.hasToken();
+    applyGitHubTokenStatus(present, present ? null : false);
+    if (!present) return;
+
+    Optional<String> token = githubTokenStore.loadToken();
+    if (token.isEmpty()) {
+      applyGitHubTokenStatus(true, false);
+      return;
+    }
+    try {
+      worker.submit(() -> {
+        boolean valid;
+        try {
+          valid = githubApiClient.verifyToken(token.get());
+        } catch (Exception ex) {
+          return;
+        }
+        boolean stillValid = valid;
+        if (!disposed) Platform.runLater(() -> applyGitHubTokenStatus(true, stillValid));
+      });
+    } catch (RejectedExecutionException ex) {
+      // Worker is shutting down; leave status as "checking...".
+    }
+  }
+
+  /**
+   * @param present whether a token is stored locally
+   * @param valid   null while validity is still being checked; otherwise whether GitHub accepted it
+   */
+  private void applyGitHubTokenStatus(boolean present, Boolean valid) {
+    String text;
+    boolean ok;
+    if (!present) {
+      text = "GitHub: not connected";
+      ok = false;
+    } else if (valid == null) {
+      text = "GitHub: checking...";
+      ok = true;
+    } else if (valid) {
+      text = "GitHub: connected";
+      ok = true;
+    } else {
+      text = "GitHub: not authorized";
+      ok = false;
+    }
+    githubTokenStatusLabel.setText(text);
     githubTokenStatusLabel.getStyleClass().removeAll("vcs-remote-configured", "vcs-remote-missing");
-    githubTokenStatusLabel.getStyleClass().add(connected ? "vcs-remote-configured" : "vcs-remote-missing");
-    btnChangeGitHubToken.setText(connected ? "Change" : "Sign In");
-    btnRemoveGitHubToken.setVisible(connected);
-    btnRemoveGitHubToken.setManaged(connected);
+    githubTokenStatusLabel.getStyleClass().add(ok ? "vcs-remote-configured" : "vcs-remote-missing");
+    btnChangeGitHubToken.setText(present ? "Change" : "Sign In");
+    btnRemoveGitHubToken.setVisible(present);
+    btnRemoveGitHubToken.setManaged(present);
   }
 
   private void showCreateGitHubRepoDialog(boolean isPrivate) {
