@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 
 class VnStateCharacterSlotsTest {
@@ -179,6 +180,55 @@ class VnStateCharacterSlotsTest {
 
     state.updateCharacterAnimations(50);
     assertNull(state.getExpressionTransition("john"));
+  }
+
+  @Test
+  void expressionTransitionComputesLayerDiffForAMouthOnlySwap() {
+    VnCharacter john = VnCharacter.builder("john")
+        .addExpression("neutral", "john_neutral.png",
+            List.of("body_default", "eye_normal", "mouth_neutral"))
+        .addExpression("talking", "john_talking.png",
+            List.of("body_default", "eye_normal", "mouth_open"))
+        .addLayer("body_default", "body.png")
+        .addLayer("eye_normal", "eye_normal.png")
+        .addLayer("mouth_neutral", "mouth_neutral.png")
+        .addLayer("mouth_open", "mouth_open.png")
+        .build();
+    VnScenario scenario = VnScenario.builder("test").addCharacter(john).build();
+    VnState state = new VnState();
+    state.setScenario(scenario);
+
+    state.showCharacter(CharacterPosition.CENTER, "john", "neutral");
+    assertTrue(state.setCharacterExpression("john", "talking", 100));
+
+    VnState.ExpressionTransition transition = state.getExpressionTransition("john");
+    assertNotNull(transition);
+    LayeredCharacterResolver.ExpressionLayerDiff diff = transition.getLayerDiff();
+    assertNotNull(diff);
+    assertEquals(List.of("body_default", "eye_normal"), diff.unchangedLayerIds());
+    assertEquals(
+        List.of(new LayeredCharacterResolver.LayerChange("mouth_neutral", "mouth_open")),
+        diff.changedPairs());
+    assertEquals(List.of(), diff.addedLayerIds());
+    assertEquals(List.of(), diff.removedLayerIds());
+  }
+
+  @Test
+  void expressionTransitionHasNoLayerDiffForACharacterWithoutLayerData() {
+    VnCharacter flatCharacter = VnCharacter.builder("guide")
+        .addExpression("neutral", "guide_neutral.png")
+        .addExpression("smile", "guide_smile.png")
+        .build();
+    VnScenario scenario = VnScenario.builder("test").addCharacter(flatCharacter).build();
+    VnState state = new VnState();
+    state.setScenario(scenario);
+
+    state.showCharacter(CharacterPosition.CENTER, "guide", "neutral");
+    assertTrue(state.setCharacterExpression("guide", "smile", 100));
+
+    VnState.ExpressionTransition transition = state.getExpressionTransition("guide");
+    assertNotNull(transition);
+    assertNull(transition.getLayerDiff());
   }
 
   @Test

@@ -75,4 +75,68 @@ class LayeredCharacterResolverTest {
         "body_no_limbs",
         Set.of("body_default", "body_alternate")));
   }
+
+  @Test
+  void diffExpressionLayersKeepsUnchangedLayersStableForAMouthOnlySwap() {
+    List<String> from = List.of("body_default", "eye_normal", "mouth_neutral", "hair_default");
+    List<String> to = List.of("body_default", "eye_normal", "mouth_smile", "hair_default");
+
+    LayeredCharacterResolver.ExpressionLayerDiff diff =
+        LayeredCharacterResolver.diffExpressionLayers(from, to);
+
+    assertEquals(
+        List.of("body_default", "eye_normal", "hair_default"),
+        diff.unchangedLayerIds());
+    assertEquals(
+        List.of(new LayeredCharacterResolver.LayerChange("mouth_neutral", "mouth_smile")),
+        diff.changedPairs());
+    assertEquals(List.of(), diff.addedLayerIds());
+    assertEquals(List.of(), diff.removedLayerIds());
+  }
+
+  @Test
+  void diffExpressionLayersPairsMultipleChangedLanesForAFaceOnlySwap() {
+    List<String> from = List.of("body_default", "eye_normal", "brow_normal", "mouth_neutral", "hair_default");
+    List<String> to = List.of("body_default", "eye_surprised", "brow_raised", "mouth_open", "hair_default");
+
+    LayeredCharacterResolver.ExpressionLayerDiff diff =
+        LayeredCharacterResolver.diffExpressionLayers(from, to);
+
+    assertEquals(List.of("body_default", "hair_default"), diff.unchangedLayerIds());
+    assertEquals(
+        Set.of(
+            new LayeredCharacterResolver.LayerChange("eye_normal", "eye_surprised"),
+            new LayeredCharacterResolver.LayerChange("brow_normal", "brow_raised"),
+            new LayeredCharacterResolver.LayerChange("mouth_neutral", "mouth_open")),
+        Set.copyOf(diff.changedPairs()));
+    assertEquals(List.of(), diff.addedLayerIds());
+    assertEquals(List.of(), diff.removedLayerIds());
+  }
+
+  @Test
+  void diffExpressionLayersTreatsUnmatchableLanesAsAddedOrRemoved() {
+    List<String> from = List.of("body_default", "hat_default");
+    List<String> to = List.of("body_default", "sparkle_fx");
+
+    LayeredCharacterResolver.ExpressionLayerDiff diff =
+        LayeredCharacterResolver.diffExpressionLayers(from, to);
+
+    assertEquals(List.of("body_default"), diff.unchangedLayerIds());
+    assertEquals(List.of(), diff.changedPairs());
+    assertEquals(List.of("sparkle_fx"), diff.addedLayerIds());
+    assertEquals(List.of("hat_default"), diff.removedLayerIds());
+  }
+
+  @Test
+  void diffExpressionLayersReturnsNoChangesWhenExpressionsAreIdentical() {
+    List<String> layers = List.of("body_default", "eye_normal", "mouth_neutral");
+
+    LayeredCharacterResolver.ExpressionLayerDiff diff =
+        LayeredCharacterResolver.diffExpressionLayers(layers, layers);
+
+    assertEquals(layers, diff.unchangedLayerIds());
+    assertEquals(List.of(), diff.changedPairs());
+    assertEquals(List.of(), diff.addedLayerIds());
+    assertEquals(List.of(), diff.removedLayerIds());
+  }
 }

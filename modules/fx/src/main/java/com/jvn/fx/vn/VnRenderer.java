@@ -815,6 +815,41 @@ public class VnRenderer {
   ) {
   }
 
+  record LayerDrawPlanEntry(String layerId, String path, double alpha) {}
+
+  /**
+   * Builds a per-layer draw plan for an expression transition: unchanged layers draw once at
+   * full alpha (no flicker), changed pairs crossfade, added layers fade in, removed layers fade out.
+   */
+  static List<LayerDrawPlanEntry> buildLayerCrossfadePlan(
+      LayeredCharacterResolver.ExpressionLayerDiff diff,
+      List<String> toLayerOrder,
+      Map<String, String> fromLayerPathsById,
+      Map<String, String> toLayerPathsById,
+      double baseAlpha,
+      double progress) {
+    List<LayerDrawPlanEntry> plan = new ArrayList<>();
+    for (String layerId : diff.unchangedLayerIds()) {
+      String path = toLayerPathsById.get(layerId);
+      if (path != null) plan.add(new LayerDrawPlanEntry(layerId, path, baseAlpha));
+    }
+    for (LayeredCharacterResolver.LayerChange change : diff.changedPairs()) {
+      String fromPath = fromLayerPathsById.get(change.fromLayerId());
+      if (fromPath != null) plan.add(new LayerDrawPlanEntry(change.fromLayerId(), fromPath, baseAlpha * (1.0 - progress)));
+      String toPath = toLayerPathsById.get(change.toLayerId());
+      if (toPath != null) plan.add(new LayerDrawPlanEntry(change.toLayerId(), toPath, baseAlpha * progress));
+    }
+    for (String layerId : diff.addedLayerIds()) {
+      String path = toLayerPathsById.get(layerId);
+      if (path != null) plan.add(new LayerDrawPlanEntry(layerId, path, baseAlpha * progress));
+    }
+    for (String layerId : diff.removedLayerIds()) {
+      String path = fromLayerPathsById.get(layerId);
+      if (path != null) plan.add(new LayerDrawPlanEntry(layerId, path, baseAlpha * (1.0 - progress)));
+    }
+    return plan;
+  }
+
   private record EyeFocusDraw(
       boolean active,
       String selectedLayerId,
@@ -856,6 +891,12 @@ public class VnRenderer {
       String imagePath = character.getExpressionPath(expression);
       VnState.ExpressionTransition transition = state != null ? state.getExpressionTransition(slot) : null;
       if (transition != null && transition.appliesTo(expression)) {
+        LayeredCharacterResolver.ExpressionLayerDiff layerDiff = transition.getLayerDiff();
+        if (layerDiff != null) {
+          renderLayeredExpressionCrossfade(layerDiff, transition, character, position,
+              width, height, offsetX, offsetY, slot.getCharacterId(), state, scenario, stage, alpha);
+          return;
+        }
         String fromPath = character.getExpressionPath(transition.getFromExpression());
         String toPath = character.getExpressionPath(transition.getToExpression());
         if (fromPath != null && toPath != null) {
@@ -907,6 +948,61 @@ public class VnRenderer {
     renderCharacterSprite(imagePath, expression, character, position, width, height, offsetX, offsetY,
         characterId, state, scenario, stage);
     gc.restore();
+  }
+
+  private void renderLayeredExpressionCrossfade(
+      LayeredCharacterResolver.ExpressionLayerDiff layerDiff,
+      VnState.ExpressionTransition transition,
+      VnCharacter character,
+      CharacterPosition position,
+      double width,
+      double height,
+      double offsetX,
+      double offsetY,
+      String characterId,
+      VnState state,
+      VnScenario scenario,
+      VnStagePreset stage,
+      double alpha) {
+    String fromExpression = transition.getFromExpression();
+    String toExpression = transition.getToExpression();
+    Map<String, String> fromLayerPathsById = layerPathsById(character, fromExpression);
+    Map<String, String> toLayerPathsById = layerPathsById(character, toExpression);
+    List<String> toLayerOrder = character.getExpressionLayerIds(toExpression);
+
+    String toImagePath = character.getExpressionPath(toExpression);
+    List<String> toImageLayerPaths = layerPathsFor(toImagePath);
+    Image reference = loadSpriteSourceImage(toImagePath, toImageLayerPaths);
+    double spriteHeight = height * characterHeightFactor * characterScale(character);
+    double spriteWidth = reference != null ? reference.getWidth() * (spriteHeight / reference.getHeight()) : spriteHeight * 0.5;
+    double x = position.computeScreenX(width, spriteWidth) + offsetX;
+    double y = position.computeScreenY(height, spriteHeight, characterBaselineY) + offsetY;
+
+    List<LayerDrawPlanEntry> plan = buildLayerCrossfadePlan(
+        layerDiff, toLayerOrder, fromLayerPathsById, toLayerPathsById, alpha, transition.getProgress());
+
+    gc.save();
+    applyGroupTransforms(characterId, state);
+    for (LayerDrawPlanEntry planEntry : plan) {
+      if (planEntry.alpha() <= 0.001) continue;
+      Image layerImage = loadSpriteLayerImage(planEntry.path());
+      if (layerImage == null) continue;
+      gc.save();
+      if (planEntry.alpha() < 0.999) gc.setGlobalAlpha(planEntry.alpha());
+      drawCharacterImage(layerImage, planEntry.path(), x, y, spriteWidth, spriteHeight, width, height, stage);
+      gc.restore();
+    }
+    gc.restore();
+  }
+
+  private Map<String, String> layerPathsById(VnCharacter character, String expression) {
+    List<String> layerIds = character.getExpressionLayerIds(expression);
+    List<String> layerPaths = layerPathsFor(character.getExpressionPath(expression));
+    Map<String, String> byId = new LinkedHashMap<>();
+    for (int i = 0; i < layerIds.size() && i < layerPaths.size(); i++) {
+      byId.put(layerIds.get(i), layerPaths.get(i));
+    }
+    return byId;
   }
 
   private void applyGroupTransforms(String targetId, VnState state) {
