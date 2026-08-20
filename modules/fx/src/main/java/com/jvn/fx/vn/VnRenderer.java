@@ -89,6 +89,7 @@ public class VnRenderer {
   private static final long MIB = 1024L * 1024L;
   static final long SOURCE_IMAGE_CACHE_BUDGET_BYTES = 96L * MIB;
   static final long COMPOSITE_SPRITE_CACHE_BUDGET_BYTES = 96L * MIB;
+  static final long BACKGROUND_IMAGE_CACHE_BUDGET_BYTES = 48L * MIB;
   static final long STAGE_BACKGROUND_CACHE_BUDGET_BYTES = 48L * MIB;
   static final long STAGE_CHARACTER_CACHE_BUDGET_BYTES = 64L * MIB;
 
@@ -100,6 +101,10 @@ public class VnRenderer {
   // forcing expensive Canvas snapshots again on every frame in projects with several characters.
   private final BoundedImageCache<Image> compositeSpriteCache = new BoundedImageCache<>(
       64, COMPOSITE_SPRITE_CACHE_BUDGET_BYTES, FxImageMemory::estimatedBytes);
+  // Backgrounds must remain resident while expression changes churn through full-canvas sprite
+  // layers. Reloading them asynchronously leaves the cleared canvas black for a frame.
+  private final BoundedImageCache<Image> backgroundImageCache = new BoundedImageCache<>(
+      16, BACKGROUND_IMAGE_CACHE_BUDGET_BYTES, FxImageMemory::estimatedBytes);
   private final BoundedImageCache<Image> stageBackgroundCache = new BoundedImageCache<>(
       16, STAGE_BACKGROUND_CACHE_BUDGET_BYTES, FxImageMemory::estimatedBytes);
   private final BoundedImageCache<Image> stageCharacterCache = new BoundedImageCache<>(
@@ -264,6 +269,7 @@ public class VnRenderer {
     this.eyeFocusProfiles = null;
     imageCache.clear();
     compositeSpriteCache.clear();
+    backgroundImageCache.clear();
     particleBlitter.clearCache();
     particleBlitter.setProjectRoot(root);
     stageBackgroundCache.clear();
@@ -623,7 +629,7 @@ public class VnRenderer {
   private void renderBackground(VnBackground background, VnStagePreset stage, double width, double height, String timelineEntityId) {
     String backgroundPath = resolveBackgroundPath(background, stage);
     if (backgroundPath == null || backgroundPath.isBlank()) return;
-    Image img = loadImage(backgroundPath);
+    Image img = loadBackgroundImage(backgroundPath);
     com.jvn.core.scene2d.Entity2D proxy = timelineAccessor != null
         && background != null
         && (stage == null || stage.getBackgroundTag() == null || stage.getBackgroundTag().isBlank())
@@ -3566,14 +3572,14 @@ public class VnRenderer {
     double alphaCur = Math.max(0, Math.min(1, progress));
     double alphaPrev = 1.0 - alphaCur;
     if (prev != null) {
-      Image imgPrev = loadImage(prev.getImagePath());
+      Image imgPrev = loadBackgroundImage(prev.getImagePath());
       if (imgPrev != null) {
         gc.setGlobalAlpha(alphaPrev);
         gc.drawImage(imgPrev, 0, 0, width, height);
       }
     }
     if (cur != null) {
-      Image imgCur = loadImage(cur.getImagePath());
+      Image imgCur = loadBackgroundImage(cur.getImagePath());
       if (imgCur != null) {
         gc.setGlobalAlpha(alphaCur);
         gc.drawImage(imgCur, 0, 0, width, height);
@@ -3588,7 +3594,7 @@ public class VnRenderer {
       gc.fillRect(x, y, width, height);
       return;
     }
-    Image img = loadImage(background.getImagePath());
+    Image img = loadBackgroundImage(background.getImagePath());
     if (img != null) {
       gc.drawImage(img, x, y, width, height);
     } else {
@@ -4110,6 +4116,12 @@ public class VnRenderer {
     return imageCache.computeIfAbsent(path, p -> loadResolvedImage(p, true));
   }
 
+  private Image loadBackgroundImage(String path) {
+    if (path == null) return null;
+
+    return backgroundImageCache.computeIfAbsent(path, p -> loadResolvedImage(p, true));
+  }
+
   private Image loadImageBlocking(String path) {
     if (path == null) return null;
     return loadResolvedImage(path, false);
@@ -4183,6 +4195,7 @@ public class VnRenderer {
   public void clearCache() {
     imageCache.clear();
     compositeSpriteCache.clear();
+    backgroundImageCache.clear();
     stageBackgroundCache.clear();
     stageCharacterCache.clear();
     layerPathCache.clear();
@@ -4197,6 +4210,7 @@ public class VnRenderer {
     disposed = true;
     imageCache.clear();
     compositeSpriteCache.clear();
+    backgroundImageCache.clear();
     stageBackgroundCache.clear();
     stageCharacterCache.clear();
     layerPathCache.clear();

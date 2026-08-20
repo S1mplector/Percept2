@@ -62,6 +62,38 @@ class VnRendererCompositeCacheTest {
   }
 
   @Test
+  void dedicatedBackgroundCacheSurvivesExpressionLayerChurn() {
+    Image fullHdRaster = new WritableImage(FULL_HD_WIDTH, FULL_HD_HEIGHT);
+    BoundedImageCache<Image> shared = cache(VnRenderer.SOURCE_IMAGE_CACHE_BUDGET_BYTES);
+    shared.put("background", fullHdRaster);
+    for (int layer = 0; layer < 12; layer++) {
+      shared.put("next-expression-layer:" + layer, fullHdRaster);
+    }
+    assertNull(shared.get("background"),
+        "The former shared cache evicted the background while composing the next expression");
+
+    BoundedImageCache<Image> sources = cache(VnRenderer.SOURCE_IMAGE_CACHE_BUDGET_BYTES);
+    BoundedImageCache<Image> backgrounds = cache(VnRenderer.BACKGROUND_IMAGE_CACHE_BUDGET_BYTES);
+    backgrounds.put("background", fullHdRaster);
+    for (int line = 0; line < 120; line++) {
+      for (int layer = 0; layer < 12; layer++) {
+        sources.put("line:" + line + ":layer:" + layer, fullHdRaster);
+      }
+      assertNotNull(backgrounds.get("background"));
+    }
+
+    assertEquals(120, backgrounds.hitCount());
+    assertTrue(backgrounds.currentWeight() <= VnRenderer.BACKGROUND_IMAGE_CACHE_BUDGET_BYTES);
+  }
+
+  @Test
+  void backgroundBudgetRetainsBothSidesOfAFullHdTransition() {
+    long fullHdBytes = (long) FULL_HD_WIDTH * FULL_HD_HEIGHT * 4L;
+
+    assertTrue(VnRenderer.BACKGROUND_IMAGE_CACHE_BUDGET_BYTES >= 2L * fullHdBytes);
+  }
+
+  @Test
   void staticCompositePathDoesNotProbeEveryLayerRaster() throws Exception {
     VnCharacter character = VnCharacter.builder("table_guest")
         .addLayer("body", "missing-body.png")
