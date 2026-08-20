@@ -88,12 +88,18 @@ public class VnRenderer {
   private static final Logger log = LoggerFactory.getLogger(VnRenderer.class);
   private static final long MIB = 1024L * 1024L;
   static final long SOURCE_IMAGE_CACHE_BUDGET_BYTES = 96L * MIB;
+  static final long COMPOSITE_SPRITE_CACHE_BUDGET_BYTES = 96L * MIB;
   static final long STAGE_BACKGROUND_CACHE_BUDGET_BYTES = 48L * MIB;
   static final long STAGE_CHARACTER_CACHE_BUDGET_BYTES = 64L * MIB;
 
   private final GraphicsContext gc;
   private final BoundedImageCache<Image> imageCache = new BoundedImageCache<>(
       VnConfig.defaults().getImageCacheMaxEntries(), SOURCE_IMAGE_CACHE_BUDGET_BYTES, FxImageMemory::estimatedBytes);
+  // Layer sources are transient working data while a composite is assembled. Keeping completed
+  // sprites in the same cache lets full-canvas layers evict the composite that they just built,
+  // forcing expensive Canvas snapshots again on every frame in projects with several characters.
+  private final BoundedImageCache<Image> compositeSpriteCache = new BoundedImageCache<>(
+      64, COMPOSITE_SPRITE_CACHE_BUDGET_BYTES, FxImageMemory::estimatedBytes);
   private final BoundedImageCache<Image> stageBackgroundCache = new BoundedImageCache<>(
       16, STAGE_BACKGROUND_CACHE_BUDGET_BYTES, FxImageMemory::estimatedBytes);
   private final BoundedImageCache<Image> stageCharacterCache = new BoundedImageCache<>(
@@ -257,6 +263,7 @@ public class VnRenderer {
     this.projectRoot = root;
     this.eyeFocusProfiles = null;
     imageCache.clear();
+    compositeSpriteCache.clear();
     particleBlitter.clearCache();
     particleBlitter.setProjectRoot(root);
     stageBackgroundCache.clear();
@@ -1063,8 +1070,13 @@ public class VnRenderer {
     if (!hasLayerProxy && !eyeFocus.active()) return false;
 
     for (SpriteLayer layer : layers) {
-      if (layer == null || !isLoadedImage(layer.image())) continue;
-      SpriteLayer drawLayer = layer;
+      if (layer == null) continue;
+      Image layerImage = isLoadedImage(layer.image())
+          ? layer.image()
+          : loadSpriteLayerImage(layer.path());
+      if (!isLoadedImage(layerImage)) continue;
+      SpriteLayer drawLayer = new SpriteLayer(
+          layer.path(), layer.layerId(), layer.targetNames(), layer.groupTargets(), layerImage);
       double nudgeX = 0.0;
       double nudgeY = 0.0;
       if (eyeFocus.active() && eyeFocus.isMappedLayer(layer.layerId())) {
@@ -1522,7 +1534,10 @@ public class VnRenderer {
       if (layerId == null || layerId.isBlank()) layerId = fallbackLayerId(path, i);
       List<String> targetNames = timelineDeclaredLayerTargetNames(character, characterId, expression, layerId);
       List<GroupLayerTarget> groupTargets = timelineGroupTargets(character, characterId, expression, layerId);
-      layers.add(new SpriteLayer(path, layerId, targetNames, groupTargets, loadSpriteLayerImage(path)));
+      // Layer rasters are only needed when an active timeline or eye-focus request requires
+      // independent drawing. Loading them here made every static composite reload all of its
+      // full-canvas sources on every frame, even though the composite itself was cached.
+      layers.add(new SpriteLayer(path, layerId, targetNames, groupTargets, null));
     }
     return layers;
   }
@@ -1642,7 +1657,7 @@ public class VnRenderer {
     if (imagePathSpec == null || imagePathSpec.isBlank()) return firstAvailableImage(layerPaths);
     if (layerPaths == null || layerPaths.size() <= 1) return firstAvailableImage(layerPaths);
     String cacheKey = "__composite_sprite__:" + imagePathSpec;
-    Image cached = imageCache.get(cacheKey);
+    Image cached = compositeSpriteCache.get(cacheKey);
     if (isLoadedImage(cached) && cached.getWidth() > 1.0 && cached.getHeight() > 1.0) return cached;
     List<Image> layers = new ArrayList<>();
     int width = 1;
@@ -1664,7 +1679,7 @@ public class VnRenderer {
     snapshotParameters.setFill(Color.TRANSPARENT);
     WritableImage out = new WritableImage(width, height);
     canvas.snapshot(snapshotParameters, out);
-    imageCache.put(cacheKey, out);
+    compositeSpriteCache.put(cacheKey, out);
     return out;
   }
 
@@ -4167,6 +4182,7 @@ public class VnRenderer {
 
   public void clearCache() {
     imageCache.clear();
+    compositeSpriteCache.clear();
     stageBackgroundCache.clear();
     stageCharacterCache.clear();
     layerPathCache.clear();
@@ -4180,6 +4196,7 @@ public class VnRenderer {
     if (disposed) return;
     disposed = true;
     imageCache.clear();
+    compositeSpriteCache.clear();
     stageBackgroundCache.clear();
     stageCharacterCache.clear();
     layerPathCache.clear();
