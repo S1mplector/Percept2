@@ -942,10 +942,18 @@ public class VnRenderer {
   private void renderCharacterSprite(String imagePath, String expression, VnCharacter character, CharacterPosition position, double width, double height, double offsetX, double offsetY, String characterId, VnState state, VnScenario scenario, VnStagePreset stage) {
     List<String> layerPaths = layerPathsFor(imagePath);
     Image reference = loadSpriteSourceImage(imagePath, layerPaths);
-    double spriteHeight = height * characterHeightFactor * characterScale(character);
-    double spriteWidth = reference != null ? reference.getWidth() * (spriteHeight / reference.getHeight()) : spriteHeight * 0.5;
+    SpriteLayout spriteLayout = resolveSpriteLayout(
+        reference == null ? 0.0 : reference.getWidth(),
+        reference == null ? 0.0 : reference.getHeight(),
+        width,
+        height,
+        characterHeightFactor,
+        characterBaselineY,
+        characterScale(character));
+    double spriteHeight = spriteLayout.height();
+    double spriteWidth = spriteLayout.width();
     double defaultX = position.computeScreenX(width, spriteWidth) + offsetX;
-    double defaultY = position.computeScreenY(height, spriteHeight, characterBaselineY) + offsetY;
+    double defaultY = position.computeScreenY(height, spriteHeight, spriteLayout.baselineY()) + offsetY;
 
     if (timelineAccessor != null && characterId != null) {
       Entity2D proxy = timelineAccessor.getProxy(characterId);
@@ -1276,10 +1284,16 @@ public class VnRenderer {
     String imagePath = character.getExpressionPath(slot.getExpression());
     List<String> layerPaths = layerPathsFor(imagePath);
     Image reference = loadSpriteSourceImage(imagePath, layerPaths);
-    double spriteHeight = canvasHeight * characterHeightFactor * characterScale(character);
-    double spriteWidth = reference != null && reference.getHeight() > 0.0
-        ? reference.getWidth() * (spriteHeight / reference.getHeight())
-        : spriteHeight * 0.5;
+    SpriteLayout spriteLayout = resolveSpriteLayout(
+        reference == null ? 0.0 : reference.getWidth(),
+        reference == null ? 0.0 : reference.getHeight(),
+        canvasWidth,
+        canvasHeight,
+        characterHeightFactor,
+        characterBaselineY,
+        characterScale(character));
+    double spriteHeight = spriteLayout.height();
+    double spriteWidth = spriteLayout.width();
     double offsetX = visual != null ? visual.getOffsetX() : 0.0;
     double offsetY = visual != null ? visual.getOffsetY() : 0.0;
     VnState.TimelineDisplacement displacement = state.getTimelineDisplacement(characterId);
@@ -1288,9 +1302,47 @@ public class VnRenderer {
       if (displacement.hasY() && Math.abs(offsetY) < 1e-6) offsetY += displacement.getY();
     }
     double x = position.computeScreenX(canvasWidth, spriteWidth) + offsetX;
-    double y = position.computeScreenY(canvasHeight, spriteHeight, characterBaselineY) + offsetY;
+    double y = position.computeScreenY(canvasHeight, spriteHeight, spriteLayout.baselineY()) + offsetY;
     return new double[] {x + spriteWidth * 0.5, y + spriteHeight * 0.26};
   }
+
+  static SpriteLayout resolveSpriteLayout(
+      double imageWidth,
+      double imageHeight,
+      double viewportWidth,
+      double viewportHeight,
+      double characterHeightFactor,
+      double characterBaselineY,
+      double characterScale
+  ) {
+    double safeViewportHeight = Math.max(1.0, viewportHeight);
+    double safeScale = Double.isFinite(characterScale) && characterScale > 0.0 ? characterScale : 1.0;
+    boolean canvasAligned = isCanvasAlignedSprite(imageWidth, imageHeight, viewportWidth, safeViewportHeight);
+    double spriteHeight = safeViewportHeight
+        * (canvasAligned ? 1.0 : characterHeightFactor)
+        * safeScale;
+    double spriteWidth = imageWidth > 0.0 && imageHeight > 0.0
+        ? imageWidth * (spriteHeight / imageHeight)
+        : spriteHeight * 0.5;
+    double baselineY = canvasAligned ? 1.0 : characterBaselineY;
+    return new SpriteLayout(spriteWidth, spriteHeight, baselineY, canvasAligned);
+  }
+
+  private static boolean isCanvasAlignedSprite(
+      double imageWidth,
+      double imageHeight,
+      double viewportWidth,
+      double viewportHeight
+  ) {
+    if (imageWidth <= 0.0 || imageHeight <= 0.0 || viewportWidth <= 0.0 || viewportHeight <= 0.0) {
+      return false;
+    }
+    double imageAspect = imageWidth / imageHeight;
+    double viewportAspect = viewportWidth / viewportHeight;
+    return Math.abs(imageAspect - viewportAspect) <= Math.max(1e-6, viewportAspect * 0.001);
+  }
+
+  record SpriteLayout(double width, double height, double baselineY, boolean canvasAligned) {}
 
   private void drawTimelineLayer(
       SpriteLayer layer,
