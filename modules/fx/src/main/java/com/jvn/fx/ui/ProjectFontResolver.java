@@ -1,6 +1,9 @@
 package com.jvn.fx.ui;
 
 import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.file.Files;
 import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -31,8 +34,12 @@ public final class ProjectFontResolver {
 
   private static Font loadFont(File fontFile, String normalizedSpec, FontWeight weight, double size, String fallbackFamily) {
     if (fontFile != null && fontFile.isFile()) {
-      Font loaded = Font.loadFont(fontFile.toURI().toString(), size);
-      if (loaded != null) return loaded;
+      try (InputStream input = Files.newInputStream(fontFile.toPath())) {
+        Font loaded = Font.loadFont(input, size);
+        if (loaded != null) return loaded;
+      } catch (IOException | RuntimeException ignored) {
+        // Fall through to the configured system font when the project font cannot be read.
+      }
     }
     return createSystemFont(normalizeFamily(normalizedSpec, fallbackFamily), weight, size);
   }
