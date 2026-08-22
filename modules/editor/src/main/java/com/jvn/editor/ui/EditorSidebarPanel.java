@@ -10,6 +10,7 @@ public enum EditorSidebarPanel {
   INSPECTOR("inspector", "Inspector", EditorPanelPlacement.HIDDEN, false, "icon-panel-inspector", "project_inspector_orange_transparent.png", "1.0", Maturity.STABLE),
   VNS_DIAGNOSTICS("vns_diagnostics", "Diagnostics", EditorPanelPlacement.HIDDEN, true, "icon-panel-diagnostics", "vns_diagnostics_orange_transparent.png", "1.1.1", Maturity.STABLE),
   LABEL_FLOW("label_flow", "Label Flow", EditorPanelPlacement.HIDDEN, false, "icon-panel-flow", "label_flow_inspector_orange_transparent.png", "0.9", Maturity.BETA),
+  TIMELINE_OUTLINE("timeline_outline", "Timeline Outline", EditorPanelPlacement.HIDDEN, true, "icon-panel-timeline-outline", null, "0.1", Maturity.ALPHA),
   ASSETS("assets", "Assets", EditorPanelPlacement.HIDDEN, false, "icon-panel-assets", null, "1.0", Maturity.STABLE),
   LAYOUT_LAUNCHER("layout_launcher", "Layout Launcher", EditorPanelPlacement.HIDDEN, true, "icon-panel-layouts", "layout_editor_manager_orange_transparent.png", "0.8", Maturity.BETA),
   STORYBOARD_OVERLAY("storyboard_overlay", "Storyboard Overlay", EditorPanelPlacement.HIDDEN, true, "icon-panel-storyboard", "storyboard_overlay_tool_orange_transparent.png", "0.6", Maturity.BETA),

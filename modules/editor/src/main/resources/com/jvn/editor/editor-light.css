@@ -2995,6 +2995,50 @@
       linear-gradient(to bottom, #dfdfdf 0%, #e7e7e7 100%);
 }
 
+.vns-timeline-outline-list {
+  -fx-background-color: transparent;
+  -fx-control-inner-background: transparent;
+  -fx-padding: 8;
+}
+
+.vns-timeline-outline-list .virtual-flow,
+.vns-timeline-outline-list .corner,
+.vns-timeline-outline-list .viewport {
+  -fx-background-color: transparent;
+}
+
+.vns-timeline-outline-placeholder {
+  -fx-text-fill: #6e6e6e;
+  -fx-font-size: 11px;
+  -fx-font-weight: 700;
+}
+
+.vns-timeline-outline-row {
+  -fx-background-color:
+      linear-gradient(to bottom, rgba(0, 0, 0, 0.03), rgba(0, 0, 0, 0.0)),
+      linear-gradient(to bottom, #e5e5e5 0%, #ececec 100%);
+  -fx-background-radius: 10;
+  -fx-border-color: #d0d0d0;
+  -fx-border-radius: 10;
+  -fx-border-width: 1;
+  -fx-padding: 8 10;
+}
+
+.vns-timeline-outline-list-cell:hover .vns-timeline-outline-row {
+  -fx-border-color: #b8b8b8;
+}
+
+.vns-timeline-outline-location {
+  -fx-text-fill: #333333;
+  -fx-font-weight: 700;
+  -fx-font-size: 11px;
+}
+
+.vns-timeline-outline-duration {
+  -fx-text-fill: #4d6b85;
+  -fx-font-size: 11px;
+}
+
 .vns-diagnostics-row-error {
   -fx-effect: dropshadow(gaussian, rgba(133, 52, 71, 0.16), 8, 0.18, 0, 1);
 }

@@ -676,6 +676,11 @@ public class FileEditorTab extends BorderPane {
     return vnsEditor != null ? vnsEditor.getCurrentLine() : -1;
   }
 
+  /** Returns the underlying {@link VnsCodeEditor} for a VNS-kind tab, or {@code null} otherwise. */
+  public VnsCodeEditor getVnsEditor() {
+    return kind == Kind.VNS ? vnsEditor : null;
+  }
+
   public String getCurrentTextSnapshot() {
     return getCurrentText();
   }

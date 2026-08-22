@@ -2233,6 +2233,52 @@ public class VnsCodeEditor extends BorderPane {
     }
   }
 
+  /**
+   * A single {@code timeline { ... }} block's location within the document,
+   * for consumers (e.g. an outline view) that need block boundaries without
+   * duplicating this class's brace-scanning.
+   */
+  public record TimelineOutlineEntry(int oneBasedStartLine, int oneBasedEndLine, int startOffset, int endOffset) {}
+
+  /**
+   * Returns the document-order list of {@code timeline { ... }} blocks in the
+   * current text, reusing the same cached brace-scan {@link #computeFoldRegions()}
+   * already performs for code folding — callers must not re-scan the raw text
+   * themselves.
+   */
+  public List<TimelineOutlineEntry> computeTimelineOutlineEntries() {
+    List<TimelineOutlineEntry> entries = new ArrayList<>();
+    for (FoldRegion region : computeFoldRegions()) {
+      if (region.kind() != FoldKind.TIMELINE) continue;
+      entries.add(new TimelineOutlineEntry(
+          region.startLine() + 1, region.endLine() + 1, region.startOffset(), region.endOffset()));
+    }
+    return entries;
+  }
+
+  /**
+   * Parses the given timeline block's text and returns its approximate
+   * duration already formatted (ms below one second, seconds above),
+   * matching the format used by the timeline hover preview/summary. Returns
+   * {@code null} if the block fails to parse.
+   */
+  public static String formatTimelineOutlineDuration(String blockText) {
+    if (blockText == null || blockText.isBlank()) return null;
+    try {
+      TimelineData data = TimelineDataParser.parse("_vns_editor_outline", blockText);
+      return formatTimelineDurationStatic(data.getDurationMs());
+    } catch (Exception ex) {
+      return null;
+    }
+  }
+
+  private static String formatTimelineDurationStatic(double durationMs) {
+    if (durationMs < 1000.0) {
+      return String.format(Locale.ROOT, "%.0f ms", durationMs);
+    }
+    return String.format(Locale.ROOT, "%.2f s", durationMs / 1000.0);
+  }
+
   private record TimelineNavTarget(FoldRegion region, int ordinal, int total, int visibleStart, int visibleEnd) {}
 
   private record TimelineNavSummary(String detail, String targets) {}
