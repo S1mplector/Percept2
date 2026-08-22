@@ -85,6 +85,7 @@ public class VnsCodeEditor extends BorderPane {
 
   // Code folding
   private final Set<Integer> foldedRegionStarts = new HashSet<>();
+  private Runnable onFoldStateChanged;
   private List<FoldRegion> foldRegionCache = List.of();
   private boolean foldRegionCacheDirty = true;
   // Tracks which paragraph indices currently have the collapse style applied.
@@ -798,6 +799,10 @@ public class VnsCodeEditor extends BorderPane {
     codeArea.currentParagraphProperty().addListener((obs, oldVal, newVal) -> {
       if (listener != null && newVal != null) listener.accept(newVal.intValue());
     });
+  }
+
+  public void setOnFoldStateChanged(Runnable listener) {
+    this.onFoldStateChanged = listener;
   }
 
   public void setOnStoryboardLineRequested(Consumer<Integer> listener) {
@@ -2324,6 +2329,65 @@ public class VnsCodeEditor extends BorderPane {
   }
 
   /**
+   * Returns the currently-folded {@code timeline { ... }} blocks as stable keys (document-order
+   * ordinal among timeline blocks + a hash of the block's header line), suitable for persisting
+   * across script reopens. Line-number-based fold state ({@link #foldedRegionStarts}) does not
+   * survive edits that shift lines, so callers must use this instead of that set directly.
+   */
+  public List<VnsFoldStateStore.FoldedBlockKey> exportFoldedTimelineBlocks() {
+    List<VnsFoldStateStore.FoldedBlockKey> keys = new ArrayList<>();
+    int ordinal = 0;
+    for (FoldRegion region : computeFoldRegions()) {
+      if (region.kind() != FoldKind.TIMELINE) continue;
+      if (foldedRegionStarts.contains(region.startLine())) {
+        keys.add(new VnsFoldStateStore.FoldedBlockKey(ordinal, timelineHeaderHash(region)));
+      }
+      ordinal++;
+    }
+    return keys;
+  }
+
+  /**
+   * Applies previously exported fold state to the current document. Keys whose ordinal no
+   * longer exists, or whose header hash no longer matches the block at that ordinal, are
+   * dropped silently — this is what prevents folding an unrelated block after edits move or
+   * insert timelines above the folded one.
+   */
+  public void restoreFoldedTimelineBlocks(List<VnsFoldStateStore.FoldedBlockKey> keys) {
+    if (keys == null || keys.isEmpty()) return;
+    Map<Integer, String> wanted = new HashMap<>();
+    for (VnsFoldStateStore.FoldedBlockKey key : keys) {
+      wanted.put(key.ordinal(), key.headerHash());
+    }
+    boolean changed = false;
+    int ordinal = 0;
+    for (FoldRegion region : computeFoldRegions()) {
+      if (region.kind() != FoldKind.TIMELINE) continue;
+      String wantedHash = wanted.get(ordinal);
+      if (wantedHash != null && wantedHash.equals(timelineHeaderHash(region))
+          && !foldedRegionStarts.contains(region.startLine())) {
+        foldedRegionStarts.add(region.startLine());
+        changed = true;
+      }
+      ordinal++;
+    }
+    if (changed) {
+      refreshFoldedRegionStyles();
+      Platform.runLater(() -> codeArea.setParagraphGraphicFactory(this::makeLineNumberLabel));
+      scheduleMinimapRedraw();
+    }
+  }
+
+  private String timelineHeaderHash(FoldRegion region) {
+    String header = codeArea.getParagraph(region.startLine()).getText();
+    return Integer.toHexString(header.hashCode());
+  }
+
+  void toggleTimelineFoldAtLineForTest(int line) {
+    toggleFold(line);
+  }
+
+  /**
    * Parses the given timeline block's text and returns its approximate
    * duration already formatted (ms below one second, seconds above),
    * matching the format used by the timeline hover preview/summary. Returns
@@ -2625,6 +2689,7 @@ public class VnsCodeEditor extends BorderPane {
     refreshFoldedRegionStyles();
     Platform.runLater(() -> codeArea.setParagraphGraphicFactory(this::makeLineNumberLabel));
     scheduleMinimapRedraw();
+    notifyFoldStateChanged();
   }
 
   private void toggleTimelineBlockAtCaret() {
@@ -2644,6 +2709,7 @@ public class VnsCodeEditor extends BorderPane {
       refreshFoldedRegionStyles();
       Platform.runLater(() -> codeArea.setParagraphGraphicFactory(this::makeLineNumberLabel));
       scheduleMinimapRedraw();
+      notifyFoldStateChanged();
     }
   }
 
@@ -2664,7 +2730,12 @@ public class VnsCodeEditor extends BorderPane {
       refreshFoldedRegionStyles();
       Platform.runLater(() -> codeArea.setParagraphGraphicFactory(this::makeLineNumberLabel));
       scheduleMinimapRedraw();
+      notifyFoldStateChanged();
     }
+  }
+
+  private void notifyFoldStateChanged() {
+    if (onFoldStateChanged != null) onFoldStateChanged.run();
   }
 
   private void refreshFoldedRegionStyles() {

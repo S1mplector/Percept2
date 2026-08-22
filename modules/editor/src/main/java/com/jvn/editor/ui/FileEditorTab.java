@@ -97,6 +97,7 @@ public class FileEditorTab extends BorderPane {
   private Consumer<StoryboardOverlayState> onStoryboardOverlayAdjusted;
   private com.jvn.editor.commands.CommandStack commands;
   private File projectRoot;
+  private VnsFoldStateStore foldStateStore;
   private String savedSnapshot = "";
   private double lastSizedWidth = -1;
   private double lastSizedHeight = -1;
@@ -157,6 +158,7 @@ public class FileEditorTab extends BorderPane {
       vnsEditor.setOnLaunchFromHere(this::runFromLabel);
       vnsEditor.setOnLaunchFromCursor(this::runFromSourceLine);
       vnsEditor.setOnStoryboardLineRequested(this::syncStoryboardPreviewToLine);
+      vnsEditor.setOnFoldStateChanged(this::saveTimelineFoldState);
     }
     if (vnPreview != null) {
       vnPreview.setOnHotReloadRequested(this::hotReloadFromPreview);
@@ -375,6 +377,21 @@ public class FileEditorTab extends BorderPane {
     return file.getName();
   }
 
+  private void restoreTimelineFoldState() {
+    if (kind != Kind.VNS || vnsEditor == null || foldStateStore == null) return;
+    String scriptKey = resolveVnsScriptKey();
+    if (scriptKey == null) return;
+    vnsEditor.restoreFoldedTimelineBlocks(foldStateStore.getFoldedBlocks(scriptKey));
+  }
+
+  private void saveTimelineFoldState() {
+    if (kind != Kind.VNS || vnsEditor == null || foldStateStore == null) return;
+    String scriptKey = resolveVnsScriptKey();
+    if (scriptKey == null) return;
+    foldStateStore.setFoldedBlocks(scriptKey, vnsEditor.exportFoldedTimelineBlocks());
+    foldStateStore.save();
+  }
+
   private InputStream openVnsInclude(String includePath) throws IOException {
     String normalized = includePath == null ? "" : includePath.trim().replace('\\', '/');
     if (normalized.isBlank()) {
@@ -463,6 +480,8 @@ public class FileEditorTab extends BorderPane {
   public void setOnStoryboardOverlayAdjusted(Consumer<StoryboardOverlayState> c) { this.onStoryboardOverlayAdjusted = c; }
   public void setProjectRoot(File root) {
     this.projectRoot = root;
+    this.foldStateStore = VnsFoldStateStore.load(root);
+    restoreTimelineFoldState();
     if (jesEditor != null) jesEditor.setProjectRoot(root);
     if (vnsEditor != null) vnsEditor.setProjectRoot(root);
     if (timelineEditor != null) timelineEditor.setProjectRoot(root);
@@ -542,6 +561,7 @@ public class FileEditorTab extends BorderPane {
       } else if (kind == Kind.VNS) {
         String code = Files.readString(file.toPath());
         vnsEditor.setText(code);
+        restoreTimelineFoldState();
         try {
           VnScenario scenario = parseVnsScenarioFromText(code);
           if (vnPreview != null) {
@@ -758,6 +778,7 @@ public class FileEditorTab extends BorderPane {
   public void dispose() {
     if (disposed) return;
     disposed = true;
+    saveTimelineFoldState();
     closeDetachedPreviewWindow(true);
     stopPreviewAudio();
     if (vnPreview != null) vnPreview.dispose();

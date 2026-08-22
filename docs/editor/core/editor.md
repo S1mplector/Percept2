@@ -194,6 +194,13 @@ This matters for workflow-critical utilities such as **Build & Publish...**, **S
   bands show the line range, duration, track count, and action count (parsed from
   that block's own text, cached per script snapshot so hovering stays cheap on large
   scripts)
+- folded `timeline { ... }` blocks are remembered per script and restored when the
+  script is reopened, so a large pasted animation stays collapsed instead of
+  reappearing expanded every time; state is keyed by each block's position among
+  the script's timeline blocks plus a hash of its header line, so it survives edits
+  that shift line numbers and is dropped (not misapplied to another block) if the
+  block itself changed or moved; stored in
+  `<project>/config/editor/timeline-folds.properties`
 
 The VNS strip is action-only: it does not repeat explanatory preview text. Hover
 an icon for its short description or use the `?` control for the complete key
