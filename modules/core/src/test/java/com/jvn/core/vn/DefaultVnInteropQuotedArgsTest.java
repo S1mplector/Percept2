@@ -169,6 +169,60 @@ class DefaultVnInteropQuotedArgsTest {
   }
 
   @Test
+  void dialogueAdvancesWhileNonBlockingTimelineKeepsUpdating() {
+    VnScenario scenario = new VnScenarioBuilder("dialogue_during_active_timeline")
+      .addCharacterWithExpressions("john", "John", "body.png")
+      .label("start")
+      .external("jes_timeline_inline", """
+          timeline {
+            move "john_neutral_body_default" {
+              x: 542
+              y: 0
+              dur: 100
+            }
+          } wait=false
+          """)
+      .dialogue("John", "I'm already moving while I say this.")
+      .end()
+      .build();
+    VnScene scene = new VnScene(scenario);
+    scene.getState().showCharacter(CharacterPosition.CENTER, "john", "neutral");
+    DefaultVnInterop interop = new DefaultVnInterop();
+    VnCharacterSceneAccessor accessor = new VnCharacterSceneAccessor();
+    interop.setSceneAccessor(accessor);
+    scene.setInterop(interop);
+
+    // Drives node processing the same way the runtime does on scene start:
+    // the non-blocking external node must advance straight into dialogue
+    // instead of stalling until the timeline finishes.
+    scene.onEnter();
+
+    assertNull(scene.getActiveError());
+    assertNotNull(scene.getState().getCurrentNode());
+    assertNotNull(scene.getState().getCurrentNode().getDialogue());
+    assertEquals("I'm already moving while I say this.",
+        scene.getState().getCurrentNode().getDialogue().getText());
+    assertTrue(scene.getState().hasActiveTimelines());
+
+    // The per-frame update ticks timeline runners unconditionally, independent
+    // of the current node being an interactive dialogue line awaiting input.
+    scene.update(1);
+    double xBeforeFrame = accessor.getProxy("john_neutral_body_default").getX();
+
+    scene.update(50);
+
+    assertNotNull(scene.getState().getCurrentNode().getDialogue());
+    assertEquals("I'm already moving while I say this.",
+        scene.getState().getCurrentNode().getDialogue().getText());
+    double xAfterFrame = accessor.getProxy("john_neutral_body_default").getX();
+    assertTrue(xAfterFrame > xBeforeFrame);
+
+    scene.update(100);
+    assertFalse(scene.getState().hasActiveTimelines());
+    assertEquals(542.0, accessor.getProxy("john_neutral_body_default").getX(), 0.0001);
+  }
+
+  @Test
   void lightningSequencePreArmsMirrorsAndKeepsThemLayerScoped() {
     VnCharacter john = VnCharacter.builder("john")
         .addLayer("body_default", "body.png")
