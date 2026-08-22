@@ -159,6 +159,7 @@ public class VnsCodeEditor extends BorderPane {
     + "|call|gosub|return|character|char|choice)\\b";
   private static final String ARROW_PATTERN = "->";
   private static final String SPEAKER_PATTERN = "(?m)^(?:[^\\s#:][^:]{0,30}):";
+  private static final Pattern DIALOGUE_LINE_PATTERN = Pattern.compile("^(?:[^\\s#:][^:]{0,30}):");
   private static final String CHOICE_MARK_PATTERN = "(?m)^\\s*>";
   private static final String TIMELINE_PATTERN = "(?m)^\\s*timeline\\b";
   private static final String VALUE_PATTERN =
@@ -474,6 +475,14 @@ public class VnsCodeEditor extends BorderPane {
       // Ctrl+Shift+] — Unfold all timeline blocks
       if (ctrl && e.isShiftDown() && e.getCode() == KeyCode.CLOSE_BRACKET) {
         unfoldAllTimelineBlocks(); e.consume(); return;
+      }
+      // Ctrl+Shift+Down — Next Dialogue Line
+      if (ctrl && e.isShiftDown() && e.getCode() == KeyCode.DOWN) {
+        jumpToNextDialogueLine(); e.consume(); return;
+      }
+      // Ctrl+Shift+Up — Previous Dialogue Line
+      if (ctrl && e.isShiftDown() && e.getCode() == KeyCode.UP) {
+        jumpToPreviousDialogueLine(); e.consume(); return;
       }
       // Ctrl+V / Cmd+V — auto-fold any timeline blocks introduced by the paste
       if (ctrl && e.getCode() == KeyCode.V) {
@@ -3336,6 +3345,8 @@ public class VnsCodeEditor extends BorderPane {
       {"Insert Snippet", "Open snippet palette (Ctrl+J)"},
       {"Toggle Bookmark", "Set/clear bookmark (Ctrl+F2)"},
       {"Next Bookmark", "Jump to next bookmark (F2)"},
+      {"Next Dialogue Line", "Jump to next speaker line, skipping timelines (Ctrl+Shift+Down)"},
+      {"Previous Dialogue Line", "Jump to previous speaker line, skipping timelines (Ctrl+Shift+Up)"},
       {"Zoom In", "Increase font size (Ctrl+=)"},
       {"Zoom Out", "Decrease font size (Ctrl+-)"},
       {"Toggle Word Wrap", "Toggle line wrapping (Ctrl+Shift+W)"},
@@ -3419,6 +3430,8 @@ public class VnsCodeEditor extends BorderPane {
       case "Insert Snippet" -> showSnippetPalette();
       case "Toggle Bookmark" -> toggleBookmark();
       case "Next Bookmark" -> jumpToNextBookmark();
+      case "Next Dialogue Line" -> jumpToNextDialogueLine();
+      case "Previous Dialogue Line" -> jumpToPreviousDialogueLine();
       case "Zoom In" -> zoomIn();
       case "Zoom Out" -> zoomOut();
       case "Toggle Word Wrap" -> toggleWordWrap();
@@ -3451,6 +3464,45 @@ public class VnsCodeEditor extends BorderPane {
       codeArea.moveTo(next, 0);
       codeArea.requestFollowCaret();
       codeArea.requestFocus();
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════
+  //  FEATURE: Dialogue Line Navigation (Ctrl+Shift+Down/Up)
+  // ═══════════════════════════════════════════════════════════════════
+  private boolean isDialogueLine(int paragraphIndex) {
+    if (paragraphIndex < 0 || paragraphIndex >= codeArea.getParagraphs().size()) return false;
+    String line = codeArea.getParagraph(paragraphIndex).getText();
+    return DIALOGUE_LINE_PATTERN.matcher(line).find();
+  }
+
+  public void jumpToNextDialogueLine() {
+    int count = codeArea.getParagraphs().size();
+    if (count <= 0) return;
+    int current = codeArea.getCurrentParagraph();
+    for (int i = 1; i <= count; i++) {
+      int candidate = (current + i) % count;
+      if (isDialogueLine(candidate)) {
+        codeArea.moveTo(candidate, 0);
+        codeArea.requestFollowCaret();
+        codeArea.requestFocus();
+        return;
+      }
+    }
+  }
+
+  public void jumpToPreviousDialogueLine() {
+    int count = codeArea.getParagraphs().size();
+    if (count <= 0) return;
+    int current = codeArea.getCurrentParagraph();
+    for (int i = 1; i <= count; i++) {
+      int candidate = ((current - i) % count + count) % count;
+      if (isDialogueLine(candidate)) {
+        codeArea.moveTo(candidate, 0);
+        codeArea.requestFollowCaret();
+        codeArea.requestFocus();
+        return;
+      }
     }
   }
 
