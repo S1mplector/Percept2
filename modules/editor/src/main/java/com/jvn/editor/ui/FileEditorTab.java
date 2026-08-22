@@ -255,10 +255,12 @@ public class FileEditorTab extends BorderPane {
     if (dialogueLayoutEditor != null) dialogueLayoutEditor.setFontSizePx(fontSizePx);
   }
 
-  public void setVnsAuthoringPreferences(boolean wordWrapEnabled, boolean minimapVisible) {
+  public void setVnsAuthoringPreferences(
+      boolean wordWrapEnabled, boolean minimapVisible, int largeTimelineBlockActionThreshold) {
     if (vnsEditor == null) return;
     vnsEditor.setWordWrapEnabled(wordWrapEnabled);
     vnsEditor.setMinimapVisible(minimapVisible);
+    vnsEditor.setLargeTimelineBlockActionThreshold(largeTimelineBlockActionThreshold);
     if (vnsWordWrapButton != null) vnsWordWrapButton.setSelected(wordWrapEnabled);
   }
 

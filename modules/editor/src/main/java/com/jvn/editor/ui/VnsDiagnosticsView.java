@@ -272,6 +272,9 @@ visible, source-aware result set for sharing."""),
 
     List<Diagnostic> diagnostics = new ArrayList<>();
     for (VnsScriptAnalyzer.Diagnostic issue : analysis.diagnostics()) {
+      // Advisory hints (e.g. large-timeline-block performance notices) surface inline
+      // in the editor gutter/minimap only — this panel is strictly errors/warnings.
+      if (issue.info()) continue;
       diagnostics.add(Diagnostic.fromVns(issue));
     }
     setDiagnostics(scriptFile, "VNS", analysis.source(), buildStatsSummary(analysis.stats()), diagnostics);

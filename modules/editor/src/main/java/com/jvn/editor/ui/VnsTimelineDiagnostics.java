@@ -17,6 +17,11 @@ final class VnsTimelineDiagnostics {
   }
 
   static List<VnsScriptAnalyzer.Diagnostic> analyze(String source, VnScenario scenario) {
+    return analyze(source, scenario, EditorPreferences.DEFAULT_LARGE_TIMELINE_BLOCK_ACTION_THRESHOLD);
+  }
+
+  static List<VnsScriptAnalyzer.Diagnostic> analyze(
+      String source, VnScenario scenario, int largeBlockActionThreshold) {
     if (source == null || source.isBlank() || scenario == null) return List.of();
     String[] lines = source.split("\n", -1);
     PuppeteerLauncherPanel.SceneSnapshot document = PuppeteerLauncherPanel.resolveSnapshot(
@@ -38,12 +43,62 @@ final class VnsTimelineDiagnostics {
         for (VnTimelineDiagnostics.Finding finding : report.findings()) {
           diagnostics.add(toEditorDiagnostic(source, context, finding));
         }
+        VnsScriptAnalyzer.Diagnostic sizeHint =
+            largeBlockHint(source, context, data, largeBlockActionThreshold);
+        if (sizeHint != null) diagnostics.add(sizeHint);
       } catch (RuntimeException ignored) {
         // The strict VNS/JES parser already reports syntax failures with a more
         // precise token location. Avoid adding a second generic diagnostic.
       }
     }
     return List.copyOf(diagnostics);
+  }
+
+  private static int countActions(TimelineData data) {
+    int count = 0;
+    for (TimelineData.Track track : data.getTracks()) {
+      for (List<?> keyframes : track.getAllKeyframes().values()) {
+        count += keyframes.size();
+      }
+      for (List<?> keyframes : track.getAllCustomKeyframes().values()) {
+        count += keyframes.size();
+      }
+    }
+    count += data.getAudioCues().size();
+    count += data.getEventCues().size();
+    return count;
+  }
+
+  private static VnsScriptAnalyzer.Diagnostic largeBlockHint(
+      String source,
+      PuppeteerLauncherPanel.InlineTimelineContext context,
+      TimelineData data,
+      int threshold) {
+    if (threshold <= 0) return null;
+    int actionCount = countActions(data);
+    if (actionCount <= threshold) return null;
+
+    int startLine = Math.max(0, context.startLine());
+    int[] lineBounds = lineBounds(source, startLine);
+    String duration = VnsCodeEditor.formatTimelineOutlineDuration(context.body());
+    String message = String.format(Locale.ROOT,
+        "Large timeline block (%d actions, %s, %d track%s, lines %d-%d). "
+            + "Fold this block or open it in Puppeteer for easier editing.",
+        actionCount,
+        duration == null ? "unknown duration" : duration,
+        data.getTracks().size(),
+        data.getTracks().size() == 1 ? "" : "s",
+        startLine + 1,
+        Math.max(startLine + 1, context.endLine() + 1));
+    return VnsScriptAnalyzer.Diagnostic.info(
+        "timeline_large_block",
+        message,
+        lineBounds[0],
+        lineBounds[1],
+        startLine,
+        null,
+        null,
+        -1);
   }
 
   private static VnScene sceneAtSnapshot(

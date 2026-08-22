@@ -27,7 +27,9 @@ import javafx.scene.paint.Color;
  * diagnostics, bookmarks, and the current viewport as semantic markers.</p>
  */
 public final class VnsCodeMinimap extends StackPane {
-  public record DiagnosticMarker(int line, boolean warning, String message) {}
+  public enum DiagnosticSeverity { ERROR, WARNING, INFO }
+
+  public record DiagnosticMarker(int line, DiagnosticSeverity severity, String message) {}
   public record TimelineBlock(int startLine, int endLine, boolean folded) {}
 
   private enum LineKind {
@@ -217,7 +219,12 @@ public final class VnsCodeMinimap extends StackPane {
       int line = clampLine(marker.line(), totalLines);
       double y = yForLine(line);
       if (y + lineHeight < 0 || y > canvas.getHeight()) continue;
-      gc.setFill(Color.web(marker.warning() ? "#ffcf66" : "#ff5f7e", 0.96));
+      String color = switch (marker.severity()) {
+        case WARNING -> "#ffcf66";
+        case INFO -> "#7aa2d8";
+        case ERROR -> "#ff5f7e";
+      };
+      gc.setFill(Color.web(color, 0.96));
       gc.fillOval(width - 17, y - 1, 6, 6);
     }
   }

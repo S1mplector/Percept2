@@ -10,6 +10,11 @@ public final class EditorPreferences {
   public static final int DEFAULT_EDITOR_MAX_FPS = 0;  // 0 = uncapped (match display rate)
   public static final int MIN_EDITOR_MAX_FPS = 0;
   public static final int MAX_EDITOR_MAX_FPS = 240;
+  // Counted as parsed keyframes/cues (roughly 2 per authored action with a
+  // nonzero duration, 1 for an instant change) — not a literal script-line tally.
+  public static final int DEFAULT_LARGE_TIMELINE_BLOCK_ACTION_THRESHOLD = 40;
+  public static final int MIN_LARGE_TIMELINE_BLOCK_ACTION_THRESHOLD = 10;
+  public static final int MAX_LARGE_TIMELINE_BLOCK_ACTION_THRESHOLD = 400;
   public static final String TEXT_EDITOR_JVN = "jvn";
   public static final String TEXT_EDITOR_SYSTEM = "system";
   public static final String TEXT_EDITOR_CUSTOM = "custom";
@@ -21,6 +26,7 @@ public final class EditorPreferences {
 
   private int codeEditorFontSize;
   private int editorMaxFps = DEFAULT_EDITOR_MAX_FPS;
+  private int largeTimelineBlockActionThreshold = DEFAULT_LARGE_TIMELINE_BLOCK_ACTION_THRESHOLD;
   private String editorTheme;
   private boolean showWelcomeOnStartup;
   private boolean loadSidebarExtensionsOnDemand;
@@ -156,6 +162,16 @@ public final class EditorPreferences {
     } else {
       this.editorMaxFps = Math.min(editorMaxFps, MAX_EDITOR_MAX_FPS);
     }
+  }
+
+  public int getLargeTimelineBlockActionThreshold() {
+    return largeTimelineBlockActionThreshold;
+  }
+
+  public void setLargeTimelineBlockActionThreshold(int largeTimelineBlockActionThreshold) {
+    this.largeTimelineBlockActionThreshold = Math.max(
+        MIN_LARGE_TIMELINE_BLOCK_ACTION_THRESHOLD,
+        Math.min(MAX_LARGE_TIMELINE_BLOCK_ACTION_THRESHOLD, largeTimelineBlockActionThreshold));
   }
 
   public String getEditorTheme() {
@@ -421,6 +437,7 @@ public final class EditorPreferences {
         panelPlacements,
         chooserVisibility);
     c.editorMaxFps = this.editorMaxFps;
+    c.largeTimelineBlockActionThreshold = this.largeTimelineBlockActionThreshold;
     c.vnsWordWrapByDefault = this.vnsWordWrapByDefault;
     c.vnsMinimapVisible = this.vnsMinimapVisible;
     c.centerDividerLeft = this.centerDividerLeft;

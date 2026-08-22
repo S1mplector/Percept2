@@ -4163,7 +4163,9 @@ public class EditorApp extends Application {
     if (projectRoot != null) editor.setProjectRoot(projectRoot);
     editor.setCodeEditorFontSize(editorPreferences.getCodeEditorFontSize());
     editor.setVnsAuthoringPreferences(
-        editorPreferences.isVnsWordWrapByDefault(), editorPreferences.isVnsMinimapVisible());
+        editorPreferences.isVnsWordWrapByDefault(),
+        editorPreferences.isVnsMinimapVisible(),
+        editorPreferences.getLargeTimelineBlockActionThreshold());
     editor.setStoryboardOverlay(storyboardOverlayState);
     editor.setOnStoryboardOverlayAdjusted(this::setStoryboardOverlayState);
     editor.setOnSelected(ent -> {
@@ -4363,9 +4365,11 @@ public class EditorApp extends Application {
     if (filesTabs == null) return;
     boolean wordWrapEnabled = editorPreferences.isVnsWordWrapByDefault();
     boolean minimapVisible = editorPreferences.isVnsMinimapVisible();
+    int largeTimelineBlockActionThreshold = editorPreferences.getLargeTimelineBlockActionThreshold();
     for (Tab tab : filesTabs.getTabs()) {
       if (tab.getContent() instanceof FileEditorTab fileEditorTab) {
-        fileEditorTab.setVnsAuthoringPreferences(wordWrapEnabled, minimapVisible);
+        fileEditorTab.setVnsAuthoringPreferences(
+            wordWrapEnabled, minimapVisible, largeTimelineBlockActionThreshold);
       }
     }
   }

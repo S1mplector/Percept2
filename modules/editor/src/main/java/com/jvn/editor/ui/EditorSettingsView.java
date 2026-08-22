@@ -69,6 +69,7 @@ public class EditorSettingsView extends BorderPane {
       new CheckBox("Wrap long VNS lines by default");
   private final CheckBox vnsMinimapVisibleCheck =
       new CheckBox("Show the VNS script minimap");
+  private final Spinner<Integer> largeTimelineBlockActionThresholdSpinner = new Spinner<>();
   private final CheckBox gradleSkipTestsOnRunCheck =
       new CheckBox("Skip Gradle tests for default project runs");
   private final Map<EditorSidebarPanel, ComboBox<EditorPanelPlacement>> panelPlacements =
@@ -140,6 +141,13 @@ public class EditorSettingsView extends BorderPane {
     editorMaxFpsSpinner.setEditable(true);
     editorMaxFpsSpinner.getStyleClass().add("editor-settings-spinner");
     editorMaxFpsSpinner.setPromptText("0 = display rate");
+    largeTimelineBlockActionThresholdSpinner.setValueFactory(
+        new SpinnerValueFactory.IntegerSpinnerValueFactory(
+            EditorPreferences.MIN_LARGE_TIMELINE_BLOCK_ACTION_THRESHOLD,
+            EditorPreferences.MAX_LARGE_TIMELINE_BLOCK_ACTION_THRESHOLD,
+            EditorPreferences.DEFAULT_LARGE_TIMELINE_BLOCK_ACTION_THRESHOLD));
+    largeTimelineBlockActionThresholdSpinner.setEditable(true);
+    largeTimelineBlockActionThresholdSpinner.getStyleClass().add("editor-settings-spinner");
     graphicsModeCombo.getItems().addAll(
         GRAPHICS_LABEL_AUTO, GRAPHICS_LABEL_HARDWARE, GRAPHICS_LABEL_SOFTWARE);
     graphicsModeCombo.setMaxWidth(Double.MAX_VALUE);
@@ -175,6 +183,7 @@ public class EditorSettingsView extends BorderPane {
     GridPane authoringGrid = settingsGrid(180);
     authoringGrid.add(vnsWordWrapByDefaultCheck, 1, 0);
     authoringGrid.add(vnsMinimapVisibleCheck, 1, 1);
+    authoringGrid.addRow(2, fieldLabel("Large timeline block hint"), largeTimelineBlockActionThresholdSpinner);
     VBox authoringSection =
         registerSection(
             settingsSection(
@@ -358,6 +367,8 @@ public class EditorSettingsView extends BorderPane {
     editorConfirmRunProjectCheck.setSelected(model.isEditorConfirmRunProject());
     vnsWordWrapByDefaultCheck.setSelected(model.isVnsWordWrapByDefault());
     vnsMinimapVisibleCheck.setSelected(model.isVnsMinimapVisible());
+    largeTimelineBlockActionThresholdSpinner.getValueFactory()
+        .setValue(model.getLargeTimelineBlockActionThreshold());
     gradleSkipTestsOnRunCheck.setSelected(model.isGradleSkipTestsOnRun());
     for (EditorStatusBarSegment segment : EditorStatusBarSegment.values()) {
       CheckBox check = statusBarSegmentChecks.get(segment);
@@ -408,6 +419,11 @@ public class EditorSettingsView extends BorderPane {
     preferences.setEditorConfirmRunProject(editorConfirmRunProjectCheck.isSelected());
     preferences.setVnsWordWrapByDefault(vnsWordWrapByDefaultCheck.isSelected());
     preferences.setVnsMinimapVisible(vnsMinimapVisibleCheck.isSelected());
+    Integer largeTimelineBlockActionThreshold = largeTimelineBlockActionThresholdSpinner.getValue();
+    preferences.setLargeTimelineBlockActionThreshold(
+        largeTimelineBlockActionThreshold == null
+            ? EditorPreferences.DEFAULT_LARGE_TIMELINE_BLOCK_ACTION_THRESHOLD
+            : largeTimelineBlockActionThreshold);
     preferences.setGradleSkipTestsOnRun(gradleSkipTestsOnRunCheck.isSelected());
     for (EditorStatusBarSegment segment : EditorStatusBarSegment.values()) {
       CheckBox check = statusBarSegmentChecks.get(segment);

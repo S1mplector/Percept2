@@ -80,6 +80,61 @@ class VnsTimelineDiagnosticsTest {
         diagnostic.kind().startsWith("timeline_") && !diagnostic.warning()));
   }
 
+  @Test
+  void mainVnsAnalyzerFlagsLargeTimelineBlockAsHint(@TempDir Path projectRoot) throws Exception {
+    Path definitionsDir = Files.createDirectories(projectRoot.resolve("scripts/definitions"));
+    Files.writeString(definitionsDir.resolve("characters.vns"), definitions());
+    Path storyDir = Files.createDirectories(projectRoot.resolve("scripts/story"));
+    Path script = storyDir.resolve("large_timeline.vns");
+
+    StringBuilder timelineBody = new StringBuilder();
+    for (int i = 0; i < 25; i++) {
+      timelineBody.append("  mirror \"john_body_default_" + i + "\" { mirrorX: 1 dur: 1 }\n");
+    }
+    String source = """
+        @include /definitions/characters.vns
+        @label start
+        [show john center $eyes_n_base+$normal_face_common_05+$normal_mouth_common_01 slot=john z=2]
+        timeline {
+        %s}
+        Narrator: 1584
+        """.formatted(timelineBody);
+    Files.writeString(script, source);
+
+    VnsScriptAnalyzer.Analysis analysis = VnsScriptAnalyzer.analyze(
+        source, projectRoot.toFile(), script.toFile(), 20);
+
+    assertTrue(analysis.diagnostics().stream().anyMatch(diagnostic ->
+        diagnostic.kind().equals("timeline_large_block")
+            && diagnostic.info()
+            && diagnostic.message().contains("25 tracks")
+            && diagnostic.message().contains("Fold this block or open it in Puppeteer")));
+  }
+
+  @Test
+  void mainVnsAnalyzerDoesNotFlagNormalSizedTimelineBlock(@TempDir Path projectRoot) throws Exception {
+    Path definitionsDir = Files.createDirectories(projectRoot.resolve("scripts/definitions"));
+    Files.writeString(definitionsDir.resolve("characters.vns"), definitions());
+    Path storyDir = Files.createDirectories(projectRoot.resolve("scripts/story"));
+    Path script = storyDir.resolve("normal_timeline.vns");
+    String source = """
+        @include /definitions/characters.vns
+        @label start
+        [show john center $eyes_n_base+$normal_face_common_05+$normal_mouth_common_01 slot=john z=2]
+        timeline {
+          mirror "john_body_default" { mirrorX: 1 dur: 1 }
+        }
+        Narrator: 1584
+        """;
+    Files.writeString(script, source);
+
+    VnsScriptAnalyzer.Analysis analysis = VnsScriptAnalyzer.analyze(
+        source, projectRoot.toFile(), script.toFile(), 20);
+
+    assertFalse(analysis.diagnostics().stream().anyMatch(diagnostic ->
+        diagnostic.kind().equals("timeline_large_block")));
+  }
+
   private static String definitions() {
     return """
         @character john "John"

@@ -1236,6 +1236,11 @@
   -fx-fill: #f0b673;
 }
 
+.code-area .hint {
+  -fx-underline: true;
+  -fx-fill: #7aa2d8;
+}
+
 .error-line {
   -fx-background-color: rgba(243, 139, 168, 0.1);
 }
@@ -1243,8 +1248,13 @@
 .warning-line {
   -fx-background-color: rgba(240, 182, 115, 0.12);
 }
+
+.hint-line {
+  -fx-background-color: rgba(122, 162, 216, 0.08);
+}
 .lineno-error { -fx-background-color: #311118; }
 .lineno-warning { -fx-background-color: #2f2613; }
+.lineno-hint { -fx-background-color: #16202e; }
 
 .lint-label {
   -fx-padding: 4 8 4 8;

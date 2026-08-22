@@ -60,6 +60,7 @@ Both settings windows include a **Filter settings...** field. Type one or more w
 |---------|--------------|---------|
 | Wrap long VNS lines by default | Enables line wrapping in every open VNS tab and for VNS tabs opened later. | Off |
 | Show the VNS script minimap | Shows the script overview and its diagnostic/timeline markers beside VNS source. | On |
+| Large timeline block hint | Sets the parsed keyframe/cue count above which an inline `timeline { }` block gets a lightweight "large timeline block" hint (gutter tint + squiggle, not a warning) suggesting you fold the block or open it in Puppeteer. Roughly 2 keyframes are counted per authored action with a duration, 1 for an instant change — not a literal line count. | 40 |
 
 Saving either preference applies it to open VNS tabs immediately. The VNS toolbar's line-wrap
 button (`Cmd/Ctrl+Shift+W`) can still change wrapping temporarily for the current editor session.
