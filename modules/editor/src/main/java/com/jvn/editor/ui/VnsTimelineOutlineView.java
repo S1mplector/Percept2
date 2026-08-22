@@ -5,14 +5,20 @@ import javafx.application.Platform;
 import javafx.collections.FXCollections;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
+import javafx.scene.control.ContextMenu;
 import javafx.scene.control.Label;
 import javafx.scene.control.ListCell;
 import javafx.scene.control.ListView;
+import javafx.scene.control.MenuItem;
+import javafx.scene.control.Tooltip;
+import javafx.scene.input.Clipboard;
+import javafx.scene.input.ClipboardContent;
 import javafx.scene.input.KeyCode;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
+import javafx.stage.Window;
 import javafx.util.Duration;
 
 import java.io.File;
@@ -41,6 +47,7 @@ public class VnsTimelineOutlineView extends BorderPane {
   private final AtomicLong generation = new AtomicLong();
   private boolean hasActiveFile;
   private Consumer<Integer> onOpenLine;
+  private String lastText = "";
 
   public VnsTimelineOutlineView() {
     getStyleClass().addAll("vns-timeline-outline-root", "sidebar-tool-root");
@@ -66,6 +73,7 @@ public class VnsTimelineOutlineView extends BorderPane {
         e.consume();
       }
     });
+    installRowContextMenu();
 
     HBox titleRow = new HBox(8, titleLabel, SidebarToolHelp.button(this, "Timeline Outline", """
         Lists every timeline { ... } block found in the active .vns script, in \
@@ -125,6 +133,7 @@ while after you stop typing, so duration parsing never blocks editing."""));
   private void runRefresh(long gen, VnsCodeEditor editor) {
     List<VnsCodeEditor.TimelineOutlineEntry> entries = editor.computeTimelineOutlineEntries();
     String text = editor.getText();
+    lastText = text;
     AsyncAssetLoader.getExecutor().execute(() -> {
       List<OutlineRow> computed = new ArrayList<>();
       for (VnsCodeEditor.TimelineOutlineEntry entry : entries) {
@@ -171,6 +180,96 @@ while after you stop typing, so duration parsing never blocks editing."""));
     OutlineRow row = listView.getSelectionModel().getSelectedItem();
     if (row == null || onOpenLine == null) return;
     onOpenLine.accept(row.entry().oneBasedStartLine());
+  }
+
+  /**
+   * Right-click-only "Copy Timeline Block" action, so the block can be
+   * copied without manually selecting hundreds of lines in the editor.
+   * Selects the row under the cursor first so right-clicking an unselected
+   * row still copies the right block.
+   */
+  private void installRowContextMenu() {
+    MenuItem copyItem = new MenuItem("Copy Timeline Block");
+    copyItem.setOnAction(e -> copySelectedBlock());
+    ContextMenu menu = new ContextMenu(copyItem);
+    listView.setContextMenu(menu);
+    listView.addEventFilter(javafx.scene.input.MouseEvent.MOUSE_PRESSED, e -> {
+      if (!e.isSecondaryButtonDown()) return;
+      OutlineCell cell = findCellFromTarget(e.getTarget());
+      if (cell != null && cell.getItem() != null) {
+        listView.getSelectionModel().select(cell.getItem());
+      }
+    });
+    copyItem.disableProperty().bind(
+        listView.getSelectionModel().selectedItemProperty().isNull());
+  }
+
+  private static OutlineCell findCellFromTarget(javafx.event.EventTarget target) {
+    javafx.scene.Node node = target instanceof javafx.scene.Node n ? n : null;
+    while (node != null) {
+      if (node instanceof OutlineCell cell) return cell;
+      node = node.getParent();
+    }
+    return null;
+  }
+
+  /** Test-only hook for triggering the context menu's copy action without driving real mouse input. */
+  void copySelectedBlockForTest() {
+    copySelectedBlock();
+  }
+
+  /** Test-only synchronous refresh, bypassing the debounce and background executor for determinism. */
+  void refreshSynchronouslyForTest(VnsCodeEditor editor) {
+    hasActiveFile = true;
+    List<VnsCodeEditor.TimelineOutlineEntry> entries = editor.computeTimelineOutlineEntries();
+    String text = editor.getText();
+    lastText = text;
+    List<OutlineRow> computed = new ArrayList<>();
+    for (VnsCodeEditor.TimelineOutlineEntry entry : entries) {
+      String block = safeSubstring(text, entry.startOffset(), entry.endOffset());
+      computed.add(new OutlineRow(entry, VnsCodeEditor.formatTimelineOutlineDuration(block)));
+    }
+    applyRows(computed);
+  }
+
+  /** Test-only hook to select a row by index before triggering the copy action. */
+  void selectRowForTest(int index) {
+    listView.getSelectionModel().select(index);
+  }
+
+  private void copySelectedBlock() {
+    int selectedIndex = listView.getSelectionModel().getSelectedIndex();
+    OutlineRow row = listView.getSelectionModel().getSelectedItem();
+    if (row == null) return;
+    VnsCodeEditor.TimelineOutlineEntry entry = row.entry();
+    String block = safeSubstring(lastText, entry.startOffset(), entry.endOffset());
+    ClipboardContent content = new ClipboardContent();
+    content.putString(block);
+    Clipboard.getSystemClipboard().setContent(content);
+    showCopyFeedback(selectedIndex, entry.oneBasedStartLine(), entry.oneBasedEndLine());
+  }
+
+  private void showCopyFeedback(int rowIndex, int startLine, int endLine) {
+    Window window = getScene() == null ? null : getScene().getWindow();
+    if (window == null) return;
+    OutlineCell cell = findCellAtIndex(rowIndex);
+    javafx.geometry.Point2D anchor = cell != null
+        ? cell.localToScreen(cell.getWidth() * 0.5, cell.getHeight())
+        : listView.localToScreen(listView.getWidth() * 0.5, 24);
+    if (anchor == null) return;
+    Tooltip tip = new Tooltip("Copied L" + startLine + "–" + endLine + " to clipboard");
+    tip.getStyleClass().add("vns-timeline-outline-copy-tooltip");
+    tip.show(window, anchor.getX(), anchor.getY());
+    PauseTransition hide = new PauseTransition(Duration.millis(1500));
+    hide.setOnFinished(e -> tip.hide());
+    hide.play();
+  }
+
+  private OutlineCell findCellAtIndex(int index) {
+    for (javafx.scene.Node node : listView.lookupAll(".vns-timeline-outline-list-cell")) {
+      if (node instanceof OutlineCell cell && cell.getIndex() == index) return cell;
+    }
+    return null;
   }
 
   private record OutlineRow(VnsCodeEditor.TimelineOutlineEntry entry, String duration) {}

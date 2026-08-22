@@ -82,6 +82,47 @@ class VnsTimelineOutlineFxTest {
     });
   }
 
+  @Test
+  void copySelectedBlockPutsCompleteBalancedBlockOnClipboard() throws Exception {
+    runFx(() -> {
+      VnsCodeEditor editor = new VnsCodeEditor();
+      String script =
+          "@label start\n"
+              + "timeline {\n"
+              + "  move \"hero\" {\n"
+              + "    x: 100\n"
+              + "    dur: 200\n"
+              + "  }\n"
+              + "}\n"
+              + "\n"
+              + "[say \"hero\" \"Hi\"]\n"
+              + "\n"
+              + "timeline {\n"
+              + "  move \"hero\" {\n"
+              + "    x: 0\n"
+              + "    dur: 100\n"
+              + "  }\n"
+              + "}\n";
+      editor.setText(script);
+
+      VnsTimelineOutlineView view = new VnsTimelineOutlineView();
+      view.refreshSynchronouslyForTest(editor);
+      view.selectRowForTest(1);
+      view.copySelectedBlockForTest();
+
+      String copied = javafx.scene.input.Clipboard.getSystemClipboard().getString();
+      assertNotNull(copied);
+      assertTrue(copied.startsWith("timeline {"));
+      assertTrue(copied.trim().endsWith("}"));
+      long openBraces = copied.chars().filter(c -> c == '{').count();
+      long closeBraces = copied.chars().filter(c -> c == '}').count();
+      assertEquals(openBraces, closeBraces);
+      assertTrue(copied.contains("dur: 100"));
+      assertTrue(!copied.contains("dur: 200"));
+      return null;
+    });
+  }
+
   private static <T> T runFx(Callable<T> callable) throws Exception {
     return FxToolkit.runFx(callable);
   }
