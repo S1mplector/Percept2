@@ -848,7 +848,7 @@ The cue list is sorted on the project model and each saved cue immediately updat
 | `hide` | `target` | Hide an entity or VN character instantly |
 | `replace` | `target`, `Expression`, optional `Replacement Path` | Replace the current sprite mid-sequence |
 | `scene` | optional `target`, `Scene / BG Id`, optional `Background Path` | Change the current background or cutaway frame without leaving the timeline |
-| `dialogue_marker` | `Marker Id` | Emit a marker cue for surrounding script logic |
+| `dialogue_marker` | `Marker Id` | Authoring-only marker (speaker/text preview); never fires as a runtime event. Also addable via right-click → **Add Dialogue Cue at Playhead...** on empty timeline space |
 | `script_call` | `Call Name`, optional `Arg` | Emit a named cue for external script handling |
 | `custom` | freeform `type` plus payload | Emit any other event payload you need |
 

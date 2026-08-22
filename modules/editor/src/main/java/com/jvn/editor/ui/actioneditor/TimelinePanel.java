@@ -5,6 +5,7 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
@@ -25,24 +26,29 @@ import javafx.geometry.Pos;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.control.Button;
+import javafx.scene.control.ButtonType;
 import javafx.scene.control.ContextMenu;
+import javafx.scene.control.Dialog;
 import javafx.scene.control.Label;
 import javafx.scene.control.Menu;
 import javafx.scene.control.MenuItem;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.control.SeparatorMenuItem;
 import javafx.scene.control.Slider;
+import javafx.scene.control.TextField;
 import javafx.scene.control.Tooltip;
 import javafx.scene.input.ContextMenuEvent;
 import javafx.scene.input.MouseButton;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.input.ScrollEvent;
+import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Pane;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
 import javafx.stage.Window;
+import javafx.util.Pair;
 
 public class TimelinePanel extends VBox {
     private static final double TRACK_HEIGHT = 24;
@@ -1169,6 +1175,7 @@ public class TimelinePanel extends VBox {
             case "hide" -> Color.web("#ff7b8a", 0.92);
             case "replace" -> Color.web("#f0b673", 0.92);
             case "scene" -> Color.web("#b892ff", 0.92);
+            case "dialogue_marker" -> Color.web("#f5c542", 0.94);
             default -> Color.web("#8fa3b8", 0.88);
         };
     }
@@ -2871,12 +2878,61 @@ public class TimelinePanel extends VBox {
         MenuItem miPaste = new MenuItem("Paste at Playhead");
         miPaste.setDisable(copiedKeyframes.isEmpty());
         miPaste.setOnAction(ev -> pasteCopiedKeyframesAtPlayhead());
+        MenuItem miAddDialogueCue = new MenuItem("Add Dialogue Cue at Playhead...");
+        miAddDialogueCue.setOnAction(ev -> promptAddDialogueCueAtPlayhead());
         MenuItem miZoomFit = new MenuItem("Zoom to Fit");
         miZoomFit.setOnAction(ev -> zoomToFit());
         MenuItem miZoomSel = new MenuItem("Zoom to Selection");
         miZoomSel.setOnAction(ev -> zoomToSelection());
-        menu.getItems().addAll(miPaste, new SeparatorMenuItem(), miZoomFit, miZoomSel);
+        menu.getItems().addAll(miPaste, miAddDialogueCue, new SeparatorMenuItem(), miZoomFit, miZoomSel);
         return menu;
+    }
+
+    private void promptAddDialogueCueAtPlayhead() {
+        Dialog<Pair<String, String>> dialog = new Dialog<>();
+        dialog.setTitle("Add Dialogue Cue");
+        dialog.setHeaderText("Add dialogue cue at " + formatTime(project.getPlayheadMs()));
+        Window owner = canvas.getScene() != null ? canvas.getScene().getWindow() : null;
+        if (owner != null) dialog.initOwner(owner);
+        dialog.getDialogPane().getButtonTypes().addAll(ButtonType.OK, ButtonType.CANCEL);
+
+        TextField speakerField = new TextField();
+        speakerField.setPromptText("Speaker");
+        TextField textField = new TextField();
+        textField.setPromptText("Text preview (optional)");
+
+        GridPane grid = new GridPane();
+        grid.setHgap(8);
+        grid.setVgap(8);
+        grid.addRow(0, new Label("Speaker:"), speakerField);
+        grid.addRow(1, new Label("Text:"), textField);
+        dialog.getDialogPane().setContent(grid);
+
+        dialog.setResultConverter(button -> button == ButtonType.OK
+            ? new Pair<>(speakerField.getText(), textField.getText())
+            : null);
+
+        dialog.showAndWait().ifPresent(result -> addDialogueCueAtPlayhead(result.getKey(), result.getValue()));
+    }
+
+    private void addDialogueCueAtPlayhead(String speaker, String text) {
+        double timeMs = project.getPlayheadMs();
+        String speakerTrimmed = speaker != null ? speaker.trim() : "";
+        String textTrimmed = text != null ? text.trim() : "";
+        Map<String, String> payload = new LinkedHashMap<>();
+        payload.put("speaker", speakerTrimmed);
+        payload.put("text", textTrimmed);
+        EditorEventCue cue = new EditorEventCue(timeMs, "dialogue_marker", payload);
+        if (commandStack != null) {
+            commandStack.execute(new PuppeteerCommand("Add dialogue cue",
+                () -> project.addEditorEventCue(cue),
+                () -> project.removeEditorEventCue(cue)
+            ));
+        } else {
+            project.addEditorEventCue(cue);
+        }
+        notifyEdited();
+        render();
     }
 
     // ---------------------------------------------------------------------

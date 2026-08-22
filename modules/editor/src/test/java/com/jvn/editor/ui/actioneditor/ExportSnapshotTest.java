@@ -92,19 +92,22 @@ class ExportSnapshotTest {
         markerPayload.put("id", "beat_1");
         project.addEditorEventCue(new EditorEventCue(500, "dialogue_marker", markerPayload));
 
-        String exported = CodeExporter.export(project);
+        String exported = CodeExporter.exportNamed(project, "snapshot_event");
         assertTrue(
             exported.contains("expression \"lavender\"")
                 || exported.contains("event \"expression\""),
             "Should contain expression action/event block"
         );
-        assertTrue(exported.contains("event \"dialogue_marker\""),
-            "Should contain dialogue_marker event block");
+        assertFalse(exported.contains("event \"dialogue_marker\""),
+            "dialogue_marker cues are authoring metadata only and must not export as a runtime event block");
+        assertTrue(exported.contains("@jvn-puppeteer-cue"),
+            "Should contain @jvn-puppeteer-cue metadata comment for the dialogue marker");
+        assertTrue(exported.contains("id=beat_1"),
+            "Metadata comment should carry the dialogue marker's id");
         if (exported.contains("event \"expression\"")) {
             assertTrue(exported.contains("target:"));
         }
         assertTrue(exported.contains("value:"));
-        assertTrue(exported.contains("id:"));
     }
 
     @Test
