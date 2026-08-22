@@ -814,6 +814,25 @@ public class VnScriptParserTest {
   }
 
   @Test
+  public void jesTimelineCommandAcceptsWaitEqualsFalseModifier() throws Exception {
+    String script = """
+      @label start
+      [jes_timeline my_animation wait=false]
+      [end]
+    """;
+
+    VnScriptParser parser = new VnScriptParser();
+    VnScenario scenario = parser.parseFromString(script);
+    VnNode external = scenario.getNodes().stream()
+        .filter(n -> n.getType() == VnNodeType.EXTERNAL)
+        .findFirst()
+        .orElseThrow();
+
+    assertEquals("jes_timeline", external.getExternalCommand().getProvider());
+    assertEquals("my_animation wait=false", external.getExternalCommand().getPayload());
+  }
+
+  @Test
   public void rejectsUnknownCommandsWithStrictDiagnostics() {
     String script = """
       @label start
@@ -918,6 +937,34 @@ public class VnScriptParserTest {
         .orElseThrow();
     assertTrue(timeline.getExternalCommand().getPayload().startsWith("timeline {"));
     assertTrue(timeline.getExternalCommand().getPayload().contains("move \"hero\""));
+  }
+
+  @Test
+  public void parsesInlineTimelineWithWaitEqualsFalseModifier() throws Exception {
+    String script = """
+      @scenario runtime_showcase
+      @label start
+      timeline wait=false {
+        move "hero" {
+          x: 620
+          y: 400
+          dur: 420
+          easing: ease_in_out_cubic
+        }
+      }
+      [end]
+      """;
+
+    VnScriptParser parser = new VnScriptParser();
+    VnScenario scen = parser.parseFromString(script);
+
+    VnNode timeline = scen.getNodes().stream()
+        .filter(n -> n.getType() == VnNodeType.EXTERNAL
+            && "jes_timeline_inline".equals(n.getExternalCommand().getProvider()))
+        .findFirst()
+        .orElseThrow();
+    assertTrue(timeline.getExternalCommand().getPayload().startsWith("timeline {"));
+    assertTrue(timeline.getExternalCommand().getPayload().endsWith("wait=false"));
   }
 
   @Test

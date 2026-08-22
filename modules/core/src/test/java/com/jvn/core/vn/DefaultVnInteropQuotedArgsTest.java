@@ -110,6 +110,65 @@ class DefaultVnInteropQuotedArgsTest {
   }
 
   @Test
+  void inlineTimelineWithWaitEqualsFalseAdvancesImmediately() {
+    VnScenario scenario = new VnScenarioBuilder("nonblocking_timeline")
+      .addCharacterWithExpressions("john", "John", "body.png")
+      .label("start")
+      .end()
+      .build();
+    VnScene scene = new VnScene(scenario);
+    scene.getState().showCharacter(CharacterPosition.CENTER, "john", "neutral");
+    DefaultVnInterop interop = new DefaultVnInterop();
+    interop.setSceneAccessor(new VnCharacterSceneAccessor());
+
+    VnInteropResult result = interop.handle(new VnExternalCommand("jes_timeline_inline", """
+        timeline {
+          move "john_neutral_body_default" {
+            x: 542
+            y: 0
+            dur: 100
+          }
+        } wait=false
+        """), scene);
+
+    assertNull(scene.getActiveError());
+    assertTrue(result.shouldAdvance());
+    assertTrue(result.shouldContinueProcessing());
+    assertTrue(scene.getState().hasActiveTimelines());
+  }
+
+  @Test
+  void namedTimelineDefaultsToNonBlockingAndAdvancesImmediately(@TempDir Path projectRoot) throws Exception {
+    Path timelines = Files.createDirectories(projectRoot.resolve("scripts/timelines"));
+    Files.writeString(timelines.resolve("my_animation.jes"), """
+        timeline {
+          wait 25
+        }
+        """);
+    AssetCatalog.setDefaultManager(new FilesystemAssetManager(projectRoot));
+    TimelineRegistry.clear();
+
+    try {
+      VnScenario scenario = new VnScenarioBuilder("named_timeline_nonblocking")
+        .label("start")
+        .end()
+        .build();
+      VnScene scene = new VnScene(scenario);
+      DefaultVnInterop interop = new DefaultVnInterop();
+      interop.setSceneAccessor(new VnCharacterSceneAccessor());
+
+      VnInteropResult result = interop.handle(new VnExternalCommand("jes_timeline", "my_animation wait=false"), scene);
+
+      assertTrue(result.shouldAdvance());
+      assertTrue(result.shouldContinueProcessing());
+      assertTrue(scene.getState().hasActiveTimelines());
+    } finally {
+      TimelineRegistry.clear();
+      AssetCatalog.setDefaultManager(new ClasspathAssetManager());
+    }
+  }
+
+  @Test
   void lightningSequencePreArmsMirrorsAndKeepsThemLayerScoped() {
     VnCharacter john = VnCharacter.builder("john")
         .addLayer("body_default", "body.png")
