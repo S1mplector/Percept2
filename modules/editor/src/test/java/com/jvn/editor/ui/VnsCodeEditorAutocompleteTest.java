@@ -51,6 +51,25 @@ class VnsCodeEditorAutocompleteTest {
   }
 
   @Test
+  void hoverDocForShowExplainsExpressionCrossfadeDefaults() {
+    String doc = VnsCodeEditor.commandHoverDoc("show");
+
+    assertTrue(doc.contains("expr="));
+    assertTrue(doc.contains("180ms"));
+    assertTrue(doc.contains("dur=0"));
+  }
+
+  @Test
+  void hoverDocForMoveExplainsExpressionCrossfadeDefaults() {
+    String doc = VnsCodeEditor.commandHoverDoc("move");
+
+    assertTrue(doc.contains("expr="));
+    assertTrue(doc.contains("180ms"));
+    assertTrue(doc.contains("dur=0"));
+    assertTrue(doc.contains("dur=500"));
+  }
+
+  @Test
   void timelineFoldScannerAcceptsInlineOpeningBrace() {
     String source = """
         [character john expression neutral]

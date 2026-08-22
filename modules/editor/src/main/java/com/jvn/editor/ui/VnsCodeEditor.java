@@ -2092,8 +2092,10 @@ public class VnsCodeEditor extends BorderPane {
   static {
     VNS_COMMAND_DOCS.put("bg", "Set background image. Usage: [bg image_name]");
     VNS_COMMAND_DOCS.put("background", "Set background image. Usage: [background image_name]");
-    VNS_COMMAND_DOCS.put("show", "Show a character sprite. Usage: [show character_id pos=center expr=neutral layer=10] or [show character_id center]");
-    VNS_COMMAND_DOCS.put("move", "Move an existing character sprite or display slot. Usage: [move character_id pos=right expr=smile ease=easeInOut dur=500], [move slot=head at=0.5,0.7], or [move @head at 0.5,0.7]");
+    VNS_COMMAND_DOCS.put("show", "Show a character sprite. Usage: [show character_id pos=center expr=neutral layer=10] or [show character_id center]\n\n"
+        + "expr= changes crossfade over 180ms by default. Use dur=0 for an instant swap, or dur=500 for a slower fade.");
+    VNS_COMMAND_DOCS.put("move", "Move an existing character sprite or display slot. Usage: [move character_id pos=right expr=smile ease=easeInOut dur=500], [move slot=head at=0.5,0.7], or [move @head at 0.5,0.7]\n\n"
+        + "expr= changes crossfade over 180ms by default (dur=0 swaps instantly, dur=500 crossfades over 500ms).");
     VNS_COMMAND_DOCS.put("hide", "Hide a character sprite or display slot. Usage: [hide character], [hide slot=head], or [hide @head]");
     VNS_COMMAND_DOCS.put("showpreset", "Show every slot in a display preset. Usage: [showpreset preset_id] or [showpreset preset_id at 0.5,1.0]");
     VNS_COMMAND_DOCS.put("movepreset", "Move every slot in a display preset. Usage: [movepreset preset_id at 0.5,0.72 ease_out_quad 240]");
@@ -2160,6 +2162,11 @@ public class VnsCodeEditor extends BorderPane {
     VNS_COMMAND_DOCS.put("@bind", "Bind a Java interop variable. Usage: @bind Type:variableName");
     VNS_COMMAND_DOCS.put("@jimport", "Import a Java package or class for VNS Java interop. Usage: @jimport com.example.GameHooks");
     VNS_COMMAND_DOCS.put("@external", "Declare an editor/runtime interop cue. Usage: @external jes_timeline timeline_id");
+  }
+
+  /** Package-private accessor for tests: returns the hover doc text for a command/directive key, or null. */
+  static String commandHoverDoc(String key) {
+    return VNS_COMMAND_DOCS.get(key);
   }
 
   private final Tooltip hoverTooltip = new Tooltip();
