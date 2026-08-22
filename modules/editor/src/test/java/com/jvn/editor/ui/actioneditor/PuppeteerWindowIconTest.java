@@ -11,35 +11,12 @@ import java.io.InputStream;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
 import javax.imageio.ImageIO;
-import javafx.application.Platform;
+import com.jvn.fx.testkit.FxToolkit;
 import org.junit.jupiter.api.Assumptions;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 class PuppeteerWindowIconTest {
-  private static boolean toolkitAvailable;
-
-  @BeforeAll
-  static void startToolkit() throws Exception {
-    if (System.getProperty("os.name", "").toLowerCase().contains("linux")
-        && System.getenv().getOrDefault("DISPLAY", "").isBlank()) {
-      toolkitAvailable = false;
-      return;
-    }
-    CountDownLatch ready = new CountDownLatch(1);
-    try {
-      Platform.startup(ready::countDown);
-      toolkitAvailable = ready.await(5, TimeUnit.SECONDS);
-    } catch (IllegalStateException alreadyStarted) {
-      toolkitAvailable = true;
-    } catch (RuntimeException unavailable) {
-      toolkitAvailable = false;
-    }
-  }
-
   @Test
   void loadsDedicatedPuppeteerProcessIconAtFullResolution() throws Exception {
     URL png = PuppeteerWindow.class.getResource(PuppeteerWindow.WINDOW_ICON_RESOURCE);
@@ -56,7 +33,8 @@ class PuppeteerWindowIconTest {
 
   @Test
   void javaFxWindowLoaderAcceptsThePackagedIcon() {
-    Assumptions.assumeTrue(toolkitAvailable, "JavaFX toolkit is unavailable in this environment");
+    FxToolkit.ensureStarted();
+    Assumptions.assumeTrue(FxToolkit.isAvailable(), "JavaFX toolkit is unavailable in this environment");
     javafx.scene.image.Image windowIcon = PuppeteerWindow.loadWindowIcon().orElseThrow();
     assertFalse(windowIcon.isError());
     assertEquals(512.0, windowIcon.getWidth());

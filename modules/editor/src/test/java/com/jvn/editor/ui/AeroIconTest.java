@@ -3,49 +3,21 @@ package com.jvn.editor.ui;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicReference;
+import com.jvn.fx.testkit.FxToolkit;
+import com.jvn.fx.testkit.FxToolkitExtension;
 import java.util.HashSet;
 import java.util.Set;
-import javafx.application.Platform;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.image.WritableImage;
 import javafx.scene.layout.StackPane;
-import org.junit.jupiter.api.Assumptions;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 
+@ExtendWith(FxToolkitExtension.class)
 class AeroIconTest {
-  private static boolean toolkitAvailable;
-
-  @BeforeAll
-  static void startToolkit() throws Exception {
-    if (isHeadlessLinux()) {
-      toolkitAvailable = false;
-      return;
-    }
-    CountDownLatch ready = new CountDownLatch(1);
-    try {
-      Platform.startup(ready::countDown);
-      toolkitAvailable = ready.await(5, TimeUnit.SECONDS);
-    } catch (IllegalStateException alreadyStarted) {
-      toolkitAvailable = true;
-    } catch (RuntimeException unavailable) {
-      toolkitAvailable = false;
-    }
-  }
-
-  private static boolean isHeadlessLinux() {
-    return System.getProperty("os.name", "").toLowerCase().contains("linux")
-        && System.getenv().getOrDefault("DISPLAY", "").isBlank();
-  }
-
   @Test
   void everySemanticKindRendersVisibleGlassAndGlyphPixels() throws Exception {
-    Assumptions.assumeTrue(toolkitAvailable, "JavaFX toolkit is unavailable in this environment");
-
     for (AeroIcon.Kind kind : AeroIcon.Kind.values()) {
       WritableImage image = onFxThread(() -> {
         AeroIcon icon = AeroIcon.of(kind, 24);
@@ -61,8 +33,6 @@ class AeroIconTest {
 
   @Test
   void supportedSizeRangeIsClampedWithoutChangingSemanticKind() throws Exception {
-    Assumptions.assumeTrue(toolkitAvailable, "JavaFX toolkit is unavailable in this environment");
-
     AeroIcon small = onFxThread(() -> AeroIcon.of(AeroIcon.Kind.SETTINGS, 2));
     AeroIcon large = onFxThread(() -> AeroIcon.of(AeroIcon.Kind.SETTINGS, 200));
 
@@ -73,8 +43,6 @@ class AeroIconTest {
 
   @Test
   void projectActionFactoriesKeepWelcomeAndExplorerArtworkAligned() throws Exception {
-    Assumptions.assumeTrue(toolkitAvailable, "JavaFX toolkit is unavailable in this environment");
-
     AeroIcon run = onFxThread(() -> AeroIcon.runProject(22));
     AeroIcon build = onFxThread(() -> AeroIcon.buildProject(22));
 
@@ -86,8 +54,6 @@ class AeroIconTest {
 
   @Test
   void vnsCommandsUseTheSameTransparentAeroButtonTreatment() throws Exception {
-    Assumptions.assumeTrue(toolkitAvailable, "JavaFX toolkit is unavailable in this environment");
-
     for (AeroIcon.Kind kind : new AeroIcon.Kind[] {
         AeroIcon.Kind.VNS_RUN_LABEL,
         AeroIcon.Kind.VNS_RUN_CURSOR,
@@ -116,8 +82,6 @@ class AeroIconTest {
 
   @Test
   void vnsCommandsHaveDistinctPrimarySilhouettes() throws Exception {
-    Assumptions.assumeTrue(toolkitAvailable, "JavaFX toolkit is unavailable in this environment");
-
     Set<Long> artworkHashes = new HashSet<>();
     for (AeroIcon.Kind kind : new AeroIcon.Kind[] {
         AeroIcon.Kind.VNS_RUN_LABEL,
@@ -147,8 +111,6 @@ class AeroIconTest {
 
   @Test
   void semanticArtworkUsesRenderCachingForPanelMovement() throws Exception {
-    Assumptions.assumeTrue(toolkitAvailable, "JavaFX toolkit is unavailable in this environment");
-
     AeroIcon icon = onFxThread(() -> AeroIcon.of(AeroIcon.Kind.PROJECT, 28));
 
     assertTrue(icon.isCache());
@@ -177,20 +139,6 @@ class AeroIconTest {
   }
 
   private static <T> T onFxThread(java.util.concurrent.Callable<T> work) throws Exception {
-    CountDownLatch done = new CountDownLatch(1);
-    AtomicReference<T> result = new AtomicReference<>();
-    AtomicReference<Throwable> failure = new AtomicReference<>();
-    Platform.runLater(() -> {
-      try {
-        result.set(work.call());
-      } catch (Throwable error) {
-        failure.set(error);
-      } finally {
-        done.countDown();
-      }
-    });
-    assertTrue(done.await(10, TimeUnit.SECONDS), "JavaFX work timed out");
-    if (failure.get() != null) throw new AssertionError(failure.get());
-    return result.get();
+    return FxToolkit.runFx(work);
   }
 }

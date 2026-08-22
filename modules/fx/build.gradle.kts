@@ -1,11 +1,15 @@
 plugins {
   `java-library`
+  `java-test-fixtures`
   id("net.ltgt.errorprone") version "4.0.1"
 }
 
 dependencies {
   api(project(":core"))
   api(project(":render-api"))
+
+  testFixturesImplementation(platform("org.junit:junit-bom:5.11.0"))
+  testFixturesImplementation("org.junit.jupiter:junit-jupiter-api")
 
   val javafxVersion = (rootProject.findProperty("jvnJavaFxVersion") as String?)?.trim()?.ifBlank { null } ?: "23.0.1"
   val osName = System.getProperty("os.name").lowercase()

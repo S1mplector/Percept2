@@ -5,39 +5,17 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.jvn.fx.testkit.FxToolkit;
+import com.jvn.fx.testkit.FxToolkitExtension;
 import java.util.List;
 import java.util.concurrent.Callable;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.FutureTask;
-import java.util.concurrent.TimeUnit;
-import javafx.application.Platform;
-import org.junit.jupiter.api.Assumptions;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 
+@ExtendWith(FxToolkitExtension.class)
 class VnsTimelineOutlineFxTest {
-  private static boolean toolkitAvailable;
-
-  @BeforeAll
-  static void startToolkit() {
-    if (System.getProperty("os.name", "").toLowerCase().contains("linux")
-        && System.getenv().getOrDefault("DISPLAY", "").isBlank()) {
-      return;
-    }
-    try {
-      CountDownLatch ready = new CountDownLatch(1);
-      Platform.startup(ready::countDown);
-      toolkitAvailable = ready.await(10, TimeUnit.SECONDS);
-    } catch (IllegalStateException alreadyStarted) {
-      toolkitAvailable = true;
-    } catch (Exception unavailable) {
-      toolkitAvailable = false;
-    }
-  }
-
   @Test
   void computeTimelineOutlineEntriesListsBlocksInDocumentOrder() throws Exception {
-    Assumptions.assumeTrue(toolkitAvailable, "JavaFX toolkit is unavailable in this environment");
     runFx(() -> {
       VnsCodeEditor editor = new VnsCodeEditor();
       editor.setText(
@@ -69,7 +47,6 @@ class VnsTimelineOutlineFxTest {
 
   @Test
   void computeTimelineOutlineEntriesReturnsEmptyForScriptWithoutTimelines() throws Exception {
-    Assumptions.assumeTrue(toolkitAvailable, "JavaFX toolkit is unavailable in this environment");
     runFx(() -> {
       VnsCodeEditor editor = new VnsCodeEditor();
       editor.setText("@label start\n[say \"hero\" \"Hi\"]\n");
@@ -97,7 +74,6 @@ class VnsTimelineOutlineFxTest {
 
   @Test
   void outlineViewClearsToPlaceholderWithNoActiveFile() throws Exception {
-    Assumptions.assumeTrue(toolkitAvailable, "JavaFX toolkit is unavailable in this environment");
     runFx(() -> {
       VnsTimelineOutlineView view = new VnsTimelineOutlineView();
       view.clear();
@@ -107,8 +83,6 @@ class VnsTimelineOutlineFxTest {
   }
 
   private static <T> T runFx(Callable<T> callable) throws Exception {
-    FutureTask<T> task = new FutureTask<>(callable);
-    Platform.runLater(task);
-    return task.get(30, TimeUnit.SECONDS);
+    return FxToolkit.runFx(callable);
   }
 }

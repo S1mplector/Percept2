@@ -2,40 +2,18 @@ package com.jvn.editor.ui;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.jvn.fx.testkit.FxToolkit;
+import com.jvn.fx.testkit.FxToolkitExtension;
 import java.util.List;
 import java.util.concurrent.Callable;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.FutureTask;
-import java.util.concurrent.TimeUnit;
-import javafx.application.Platform;
 import org.fxmisc.richtext.CodeArea;
-import org.junit.jupiter.api.Assumptions;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 
+@ExtendWith(FxToolkitExtension.class)
 class VnsCodeMinimapTooltipFxTest {
-  private static boolean toolkitAvailable;
-
-  @BeforeAll
-  static void startToolkit() {
-    if (System.getProperty("os.name", "").toLowerCase().contains("linux")
-        && System.getenv().getOrDefault("DISPLAY", "").isBlank()) {
-      return;
-    }
-    try {
-      CountDownLatch ready = new CountDownLatch(1);
-      Platform.startup(ready::countDown);
-      toolkitAvailable = ready.await(10, TimeUnit.SECONDS);
-    } catch (IllegalStateException alreadyStarted) {
-      toolkitAvailable = true;
-    } catch (Exception unavailable) {
-      toolkitAvailable = false;
-    }
-  }
-
   @Test
   void tooltipShowsLabelNameAndLine() throws Exception {
-    Assumptions.assumeTrue(toolkitAvailable, "JavaFX toolkit is unavailable in this environment");
     runFx(() -> {
       VnsCodeMinimap minimap = newMinimap("@label start\n[say \"hero\" \"Hi\"]\n");
       String tooltip = minimap.tooltipTextForLine(0);
@@ -47,7 +25,6 @@ class VnsCodeMinimapTooltipFxTest {
 
   @Test
   void tooltipShowsSpeakerForDialogueLine() throws Exception {
-    Assumptions.assumeTrue(toolkitAvailable, "JavaFX toolkit is unavailable in this environment");
     runFx(() -> {
       VnsCodeMinimap minimap = newMinimap("hero: Hello there\n");
       String tooltip = minimap.tooltipTextForLine(0);
@@ -58,7 +35,6 @@ class VnsCodeMinimapTooltipFxTest {
 
   @Test
   void tooltipShowsNearbySpeakerForPlainTextLine() throws Exception {
-    Assumptions.assumeTrue(toolkitAvailable, "JavaFX toolkit is unavailable in this environment");
     runFx(() -> {
       VnsCodeMinimap minimap = newMinimap(
           "hero: Hello there\n"
@@ -71,7 +47,6 @@ class VnsCodeMinimapTooltipFxTest {
 
   @Test
   void tooltipShowsTimelineLineRangeDurationTrackAndActionCounts() throws Exception {
-    Assumptions.assumeTrue(toolkitAvailable, "JavaFX toolkit is unavailable in this environment");
     runFx(() -> {
       String script =
           "@label start\n"
@@ -96,7 +71,6 @@ class VnsCodeMinimapTooltipFxTest {
 
   @Test
   void tooltipMarksFoldedTimelineBlocks() throws Exception {
-    Assumptions.assumeTrue(toolkitAvailable, "JavaFX toolkit is unavailable in this environment");
     runFx(() -> {
       String script = "timeline {\n  move \"hero\" {\n    x: 0\n    dur: 50\n  }\n}\n";
       VnsCodeMinimap minimap = new VnsCodeMinimap(new CodeArea());
@@ -115,8 +89,6 @@ class VnsCodeMinimapTooltipFxTest {
   }
 
   private static <T> T runFx(Callable<T> callable) throws Exception {
-    FutureTask<T> task = new FutureTask<>(callable);
-    Platform.runLater(task);
-    return task.get(30, TimeUnit.SECONDS);
+    return FxToolkit.runFx(callable);
   }
 }

@@ -6,38 +6,18 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.jvn.core.scene2d.Sprite2D;
 import com.jvn.editor.commands.CommandStack;
+import com.jvn.fx.testkit.FxToolkit;
+import com.jvn.fx.testkit.FxToolkitExtension;
 import java.util.concurrent.Callable;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.FutureTask;
-import java.util.concurrent.TimeUnit;
-import javafx.application.Platform;
 import javafx.event.ActionEvent;
 import javafx.scene.control.TextField;
-import org.junit.jupiter.api.Assumptions;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 
+@ExtendWith(FxToolkitExtension.class)
 class InspectorViewFxTest {
-  private static boolean toolkitAvailable;
-
-  @BeforeAll
-  static void startToolkit() {
-    if (System.getProperty("os.name", "").toLowerCase().contains("linux")
-        && System.getenv().getOrDefault("DISPLAY", "").isBlank()) return;
-    try {
-      CountDownLatch ready = new CountDownLatch(1);
-      Platform.startup(ready::countDown);
-      toolkitAvailable = ready.await(10, TimeUnit.SECONDS);
-    } catch (IllegalStateException alreadyStarted) {
-      toolkitAvailable = true;
-    } catch (Exception unavailable) {
-      toolkitAvailable = false;
-    }
-  }
-
   @Test
   void numericFieldsSkipNoOpsAndRestoreInvalidInput() throws Exception {
-    Assumptions.assumeTrue(toolkitAvailable, "JavaFX toolkit is unavailable in this environment");
     runFx(() -> {
       CommandStack commands = new CommandStack();
       Sprite2D sprite = new Sprite2D("assets/hero.png", 100, 200);
@@ -72,8 +52,6 @@ class InspectorViewFxTest {
   }
 
   private static <T> T runFx(Callable<T> callable) throws Exception {
-    FutureTask<T> task = new FutureTask<>(callable);
-    Platform.runLater(task);
-    return task.get(30, TimeUnit.SECONDS);
+    return FxToolkit.runFx(callable);
   }
 }

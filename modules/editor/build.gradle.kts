@@ -29,6 +29,8 @@ dependencies {
   implementation("net.java.dev.jna:jna-platform:5.19.1")
   runtimeOnly("ch.qos.logback:logback-classic:1.5.6")
 
+  testImplementation(testFixtures(project(":fx")))
+
   errorprone("com.google.errorprone:error_prone_core:2.28.0")
   errorprone("com.uber.nullaway:nullaway:0.11.0")
 }

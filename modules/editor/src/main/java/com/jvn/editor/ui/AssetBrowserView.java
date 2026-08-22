@@ -83,6 +83,7 @@ public class AssetBrowserView extends BorderPane {
     typeFilter.setTooltip(new Tooltip("Limit asset results to one file type"));
     typeFilter.valueProperty().addListener((obs, oldValue, newValue) -> applyFilter());
 
+    listView.setId("asset-browser-list-view");
     listView.setCellFactory(lv -> new AssetCell());
     listView.setPlaceholder(new Label("No assets found"));
     listView.getSelectionModel().selectedItemProperty().addListener((obs, oldItem, newItem) -> {
@@ -117,6 +118,7 @@ public class AssetBrowserView extends BorderPane {
       e.consume();
     });
 
+    previewImage.setId("asset-browser-preview-image");
     previewImage.setPreserveRatio(true);
     previewImage.setFitHeight(150);
     previewImage.setFitWidth(260);

@@ -9,9 +9,6 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.concurrent.Callable;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.FutureTask;
-import java.util.concurrent.TimeUnit;
 
 import javafx.application.Platform;
 import javafx.scene.Scene;
@@ -21,42 +18,24 @@ import javafx.stage.Stage;
 import javafx.stage.Window;
 
 import org.junit.jupiter.api.Assumptions;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.io.TempDir;
 
+import com.jvn.fx.testkit.FxToolkit;
+import com.jvn.fx.testkit.FxToolkitExtension;
 import com.jvn.editor.vcs.GitVcsService;
 
+@ExtendWith(FxToolkitExtension.class)
 class VersionControlViewPreflightFxTest {
-  private static boolean toolkitAvailable;
-
   @TempDir Path tempDir;
 
   private File repoRoot;
   private final GitVcsService vcs = new GitVcsService();
 
-  @BeforeAll
-  static void startToolkit() {
-    if (System.getProperty("os.name", "").toLowerCase().contains("linux")
-        && System.getenv().getOrDefault("DISPLAY", "").isBlank()) {
-      toolkitAvailable = false;
-      return;
-    }
-    try {
-      CountDownLatch ready = new CountDownLatch(1);
-      Platform.startup(ready::countDown);
-      toolkitAvailable = ready.await(10, TimeUnit.SECONDS);
-    } catch (IllegalStateException alreadyStarted) {
-      toolkitAvailable = true;
-    } catch (Exception unavailable) {
-      toolkitAvailable = false;
-    }
-  }
-
   @BeforeEach
   void setUp() throws Exception {
-    Assumptions.assumeTrue(toolkitAvailable, "JavaFX toolkit is unavailable in this environment");
     Assumptions.assumeTrue(vcs.isGitAvailable(), "git must be on PATH to run this test");
     repoRoot = tempDir.toFile();
     vcs.bootstrapRepository(repoRoot, false, null);
@@ -169,8 +148,6 @@ class VersionControlViewPreflightFxTest {
   }
 
   private static <T> T runFx(Callable<T> callable) throws Exception {
-    FutureTask<T> task = new FutureTask<>(callable);
-    Platform.runLater(task);
-    return task.get(30, TimeUnit.SECONDS);
+    return FxToolkit.runFx(callable);
   }
 }

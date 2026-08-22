@@ -4,47 +4,24 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.jvn.fx.testkit.FxToolkit;
+import com.jvn.fx.testkit.FxToolkitExtension;
 import java.awt.image.BufferedImage;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.concurrent.Callable;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.FutureTask;
-import java.util.concurrent.TimeUnit;
 import javax.imageio.ImageIO;
-import javafx.application.Platform;
 import javafx.scene.Scene;
-import org.junit.jupiter.api.Assumptions;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.io.TempDir;
 
+@ExtendWith(FxToolkitExtension.class)
 class GameBuildPublisherViewFxTest {
-  private static boolean toolkitAvailable;
-
   @TempDir Path tempDir;
-
-  @BeforeAll
-  static void startToolkit() {
-    if (System.getProperty("os.name", "").toLowerCase().contains("linux")
-        && System.getenv().getOrDefault("DISPLAY", "").isBlank()) {
-      toolkitAvailable = false;
-      return;
-    }
-    try {
-      CountDownLatch ready = new CountDownLatch(1);
-      Platform.startup(ready::countDown);
-      toolkitAvailable = ready.await(10, TimeUnit.SECONDS);
-    } catch (IllegalStateException alreadyStarted) {
-      toolkitAvailable = true;
-    } catch (Exception unavailable) {
-      toolkitAvailable = false;
-    }
-  }
 
   @Test
   void validationActionsStayCompactAndWrapInNarrowLayouts() throws Exception {
-    Assumptions.assumeTrue(toolkitAvailable, "JavaFX toolkit is unavailable in this environment");
     runFx(() -> {
       GameBuildPublisherView view = createView();
       Scene scene = style(new Scene(view, 760, 900));
@@ -67,7 +44,6 @@ class GameBuildPublisherViewFxTest {
 
   @Test
   void nativeModeControlsGuidanceVisibilityAndPlatformChecklist() throws Exception {
-    Assumptions.assumeTrue(toolkitAvailable, "JavaFX toolkit is unavailable in this environment");
     runFx(() -> {
       GameBuildPublisherView view = createView();
       style(new Scene(view, 800, 900));
@@ -88,7 +64,6 @@ class GameBuildPublisherViewFxTest {
 
   @Test
   void selectingPngGeneratesAndSelectsPlatformIcon() throws Exception {
-    Assumptions.assumeTrue(toolkitAvailable, "JavaFX toolkit is unavailable in this environment");
     Path source = transparentPng(tempDir.resolve("game-icon.png"));
     runFx(() -> {
       GameBuildPublisherView view = createView();
@@ -132,8 +107,6 @@ class GameBuildPublisherViewFxTest {
   }
 
   private static <T> T runFx(Callable<T> callable) throws Exception {
-    FutureTask<T> task = new FutureTask<>(callable);
-    Platform.runLater(task);
-    return task.get(30, TimeUnit.SECONDS);
+    return FxToolkit.runFx(callable);
   }
 }
