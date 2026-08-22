@@ -11,6 +11,8 @@ dependencies {
   testFixturesImplementation(platform("org.junit:junit-bom:5.11.0"))
   testFixturesImplementation("org.junit.jupiter:junit-jupiter-api")
 
+  testImplementation("ch.qos.logback:logback-classic:1.5.6")
+
   val javafxVersion = (rootProject.findProperty("jvnJavaFxVersion") as String?)?.trim()?.ifBlank { null } ?: "23.0.1"
   val osName = System.getProperty("os.name").lowercase()
   val arch = System.getProperty("os.arch").lowercase()

@@ -28,6 +28,7 @@ import com.jvn.core.config.VnConfig;
 import com.jvn.core.localization.Localization;
 import com.jvn.core.scene2d.Entity2D;
 import com.jvn.core.scene2d.ParticleEmitter2D;
+import com.jvn.core.scene2d.RenderDiagnostics;
 import com.jvn.core.scene2d.Sprite2D;
 import com.jvn.fx.scene2d.MissingAssetPlaceholder;
 import com.jvn.core.ui.BoundsPointCodec;
@@ -89,12 +90,23 @@ public class VnRenderer {
   private static final Logger log = LoggerFactory.getLogger(VnRenderer.class);
   private static final long MIB = 1024L * 1024L;
   static final long SOURCE_IMAGE_CACHE_BUDGET_BYTES = 96L * MIB;
+  static final long COMPOSITE_SPRITE_CACHE_BUDGET_BYTES = 96L * MIB;
+  static final long BACKGROUND_IMAGE_CACHE_BUDGET_BYTES = 48L * MIB;
   static final long STAGE_BACKGROUND_CACHE_BUDGET_BYTES = 48L * MIB;
   static final long STAGE_CHARACTER_CACHE_BUDGET_BYTES = 64L * MIB;
 
   private final GraphicsContext gc;
   private final BoundedImageCache<Image> imageCache = new BoundedImageCache<>(
       VnConfig.defaults().getImageCacheMaxEntries(), SOURCE_IMAGE_CACHE_BUDGET_BYTES, FxImageMemory::estimatedBytes);
+  // Layer sources are transient working data while a composite is assembled. Keeping completed
+  // sprites in the same cache lets full-canvas layers evict the composite that they just built,
+  // forcing expensive Canvas snapshots again on every frame in projects with several characters.
+  private final BoundedImageCache<Image> compositeSpriteCache = new BoundedImageCache<>(
+      64, COMPOSITE_SPRITE_CACHE_BUDGET_BYTES, FxImageMemory::estimatedBytes);
+  // Backgrounds must remain resident while expression changes churn through full-canvas sprite
+  // layers. Reloading them asynchronously leaves the cleared canvas black for a frame.
+  private final BoundedImageCache<Image> backgroundImageCache = new BoundedImageCache<>(
+      16, BACKGROUND_IMAGE_CACHE_BUDGET_BYTES, FxImageMemory::estimatedBytes);
   private final BoundedImageCache<Image> stageBackgroundCache = new BoundedImageCache<>(
       16, STAGE_BACKGROUND_CACHE_BUDGET_BYTES, FxImageMemory::estimatedBytes);
   private final BoundedImageCache<Image> stageCharacterCache = new BoundedImageCache<>(
@@ -265,6 +277,8 @@ public class VnRenderer {
     this.projectRoot = root;
     this.eyeFocusProfiles = null;
     imageCache.clear();
+    compositeSpriteCache.clear();
+    backgroundImageCache.clear();
     particleBlitter.clearCache();
     particleBlitter.setProjectRoot(root);
     stageBackgroundCache.clear();
@@ -631,7 +645,7 @@ public class VnRenderer {
     String backgroundPath = resolveBackgroundPath(background, stage);
     if (backgroundPath == null || backgroundPath.isBlank()) return;
     drawCallStats.incrementOther();
-    Image img = loadImage(backgroundPath);
+    Image img = loadBackgroundImage(backgroundPath);
     com.jvn.core.scene2d.Entity2D proxy = timelineAccessor != null
         && background != null
         && (stage == null || stage.getBackgroundTag() == null || stage.getBackgroundTag().isBlank())
@@ -1002,7 +1016,8 @@ public class VnRenderer {
       if (planEntry.alpha() <= 0.001) continue;
       Image layerImage = loadSpriteLayerImage(planEntry.path());
       if (layerImage == null) {
-        MissingAssetPlaceholder.report(gc, planEntry.path(), "layer:" + planEntry.layerId(), x, y, spriteWidth, spriteHeight);
+        String context = characterId + ":" + fromExpression + "->" + toExpression + ":" + planEntry.layerId();
+        MissingAssetPlaceholder.report(gc, planEntry.path(), context, x, y, spriteWidth, spriteHeight);
         continue;
       }
       gc.save();
@@ -1011,6 +1026,25 @@ public class VnRenderer {
       gc.restore();
     }
     gc.restore();
+  }
+
+  /**
+   * Warns once per missing character layer path so a blank/silhouette sprite is traceable
+   * back to the offending character/expression/layer instead of failing silently.
+   */
+  static void reportMissingCharacterLayers(VnCharacter character, String characterId, String expression, String imagePath) {
+    if (character == null) return;
+    List<String> layerIds = character.getExpressionLayerIds(expression);
+    if (layerIds.isEmpty()) {
+      RenderDiagnostics.missingAsset(imagePath, characterId + ":" + expression);
+      return;
+    }
+    List<String> layerPaths = parseLayerPaths(character.getExpressionPath(expression));
+    for (int i = 0; i < layerIds.size(); i++) {
+      String layerId = layerIds.get(i);
+      String path = i < layerPaths.size() ? layerPaths.get(i) : character.getLayerPath(layerId);
+      RenderDiagnostics.missingAsset(path == null ? imagePath : path, characterId + ":" + expression + ":" + layerId);
+    }
   }
 
   private Map<String, String> layerPathsById(VnCharacter character, String expression) {
@@ -1045,6 +1079,9 @@ public class VnRenderer {
   private void renderCharacterSprite(String imagePath, String expression, VnCharacter character, CharacterPosition position, double width, double height, double offsetX, double offsetY, String characterId, VnState state, VnScenario scenario, VnStagePreset stage) {
     List<String> layerPaths = layerPathsFor(imagePath);
     Image reference = loadSpriteSourceImage(imagePath, layerPaths);
+    if (reference == null) {
+      reportMissingCharacterLayers(character, characterId, expression, imagePath);
+    }
     double spriteHeight = height * characterHeightFactor * characterScale(character);
     double spriteWidth = reference != null ? reference.getWidth() * (spriteHeight / reference.getHeight()) : spriteHeight * 0.5;
     double defaultX = position.computeScreenX(width, spriteWidth) + offsetX;
@@ -1180,11 +1217,15 @@ public class VnRenderer {
 
     for (SpriteLayer layer : layers) {
       if (layer == null) continue;
-      if (!isLoadedImage(layer.image())) {
+      Image layerImage = isLoadedImage(layer.image())
+          ? layer.image()
+          : loadSpriteLayerImage(layer.path());
+      if (!isLoadedImage(layerImage)) {
         MissingAssetPlaceholder.report(gc, layer.path(), "layer:" + layer.layerId(), defaultX, defaultY, spriteWidth, spriteHeight);
         continue;
       }
-      SpriteLayer drawLayer = layer;
+      SpriteLayer drawLayer = new SpriteLayer(
+          layer.path(), layer.layerId(), layer.targetNames(), layer.groupTargets(), layerImage);
       double nudgeX = 0.0;
       double nudgeY = 0.0;
       if (eyeFocus.active() && eyeFocus.isMappedLayer(layer.layerId())) {
@@ -1628,7 +1669,10 @@ public class VnRenderer {
       if (layerId == null || layerId.isBlank()) layerId = fallbackLayerId(path, i);
       List<String> targetNames = timelineDeclaredLayerTargetNames(character, characterId, expression, layerId);
       List<GroupLayerTarget> groupTargets = timelineGroupTargets(character, characterId, expression, layerId);
-      layers.add(new SpriteLayer(path, layerId, targetNames, groupTargets, loadSpriteLayerImage(path)));
+      // Layer rasters are only needed when an active timeline or eye-focus request requires
+      // independent drawing. Loading them here made every static composite reload all of its
+      // full-canvas sources on every frame, even though the composite itself was cached.
+      layers.add(new SpriteLayer(path, layerId, targetNames, groupTargets, null));
     }
     return layers;
   }
@@ -1718,7 +1762,7 @@ public class VnRenderer {
     if (imagePathSpec == null || imagePathSpec.isBlank()) return firstAvailableImage(layerPaths);
     if (layerPaths == null || layerPaths.size() <= 1) return firstAvailableImage(layerPaths);
     String cacheKey = "__composite_sprite__:" + imagePathSpec;
-    Image cached = imageCache.get(cacheKey);
+    Image cached = compositeSpriteCache.get(cacheKey);
     if (isLoadedImage(cached) && cached.getWidth() > 1.0 && cached.getHeight() > 1.0) return cached;
     List<Image> layers = new ArrayList<>();
     int width = 1;
@@ -1740,7 +1784,7 @@ public class VnRenderer {
     snapshotParameters.setFill(Color.TRANSPARENT);
     WritableImage out = new WritableImage(width, height);
     canvas.snapshot(snapshotParameters, out);
-    imageCache.put(cacheKey, out);
+    compositeSpriteCache.put(cacheKey, out);
     return out;
   }
 
@@ -3655,14 +3699,14 @@ public class VnRenderer {
     double alphaCur = Math.max(0, Math.min(1, progress));
     double alphaPrev = 1.0 - alphaCur;
     if (prev != null) {
-      Image imgPrev = loadImage(prev.getImagePath());
+      Image imgPrev = loadBackgroundImage(prev.getImagePath());
       if (imgPrev != null) {
         gc.setGlobalAlpha(alphaPrev);
         gc.drawImage(imgPrev, 0, 0, width, height);
       }
     }
     if (cur != null) {
-      Image imgCur = loadImage(cur.getImagePath());
+      Image imgCur = loadBackgroundImage(cur.getImagePath());
       if (imgCur != null) {
         gc.setGlobalAlpha(alphaCur);
         gc.drawImage(imgCur, 0, 0, width, height);
@@ -3677,7 +3721,7 @@ public class VnRenderer {
       gc.fillRect(x, y, width, height);
       return;
     }
-    Image img = loadImage(background.getImagePath());
+    Image img = loadBackgroundImage(background.getImagePath());
     if (img != null) {
       gc.drawImage(img, x, y, width, height);
     } else {
@@ -4195,8 +4239,13 @@ public class VnRenderer {
 
   private Image loadImage(String path) {
     if (path == null) return null;
-    
+
     return imageCache.computeIfAbsent(path, p -> loadResolvedImage(p, true));
+  }
+
+  private Image loadBackgroundImage(String path) {
+    if (path == null) return null;
+    return backgroundImageCache.computeIfAbsent(path, p -> loadResolvedImage(p, true));
   }
 
   private Image loadImageBlocking(String path) {
@@ -4271,6 +4320,8 @@ public class VnRenderer {
 
   public void clearCache() {
     imageCache.clear();
+    compositeSpriteCache.clear();
+    backgroundImageCache.clear();
     stageBackgroundCache.clear();
     stageCharacterCache.clear();
     layerPathCache.clear();
@@ -4284,6 +4335,8 @@ public class VnRenderer {
     if (disposed) return;
     disposed = true;
     imageCache.clear();
+    compositeSpriteCache.clear();
+    backgroundImageCache.clear();
     stageBackgroundCache.clear();
     stageCharacterCache.clear();
     layerPathCache.clear();

@@ -161,6 +161,16 @@ The renderer looks up the background ID from `@background` declarations, then lo
 2. Classpath resource
 3. Log warning if not found (render shows black/empty)
 
+### Missing Character Layer Warnings
+
+When a character's sprite (or one of its `@charlayer` layers) fails to resolve to an image, `VnRenderer` logs a `WARN` via `RenderDiagnostics.missingAsset` naming the character, expression, layer ID, and the path that failed:
+
+```text
+Missing asset 'assets/characters/aria/mouth_open.png' (aria:happy:mouth_open)
+```
+
+Each distinct `(path, context)` pair is logged only once per process — repeated renders of the same missing layer (e.g. every frame a character stays on screen) do not spam the log. This is always-on diagnostic logging; it doesn't require developer mode and doesn't block playback. When `-Djvn.fx.developerMode=true` is set, a labeled magenta placeholder box is also drawn over the missing layer so it's visible on screen, not just in logs (see `MissingAssetPlaceholder`).
+
 ---
 
 ## Script Resolution
