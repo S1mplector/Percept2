@@ -1,15 +1,19 @@
 package com.jvn.editor.ui;
 
-import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import org.fxmisc.richtext.CodeArea;
+
+import com.jvn.core.animation.TimelineData;
+import com.jvn.core.animation.TimelineDataParser;
 
 import javafx.geometry.Insets;
 import javafx.scene.canvas.Canvas;
@@ -32,6 +36,8 @@ public final class VnsCodeMinimap extends StackPane {
   public record DiagnosticMarker(int line, DiagnosticSeverity severity, String message) {}
   public record TimelineBlock(int startLine, int endLine, boolean folded) {}
 
+  private record TimelineSummary(String durationLabel, int trackCount, int actionCount) {}
+
   private enum LineKind {
     EMPTY,
     COMMENT,
@@ -52,6 +58,9 @@ public final class VnsCodeMinimap extends StackPane {
       Pattern.compile("^\\s*([^\\s#:][^:]{0,30}):");
   private static final Pattern TIMELINE_PATTERN =
       Pattern.compile("^\\s*timeline\\b", Pattern.CASE_INSENSITIVE);
+  private static final Pattern TIMELINE_ACTION_PATTERN = Pattern.compile(
+      "^\\s*(move|depth|pivot|rotate|scale|mirror|fade|visible|brightness|exposure|expression|show|hide|replace|scene|cameraMove|cameraZoom|property|event|playAudio)\\b",
+      Pattern.CASE_INSENSITIVE);
 
   private final CodeArea codeArea;
   private final Canvas canvas = new Canvas(116, 100);
@@ -61,6 +70,7 @@ public final class VnsCodeMinimap extends StackPane {
   private List<DiagnosticMarker> diagnostics = List.of();
   private Set<Integer> bookmarks = Set.of();
   private List<TimelineBlock> timelines = List.of();
+  private Map<TimelineBlock, TimelineSummary> timelineSummaries = Map.of();
   private double lineHeight = 2.0;
   private double mapOffsetY = 0.0;
 
@@ -97,7 +107,49 @@ public final class VnsCodeMinimap extends StackPane {
     }
     this.diagnostics = diagnostics == null ? List.of() : List.copyOf(diagnostics);
     this.bookmarks = bookmarks == null ? Set.of() : new HashSet<>(bookmarks);
-    this.timelines = timelines == null ? List.of() : List.copyOf(timelines);
+    List<TimelineBlock> newTimelines = timelines == null ? List.of() : List.copyOf(timelines);
+    if (!newTimelines.equals(this.timelines)) {
+      this.timelines = newTimelines;
+      this.timelineSummaries = computeTimelineSummaries(newTimelines, cachedText);
+    }
+  }
+
+  private static Map<TimelineBlock, TimelineSummary> computeTimelineSummaries(
+      List<TimelineBlock> blocks, String text) {
+    if (blocks.isEmpty()) return Map.of();
+    Map<TimelineBlock, TimelineSummary> out = new HashMap<>();
+    String[] lines = text.split("\\n", -1);
+    for (TimelineBlock block : blocks) {
+      out.put(block, summarizeTimelineBlock(block, lines));
+    }
+    return out;
+  }
+
+  private static TimelineSummary summarizeTimelineBlock(TimelineBlock block, String[] lines) {
+    int start = Math.max(0, Math.min(block.startLine(), lines.length - 1));
+    int end = Math.max(start, Math.min(block.endLine(), lines.length - 1));
+    StringBuilder blockText = new StringBuilder();
+    int actionCount = 0;
+    for (int i = start; i <= end; i++) {
+      String line = lines[i];
+      blockText.append(line).append('\n');
+      if (TIMELINE_ACTION_PATTERN.matcher(line.strip()).find()) {
+        actionCount++;
+      }
+    }
+    try {
+      TimelineData data = TimelineDataParser.parse("_minimap_hover", blockText.toString());
+      return new TimelineSummary(formatDuration(data.getDurationMs()), data.getTracks().size(), actionCount);
+    } catch (Exception ex) {
+      return new TimelineSummary("duration n/a", 0, actionCount);
+    }
+  }
+
+  private static String formatDuration(double durationMs) {
+    if (durationMs < 1000.0) {
+      return String.format(Locale.ROOT, "%.0f ms", durationMs);
+    }
+    return String.format(Locale.ROOT, "%.2f s", durationMs / 1000.0);
   }
 
   public void redraw() {
@@ -289,6 +341,8 @@ public final class VnsCodeMinimap extends StackPane {
     event.consume();
   }
 
+  private static final int SPEAKER_LOOKBACK_LINES = 15;
+
   private void updateTooltip(MouseEvent event) {
     int totalLines = cachedLines.length;
     if (totalLines == 0 || lineHeight <= 0) {
@@ -296,29 +350,61 @@ public final class VnsCodeMinimap extends StackPane {
       return;
     }
     int line = lineAtY(event.getY(), totalLines);
+    tooltip.setText(tooltipTextForLine(line));
+  }
+
+  String tooltipTextForLine(int line) {
     LineSummary summary = cachedLines[line];
-    String timelineSummary = timelineSummaryAt(line);
+    TimelineBlock timeline = timelineBlockAt(line);
     StringBuilder text = new StringBuilder("Line ").append(line + 1);
-    if (!timelineSummary.isBlank()) {
-      text.append(timelineSummary);
+    if (timeline != null) {
+      TimelineSummary timelineSummary = timelineSummaries.get(timeline);
+      text.append(" | timeline lines ").append(timeline.startLine() + 1)
+          .append('-').append(timeline.endLine() + 1);
+      if (timelineSummary != null) {
+        text.append(" | ").append(timelineSummary.durationLabel())
+            .append(" | ").append(timelineSummary.trackCount())
+            .append(timelineSummary.trackCount() == 1 ? " track" : " tracks")
+            .append(" | ").append(timelineSummary.actionCount())
+            .append(timelineSummary.actionCount() == 1 ? " action" : " actions");
+      }
+      if (timeline.folded()) {
+        text.append(" | folded");
+      }
     } else if (summary.kind() == LineKind.LABEL) {
       text.append(" | @label ").append(summary.label());
     } else if (summary.kind() == LineKind.SPEAKER) {
       text.append(" | dialogue: ").append(summary.speaker());
+    } else if (summary.kind() == LineKind.TEXT || summary.kind() == LineKind.CHOICE) {
+      String nearbySpeaker = nearbySpeaker(line);
+      if (nearbySpeaker != null) {
+        text.append(" | dialogue near: ").append(nearbySpeaker);
+      } else {
+        text.append(" | ").append(summary.kind().name().toLowerCase(Locale.ROOT));
+      }
     } else {
       text.append(" | ").append(summary.kind().name().toLowerCase(Locale.ROOT));
     }
-    tooltip.setText(text.toString());
+    return text.toString();
   }
 
-  private String timelineSummaryAt(int line) {
+  private TimelineBlock timelineBlockAt(int line) {
     for (TimelineBlock block : timelines) {
       if (line >= block.startLine() && line <= block.endLine()) {
-        return " | timeline lines " + (block.startLine() + 1) + "-" + (block.endLine() + 1)
-            + (block.folded() ? " | folded" : "");
+        return block;
       }
     }
-    return "";
+    return null;
+  }
+
+  private String nearbySpeaker(int line) {
+    int floor = Math.max(0, line - SPEAKER_LOOKBACK_LINES);
+    for (int i = line; i >= floor; i--) {
+      if (cachedLines[i].kind() == LineKind.SPEAKER) {
+        return cachedLines[i].speaker();
+      }
+    }
+    return null;
   }
 
   private int clampLine(int line, int totalLines) {

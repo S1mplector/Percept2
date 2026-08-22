@@ -189,6 +189,11 @@ This matters for workflow-critical utilities such as **Build & Publish...**, **S
   - `Label Flow` graph panel for label/jump/choice flow
 - persisted VNS authoring defaults in **Editor Settings** for long-line wrapping and minimap
   visibility; changes apply to open VNS tabs immediately
+- minimap hover tooltips give context per marker kind: label markers show the label
+  name and line; dialogue/text lines show the nearest speaker above them; timeline
+  bands show the line range, duration, track count, and action count (parsed from
+  that block's own text, cached per script snapshot so hovering stays cheap on large
+  scripts)
 
 The VNS strip is action-only: it does not repeat explanatory preview text. Hover
 an icon for its short description or use the `?` control for the complete key
