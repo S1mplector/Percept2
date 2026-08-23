@@ -961,7 +961,68 @@ public class StoryGraphPane extends Pane {
   }
 
   private void updateLinks() {
-    setModel(arcs, links);
+    // Reposition link curves against the live NodeViews without tearing down
+    // and recreating nodes (setModel/refresh) — doing that mid-drag destroys
+    // the NodeView currently holding mouse capture and aborts the drag gesture.
+    for (Group group : linkViews) {
+      getChildren().remove(group);
+    }
+    linkViews.clear();
+
+    Map<String, StoryTimelineView.Arc> visibleByName = new LinkedHashMap<>();
+    for (StoryTimelineView.Arc arc : visibleArcs()) {
+      if (arc != null && arc.name != null && !arc.name.isBlank()) {
+        visibleByName.put(arc.name, arc);
+      }
+    }
+    List<StoryTimelineView.Link> visibleLinks = visibleLinks(visibleByName.keySet());
+    Map<StoryTimelineView.Link, LinkLayoutMetrics> linkMetrics = buildLinkMetrics(visibleLinks);
+
+    for (StoryTimelineView.Link link : visibleLinks) {
+      NodeView from = nodeMap.get(link.fromArc);
+      NodeView to = nodeMap.get(link.toArc);
+      if (from == null || to == null) continue;
+      Group rendered = drawLink(from, to, link, linkMetrics.get(link));
+      rendered.getProperties().put("link", link);
+
+      ContextMenu menu = new ContextMenu();
+      MenuItem miRun = new MenuItem("Run Link");
+      miRun.setOnAction(e -> { if (onRunLink != null) onRunLink.accept(link); });
+      MenuItem miReverse = new MenuItem("Reverse Link");
+      miReverse.setOnAction(e -> reverseLink(link));
+      MenuItem miDelete = new MenuItem("Delete Link");
+      miDelete.setOnAction(e -> {
+        deleteLink(link);
+      });
+      menu.getItems().addAll(miRun, miReverse, miDelete);
+      Tooltip.install(rendered, new Tooltip(fullLinkSummary(link)));
+      rendered.setOnMouseClicked(e -> {
+        if (e.getButton() == MouseButton.SECONDARY) {
+          selectLinkInternal(link, true);
+          menu.show(rendered, e.getScreenX(), e.getScreenY());
+          return;
+        }
+        menu.hide();
+        if (e.getButton() != MouseButton.PRIMARY) return;
+        selectLinkInternal(link, true);
+        if (e.getClickCount() == 2 && onRunLink != null) {
+          onRunLink.accept(link);
+        }
+      });
+      rendered.setOnMouseEntered(e -> {
+        hoveredLinkKey = linkKey(link);
+        applySelectionAndHighlightState();
+      });
+      rendered.setOnMouseExited(e -> {
+        if (nn(hoveredLinkKey).equals(linkKey(link))) {
+          hoveredLinkKey = null;
+          applySelectionAndHighlightState();
+        }
+      });
+      linkViews.add(rendered);
+      getChildren().add(Math.max(1, clusterViews.size() + 1), rendered);
+    }
+    applySelectionAndHighlightState();
   }
 
   private void updateTempLinkEndpoint(MouseEvent event) {
