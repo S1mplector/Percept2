@@ -75,6 +75,7 @@ import com.jvn.editor.ui.MaintenanceOverlay;
 import com.jvn.editor.ui.MetallicJvnLogo;
 import com.jvn.editor.ui.NewTabIcon;
 import com.jvn.editor.ui.NewProjectWizard;
+import com.jvn.editor.ui.PanelChooserActionIcon;
 import com.jvn.editor.ui.ProjectExplorerView;
 import com.jvn.editor.ui.ProjectViewportSpec;
 import com.jvn.editor.ui.PuppeteerLauncherPanel;
@@ -6142,7 +6143,7 @@ public class EditorApp extends Application {
     memoryGroup.setAlignment(Pos.CENTER_LEFT);
 
     Button dockBtn = new Button();
-    dockBtn.setGraphic(CssIcon.plus("#d6dbe5"));
+    dockBtn.setGraphic(PanelChooserActionIcon.of(PanelChooserActionIcon.Kind.ADD_HERE));
     dockBtn.setTooltip(new Tooltip("Add to sidebar"));
     dockBtn.setMinSize(26, 26); dockBtn.setPrefSize(26, 26); dockBtn.setMaxSize(26, 26);
     dockBtn.setFocusTraversable(false);
@@ -6155,7 +6156,7 @@ public class EditorApp extends Application {
     }
 
     Button popOutBtn = new Button();
-    popOutBtn.setGraphic(CssIcon.popOut("#d6dbe5"));
+    popOutBtn.setGraphic(PanelChooserActionIcon.of(PanelChooserActionIcon.Kind.POP_OUT));
     popOutBtn.setTooltip(new Tooltip("Open in separate window"));
     popOutBtn.setMinSize(26, 26); popOutBtn.setPrefSize(26, 26); popOutBtn.setMaxSize(26, 26);
     popOutBtn.setFocusTraversable(false);
@@ -6170,7 +6171,7 @@ public class EditorApp extends Application {
     Runnable refreshState = () -> {
       updateChooserMemoryIndicator(memoryIndicator, panel, memoryTooltip);
       if (panel == null) {
-        dockBtn.setGraphic(CssIcon.plus("#d6dbe5"));
+        dockBtn.setGraphic(PanelChooserActionIcon.of(PanelChooserActionIcon.Kind.ADD_HERE));
         dockBtn.setTooltip(new Tooltip("Open in this panel"));
         placementBadge.setManaged(false);
         placementBadge.setVisible(false);
@@ -6193,13 +6194,13 @@ public class EditorApp extends Application {
         return;
       }
       if (!panel.supportsDocking()) {
-        dockBtn.setGraphic(CssIcon.popOut("#9a9a9a"));
+        dockBtn.setGraphic(PanelChooserActionIcon.of(PanelChooserActionIcon.Kind.POP_OUT));
         dockBtn.setTooltip(new Tooltip("Pop-out only"));
         dockBtn.setDisable(true);
         return;
       }
       if (placement == EditorPanelPlacement.HIDDEN || !attached) {
-        dockBtn.setGraphic(CssIcon.plus("#d6dbe5"));
+        dockBtn.setGraphic(PanelChooserActionIcon.of(PanelChooserActionIcon.Kind.ADD_HERE));
         dockBtn.setTooltip(new Tooltip(
             "Add to " + (targetPlacement == EditorPanelPlacement.RIGHT ? "right" : "left") + " sidebar"));
       } else if (placement != targetPlacement) {
