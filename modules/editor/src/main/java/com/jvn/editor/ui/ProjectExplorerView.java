@@ -187,7 +187,15 @@ public class ProjectExplorerView extends VBox {
         Right-click a file or folder to create scripts/folders, rename, delete, or reveal it in JVN
         Path Explorer. The project root row provides Run and Build actions. Hidden dot-directories
         are intentionally omitted from the tree.""");
-    Button refreshButton = new Button("Refresh", CssIcon.refresh());
+    Button refreshButton = new Button();
+    refreshButton.getStyleClass().addAll(
+        "project-explorer-refresh-button", "aero-help-button", "aero-icon-button");
+    refreshButton.setGraphic(AeroIcon.of(AeroIcon.Kind.REFRESH, 24));
+    refreshButton.setContentDisplay(ContentDisplay.GRAPHIC_ONLY);
+    refreshButton.setMinSize(30, 30);
+    refreshButton.setPrefSize(30, 30);
+    refreshButton.setMaxSize(30, 30);
+    refreshButton.setFocusTraversable(false);
     refreshButton.setTooltip(new Tooltip("Rescan project files (F5)"));
     refreshButton.setAccessibleText("Refresh project files");
     refreshButton.setOnAction(event -> refresh());

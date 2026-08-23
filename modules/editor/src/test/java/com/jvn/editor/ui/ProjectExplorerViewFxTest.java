@@ -34,11 +34,16 @@ class ProjectExplorerViewFxTest {
       });
       view.setRootDirectory(project.toFile());
 
-      assertTrue(view.lookupAll(".help-button").size() == 1);
-      assertTrue(view.lookupAll(".button").stream()
-          .filter(Button.class::isInstance)
-          .map(Button.class::cast)
-          .anyMatch(button -> "Refresh".equals(button.getText())));
+      Button helpButton = (Button) view.lookup(".help-button");
+      Button refreshButton = (Button) view.lookup(".project-explorer-refresh-button");
+      assertTrue(helpButton != null);
+      assertTrue(refreshButton != null);
+      assertEquals("", refreshButton.getText());
+      assertTrue(refreshButton.getStyleClass().contains("aero-help-button"));
+      assertTrue(refreshButton.getStyleClass().contains("aero-icon-button"));
+      assertEquals(helpButton.getPrefWidth(), refreshButton.getPrefWidth());
+      assertEquals(helpButton.getPrefHeight(), refreshButton.getPrefHeight());
+      assertEquals(helpButton.getContentDisplay(), refreshButton.getContentDisplay());
 
       @SuppressWarnings("unchecked")
       TreeView<java.io.File> tree = (TreeView<java.io.File>) view.lookup(".project-explorer-tree");

@@ -1,14 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
   <title id="title">JVN Editor icon</title>
-  <desc id="desc">The JVN wordmark with a compact polished adjustable wrench editor badge.</desc>
+  <desc id="desc">The metallic JVN wordmark with a right-offset metallic orange EDITOR subtitle.</desc>
   <defs>
-    <linearGradient id="steel" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#4b5660"/>
-      <stop offset="0.25" stop-color="#f9fbfc"/>
-      <stop offset="0.48" stop-color="#83909b"/>
-      <stop offset="0.68" stop-color="#ffffff"/>
-      <stop offset="1" stop-color="#4b5660"/>
-    </linearGradient>
     <linearGradient id="metal" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0" stop-color="#ffffff"/>
       <stop offset="0.14" stop-color="#cfd8df"/>
@@ -17,6 +10,15 @@
       <stop offset="0.58" stop-color="#9da8b2"/>
       <stop offset="0.76" stop-color="#eef3f7"/>
       <stop offset="1" stop-color="#59636d"/>
+    </linearGradient>
+    <linearGradient id="orangeMetal" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffe0a3"/>
+      <stop offset="0.16" stop-color="#ffad4a"/>
+      <stop offset="0.34" stop-color="#a83f0d"/>
+      <stop offset="0.48" stop-color="#ffd084"/>
+      <stop offset="0.64" stop-color="#ed6b18"/>
+      <stop offset="0.82" stop-color="#ff9a32"/>
+      <stop offset="1" stop-color="#7c2908"/>
     </linearGradient>
     <linearGradient id="brushOrange" x1="58" y1="368" x2="442" y2="286" gradientUnits="userSpaceOnUse">
       <stop offset="0" stop-color="#ff7a1a" stop-opacity="0.08"/>
@@ -29,22 +31,14 @@
     </filter>
   </defs>
 
-  <g transform="translate(255 64) rotate(-28 103 68)" filter="url(#shadow)">
-    <path d="M72 45 C101 37 145 38 177 43 C196 46 207 56 207 68 C207 80 196 90 177 93 C145 98 101 99 72 91 L58 85 L58 51 Z" fill="#20272d"/>
-    <path d="M73 51 C103 44 144 45 176 49 C190 51 199 59 199 68 C199 77 190 85 176 87 C144 91 103 92 73 85 L65 80 L65 56 Z" fill="url(#steel)"/>
-    <path d="M71 46 L45 19 C35 9 22 9 10 18 L0 26 L33 47 L0 67 L10 76 C22 85 35 85 45 74 L72 90 Z" fill="#20272d"/>
-    <path d="M68 53 L43 27 C34 19 24 19 14 26 L9 30 L39 49 L9 63 L14 68 C24 76 34 76 43 67 L68 83 Z" fill="url(#steel)"/>
-    <path d="M17 30 L37 43 L37 56 L18 65" fill="none" stroke="#fff" stroke-opacity="0.56" stroke-width="4" stroke-linecap="round"/>
-    <rect x="58" y="51" width="22" height="34" rx="8" fill="#263038" stroke="#d8e0e5" stroke-width="3"/>
-    <path d="M63 58 H76 M62 64 H77 M62 70 H77 M63 76 H76" stroke="#aeb9c0" stroke-width="3" stroke-linecap="round"/>
-    <path d="M75 52 C108 46 145 47 174 51" fill="none" stroke="#fff" stroke-opacity="0.42" stroke-width="4" stroke-linecap="round"/>
-    <circle cx="177" cy="68" r="20" fill="#263038" stroke="#dce5eb" stroke-width="4"/>
-    <circle cx="177" cy="68" r="10" fill="#101418"/>
-  </g>
-
-  <path d="M58 368 C157 333 287 346 442 286" fill="none" stroke="url(#brushOrange)" stroke-width="31" stroke-linecap="round"/>
-  <g filter="url(#shadow)">
-    <text x="54" y="365" font-family="Inter, ui-sans-serif, system-ui, sans-serif"
-          font-size="174" font-weight="900" letter-spacing="5" fill="url(#metal)">JVN</text>
+  <g transform="translate(0 -84)">
+    <path d="M58 368 C157 333 287 346 442 286" fill="none" stroke="url(#brushOrange)" stroke-width="31" stroke-linecap="round"/>
+    <g filter="url(#shadow)">
+      <text x="54" y="365" font-family="Inter, ui-sans-serif, system-ui, sans-serif"
+            font-size="174" font-weight="900" letter-spacing="5" fill="url(#metal)">JVN</text>
+      <text x="144" y="448" font-family="Inter, ui-sans-serif, system-ui, sans-serif"
+            font-size="58" font-weight="900" letter-spacing="6" fill="url(#orangeMetal)"
+            stroke="#6f2608" stroke-width="1.4" paint-order="stroke fill">EDITOR</text>
+    </g>
   </g>
 </svg>
