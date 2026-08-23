@@ -153,7 +153,15 @@ not whether the depicted workflow is still the best explanation.
 Audit reports are historical snapshots. Keep their original findings intact and add a status banner
 when later work supersedes them. Do not use an old audit's counts as current repository facts.
 
-- [May 2026 Documentation Audit](plans/docs-audit-2026-05.md)
+- [May 2026 Documentation Audit](plans/docs-audit-2026-05.md) — all P0/P1 findings resolved as of
+  2026-08-18, including a full generated-screenshot refresh (see the status banner at the top of
+  the report).
+- [Editor Icon Inventory (July 2026)](plans/editor-icon-inventory-2026-07.md) — pre-redesign icon
+  system inventory, not a docs audit; scope is the editor's icon call sites and Aero migration fit.
 
 When an audit finding is resolved, update the current documentation and optionally annotate the audit
 with a link to the resolution. Avoid rewriting historical measurements to match the present tree.
+
+A new full audit is due when the last one is several months old or a status banner shows most
+findings resolved — stale audits stop being useful for spotting new drift. Run one before relying on
+an old report's remaining open items as the current punch list.

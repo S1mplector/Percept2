@@ -33,7 +33,7 @@ import javafx.scene.transform.Rotate;
 /** Dimensional glass-and-metal icon used by spacious editor command surfaces. */
 public final class AeroIcon extends StackPane {
   public enum Kind {
-    PROJECT, TRASHMAN, STORY_MAP, INSPECTOR, DIAGNOSTICS, LABEL_FLOW, ASSETS,
+    PROJECT, TRASHMAN, STORY_MAP, INSPECTOR, DIAGNOSTICS, LABEL_FLOW, TIMELINE_OUTLINE, ASSETS,
     LAYOUT, STORYBOARD, LAYERS, IMAGE_ATTRIBUTES, LIGHTING, VERSION_CONTROL,
     PUPPETEER, SCRIPT_EDITOR, SETTINGS,
     NEW_PROJECT, OPEN_PROJECT, RUN, BUILD, REFRESH, ENTRY_SCRIPT, MANIFEST,
@@ -125,6 +125,7 @@ public final class AeroIcon extends StackPane {
       case INSPECTOR -> sized(CssIcon.search(color), size);
       case DIAGNOSTICS -> diagnosticsGlyph(size);
       case LABEL_FLOW, VERSION_CONTROL -> sized(CssIcon.branchPlus(color), size);
+      case TIMELINE_OUTLINE -> sized(CssIcon.list(color), size);
       case LAYOUT -> sized(CssIcon.rectSelect(color), size);
       case STORYBOARD -> sized(CssIcon.movie(color), size);
       case LAYERS -> sized(CssIcon.copy(color), size);
@@ -713,6 +714,7 @@ public final class AeroIcon extends StackPane {
       case INSPECTOR -> new Badge(sized(CssIcon.info("#ffffff"), glyphSize), Color.web("#288fc5"));
       case DIAGNOSTICS -> new Badge(sized(CssIcon.check("#ffffff"), glyphSize), Color.web("#27a45a"));
       case LABEL_FLOW -> new Badge(sized(CssIcon.arrowRight("#ffffff"), glyphSize), Color.web("#2c9a5a"));
+      case TIMELINE_OUTLINE -> new Badge(sized(CssIcon.timeline("#ffffff"), glyphSize), Color.web("#d16c25"));
       case NEW_PROJECT -> new Badge(sized(CssIcon.plusBold("#ffffff"), glyphSize), Color.web("#28a75d"));
       case OPEN_PROJECT -> new Badge(sized(CssIcon.arrowRight("#ffffff"), glyphSize), Color.web("#2689d8"));
       case ASSETS -> new Badge(sized(CssIcon.landscape("#ffffff"), glyphSize), Color.web("#298ac4"));
@@ -966,7 +968,7 @@ public final class AeroIcon extends StackPane {
           palette("#b8eaff", "#245c84", "#e9f9ff");
       case VNS_PREVIEW ->
           palette("#72ddff", "#19547a", "#dff8ff");
-      case LAYOUT, LAYERS, MANIFEST, README ->
+      case LAYOUT, LAYERS, MANIFEST, README, TIMELINE_OUTLINE ->
           palette("#b9c9d8", "#586b7e", "#edf6ff");
       case LIGHTING, PUPPETEER ->
           palette("#f7a9dc", "#9a478c", "#ffd9ef");

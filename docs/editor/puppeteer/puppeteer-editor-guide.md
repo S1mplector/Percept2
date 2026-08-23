@@ -526,7 +526,7 @@ Built-in timeline-backed properties such as matrix channels and DOF channels rou
 | Create Group | `+ Group` button | Group name input |
 | Load Clip | Load clip button | Clip selector list |
 | Eye Focus / Look At | `Edit > Eye Focus / Look At...` | Character/expression, source point, target point, dead zone, max nudge, strength, keypad layer mapping |
-| Register Timeline confirmation | Register button or `File > Save & Register` | Exact save path, metadata/write steps, diagnostics status, optional follow-up action |
+| Register Timeline confirmation | Register button or `File > Save & Register` | Export summary (line/comment/action counts, track and action counts, duration, affected entities, large-export warning), exact save path, metadata/write steps, diagnostics status, optional follow-up action |
 | Unsaved close confirmation | close window with dirty or preview state | `Save & Register`, `Discard`, `Cancel` |
 | Save / register error dialogs | save failures, parse failures | Error details and dismiss |
 
@@ -848,7 +848,7 @@ The cue list is sorted on the project model and each saved cue immediately updat
 | `hide` | `target` | Hide an entity or VN character instantly |
 | `replace` | `target`, `Expression`, optional `Replacement Path` | Replace the current sprite mid-sequence |
 | `scene` | optional `target`, `Scene / BG Id`, optional `Background Path` | Change the current background or cutaway frame without leaving the timeline |
-| `dialogue_marker` | `Marker Id` | Emit a marker cue for surrounding script logic |
+| `dialogue_marker` | `Marker Id` | Authoring-only marker (speaker/text preview); never fires as a runtime event. Also addable via right-click → **Add Dialogue Cue at Playhead...** on empty timeline space |
 | `script_call` | `Call Name`, optional `Arg` | Emit a named cue for external script handling |
 | `custom` | freeform `type` plus payload | Emit any other event payload you need |
 
@@ -1066,6 +1066,18 @@ Toggle with **A**. The orbit tool enables rotation-around-a-point workflows:
 
 This is useful for pendulum swings, circular reveals, and characters turning around pivot points.
 
+### Orbit Pivot Risk Badge
+
+An orbit anchor is only export-safe when Puppeteer can resolve it to a real point: the entity needs a valid anchor (or a valid anchor on the entity it's linked to) and a captured scene snapshot with non-zero size. If a track has rotation keyframes but its pivot can't be resolved this way, Puppeteer shows a small amber warning-triangle badge on the entity's track header in the Timeline Panel, in the same slot area as constraint indicators.
+
+Click the badge to open an explanation popup describing:
+
+- what will export instead (a plain positional X/Y move rather than a pivot-centered rotation)
+- what will be lost (the orbit-centered spin you see in the preview)
+- the specific cause — no anchor set, no scene snapshot captured, or a broken anchor-source link — and how to fix it
+
+This is a creator-facing warning only; it does not block export or registration by default. See [Timeline Diagnostics](#timeline-diagnostics) below for how it also surfaces in the export/register confirmation dialogs, including an optional strict-validation checkbox.
+
 ---
 
 ## Timeline Panel
@@ -1147,8 +1159,13 @@ Undoable operations include:
 3. Puppeteer runs runtime verification (see [Timeline Diagnostics](#timeline-diagnostics) below)
 4. If blocking errors exist, registration is stopped and a report is shown
 5. If warnings exist, you can review them and continue intentionally
-6. Puppeteer shows a confirmation popup listing the exact registration work: diagnostics validation, `.jes` output path, metadata persistence, `TimelineRegistry` registration, draft cleanup, and any follow-up action such as closing the window
-7. When registration succeeds, the animation is:
+6. Puppeteer shows a confirmation popup with an export summary (line/comment/action counts, track and action counts, duration, affected entity names, and a large-export warning when applicable) followed by the exact registration work: diagnostics validation, `.jes` output path, metadata persistence, `TimelineRegistry` registration, draft cleanup, and any follow-up action such as closing the window
+7. Choose the timeline's playback mode in the same dialog:
+   - **Non-blocking** (default) — dialogue and script execution can continue while the timeline plays; the generated usage comment is `@external jes_timeline <name>`
+   - **Blocking** — VNS waits for the timeline to finish before advancing; the generated usage comment is `@external jes_timeline <name> wait`
+
+   This only changes the usage hint comment written into the exported `.jes` file — Puppeteer never inserts or edits `.vns` script lines. Add `[call jes_timeline <name>]` (non-blocking) or `[call jes_timeline <name> wait]` (blocking) to your VNS script manually, matching the mode you chose.
+8. When registration succeeds, the animation is:
    - converted to `TimelineData` and stored in `TimelineRegistry`
    - exported as JES code to `scripts/timelines/<name>.jes`
    - marked as saved (title shows "saved & registered")
@@ -1164,7 +1181,7 @@ Click **Copy Code** (button in the right code panel) or use **Ctrl/Cmd+Shift+C**
 | **Standard** | `CodeExporter.export()` | Full timeline with all events |
 | **With Groups** | `CodeExporter.exportWithGroups()` | Includes group comment annotations |
 | **Incremental** | `CodeExporter.exportIncremental()` | Only changed properties (compared to initial snapshot) |
-| **Named** | `CodeExporter.exportNamed()` | Adds header comments with timeline name, VNS usage hint, and Puppeteer metadata such as scene snapshots, stage context, groups, locks, constraints, anchors, orbit anchors, and eye-focus rigs |
+| **Named** | `CodeExporter.exportNamed()` | Adds header comments with timeline name, a VNS usage hint reflecting the chosen blocking/non-blocking playback mode, and Puppeteer metadata such as scene snapshots, stage context, groups, locks, constraints, anchors, orbit anchors, and eye-focus rigs |
 
 Named exports are the best format for animations you expect to reopen in
 Puppeteer later. Runtime parsers ignore the metadata comments, but
@@ -1243,6 +1260,8 @@ Puppeteer includes a built-in diagnostics system (`TimelineDiagnostic`) that val
 | **Unknown easing** | Warning | Unrecognized easing name (with edit-distance suggestion) |
 | **Camera key placement** | Warning | Camera keys on non-camera tracks or spread across multiple tracks |
 | **Missing audio file** | Warning | Audio cue references a path that doesn't exist in the project |
+| **Orbit pivot at risk** | Warning | Rotation keyframes exist but the orbit anchor (direct or source-linked) can't be resolved; rotation will export as a plain X/Y move instead of pivoting. See [Orbit Pivot Risk Badge](#orbit-pivot-risk-badge) |
+| **Unresolved layer proxy** | Warning | A track has keyframes on a character rig layer/group id, but no candidate runtime name for it is present among the current scene's known entities — the animation may be a silent no-op at playback. See [Unresolved Layer Proxy Warnings](#unresolved-layer-proxy-warnings) |
 
 ### Easing Suggestions
 
@@ -1258,6 +1277,17 @@ Unknown easing "ease_in_out_quard" on hero.X at 400ms
 - **On registration** — blocking errors prevent registration; warnings can be acknowledged
 - **On code preview parse** — full diagnostics are shown in the diagnostics area
 - **On manual regeneration** — Regenerate button updates diagnostics alongside the code
+- **On export/register confirmation** — the Save & Register dialog and the Copy Code / Regenerate Code dialogs list any orbit-pivot-at-risk entities and any unresolved-layer-proxy tracks as warnings, each with its own independent "Treat ... warnings as blocking" checkbox. Leave a checkbox unchecked (the default) to proceed with that category of warning accepted, or check it to make Puppeteer block that specific action until the issue is fixed. The two checkboxes act independently — checking one does not affect the other.
+
+### Unresolved Layer Proxy Warnings
+
+A Puppeteer track can carry keyframes for a layer or group id declared in the character's rig (`@charlayer`/`@chargroup`), but at runtime the sprite layer proxy that keyframes are supposed to drive is looked up by a derived name (e.g. `hero_arm_l`, `hero_happy_arm_l`) — not by the raw layer id. If none of the naming-convention candidates for a track's layer id currently exist as a known entity in the scene, animating that track has no visible effect when the timeline plays back, and nothing in the preview canvas tells you why.
+
+Puppeteer's diagnostics catch this: for each track that has keyframes on a rig-declared layer/group id, it checks whether a runtime-resolvable name exists. If none does, it emits a warning listing the layer id and its keyframe count, with a suggestion to check that the layer id is included in the active expression's layer list and that the Puppeteer rig persistence (`config/puppeteer/rig.properties`) matches the current track naming.
+
+This check depends on Puppeteer being able to resolve the character's rig from the `.vns` script it was launched against and to identify which character is being animated from the current track selection. When that context isn't available — for example, if Puppeteer was opened standalone without a source script, or no character can be inferred — the check is skipped silently rather than guessing, so it will not produce warnings on projects it cannot meaningfully analyze.
+
+Because the check compares against the current editor scene's known entities rather than the exact set the running game will animate, treat it as a strong hint rather than a certainty — verify in a live preview if a warning seems surprising.
 
 ---
 

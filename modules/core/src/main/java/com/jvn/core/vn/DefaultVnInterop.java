@@ -1607,6 +1607,11 @@ public class DefaultVnInterop implements VnInterop {
         collectChainNames = false;
         continue;
       }
+      if ("wait=true".equals(lower) || "wait=false".equals(lower)) {
+        wait = "wait=true".equals(lower);
+        collectChainNames = false;
+        continue;
+      }
       if ("then".equals(lower) || "chain".equals(lower)) {
         collectChainNames = true;
         continue;
@@ -1636,7 +1641,7 @@ public class DefaultVnInterop implements VnInterop {
     }
     if (!tail.isBlank()) {
       TimelineInvocation tailInvocation = parseTimelineInvocation("_inline_ " + tail);
-      if (containsAnyToken(tail, "async", "nowait", "no_wait", "fire", "fire_and_forget")) {
+      if (containsAnyToken(tail, "async", "nowait", "no_wait", "fire", "fire_and_forget", "wait=false")) {
         wait = false;
       }
       if (tailInvocation.waitForCompletion()) {

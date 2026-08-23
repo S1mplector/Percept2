@@ -5,6 +5,7 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
@@ -25,29 +26,36 @@ import javafx.geometry.Pos;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.control.Button;
+import javafx.scene.control.ButtonType;
 import javafx.scene.control.ContextMenu;
+import javafx.scene.control.Dialog;
 import javafx.scene.control.Label;
 import javafx.scene.control.Menu;
 import javafx.scene.control.MenuItem;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.control.SeparatorMenuItem;
 import javafx.scene.control.Slider;
+import javafx.scene.control.TextField;
 import javafx.scene.control.Tooltip;
 import javafx.scene.input.ContextMenuEvent;
 import javafx.scene.input.MouseButton;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.input.ScrollEvent;
+import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Pane;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
 import javafx.stage.Window;
+import javafx.util.Pair;
 
 public class TimelinePanel extends VBox {
     private static final double TRACK_HEIGHT = 24;
     private static final double HEADER_HEIGHT = 30;
     private static final double LABEL_WIDTH = 140;
+    private static final double ORBIT_RISK_ICON_SIZE = 12;
+    private static final double CONSTRAINT_ICON_SLOT_WIDTH = 20;
     static final String RUNTIME_CAMERA_TARGET = "__camera__";
     private static final String RUNTIME_CAMERA_LABEL = "Runtime Camera / Frame";
     private static final PropertyType[] GROUP_PROPERTIES = {
@@ -847,8 +855,11 @@ public class TimelinePanel extends VBox {
             if (constraint != null) {
                 drawConstraintIndicator(gc, width, y, constraint);
             }
+            if (project.isOrbitPivotAtRisk(selectionName)) {
+                drawOrbitRiskIndicator(gc, width, y);
+            }
         }
-        
+
         drawTrackGridLines(gc, y, width);
         y += TRACK_HEIGHT;
 
@@ -976,6 +987,32 @@ public class TimelinePanel extends VBox {
             gc.setFill(Color.web("#00aaff", 0.8));
             gc.fillOval(iconX + 4, iconY + 4, 4, 4);
         }
+    }
+
+    /** Left-of-icon x-offset for the orbit-pivot-risk badge, kept clear of the constraint icon slot. */
+    static double orbitRiskIndicatorX(double width) {
+        return width - ORBIT_RISK_ICON_SIZE - 8 - CONSTRAINT_ICON_SLOT_WIDTH;
+    }
+
+    private void drawOrbitRiskIndicator(GraphicsContext gc, double width, double y) {
+        double iconSize = ORBIT_RISK_ICON_SIZE;
+        double iconX = orbitRiskIndicatorX(width);
+        double iconY = y + (TRACK_HEIGHT - iconSize) / 2;
+
+        gc.setFill(Color.web("#ffb020", 0.92));
+        gc.fillPolygon(
+            new double[]{iconX + iconSize / 2.0, iconX + iconSize, iconX},
+            new double[]{iconY, iconY + iconSize, iconY + iconSize},
+            3);
+        gc.setStroke(Color.web("#3a2400", 0.85));
+        gc.setLineWidth(1.0);
+        gc.strokePolygon(
+            new double[]{iconX + iconSize / 2.0, iconX + iconSize, iconX},
+            new double[]{iconY, iconY + iconSize, iconY + iconSize},
+            3);
+        gc.setFill(Color.web("#3a2400", 0.9));
+        gc.fillRect(iconX + iconSize / 2.0 - 0.75, iconY + iconSize * 0.38, 1.5, iconSize * 0.32);
+        gc.fillOval(iconX + iconSize / 2.0 - 1.0, iconY + iconSize * 0.78, 2.0, 2.0);
     }
 
     private void drawKeyframes(GraphicsContext gc, String selectionName, EntityTrack track, PropertyType prop, double y, double width) {
@@ -1138,6 +1175,7 @@ public class TimelinePanel extends VBox {
             case "hide" -> Color.web("#ff7b8a", 0.92);
             case "replace" -> Color.web("#f0b673", 0.92);
             case "scene" -> Color.web("#b892ff", 0.92);
+            case "dialogue_marker" -> Color.web("#f5c542", 0.94);
             default -> Color.web("#8fa3b8", 0.88);
         };
     }
@@ -1445,6 +1483,13 @@ public class TimelinePanel extends VBox {
         if (y < HEADER_HEIGHT + 5) {
             draggingPlayhead = true;
             updatePlayheadFromX(x);
+            return;
+        }
+
+        String orbitRiskEntity = findOrbitRiskIconAt(x, y);
+        if (orbitRiskEntity != null) {
+            showOrbitRiskExplanation(orbitRiskEntity);
+            e.consume();
             return;
         }
 
@@ -1866,6 +1911,81 @@ public class TimelinePanel extends VBox {
             }
         }
         return null;
+    }
+
+    /** Returns the entity name if (x,y) lands on an orbit-pivot-risk badge, else null. */
+    private String findOrbitRiskIconAt(double mx, double my) {
+        if (project == null) return null;
+        double iconX = orbitRiskIndicatorX(getWidth());
+        for (TrackRow row : buildVisibleRows()) {
+            if (row.group() || row.runtimeCamera() || row.property() != null || row.expression()) continue;
+            if (!project.isOrbitPivotAtRisk(row.selectionName())) continue;
+            double iconY = row.y() + (TRACK_HEIGHT - ORBIT_RISK_ICON_SIZE) / 2;
+            if (mx >= iconX - 2 && mx <= iconX + ORBIT_RISK_ICON_SIZE + 2
+                && my >= iconY - 2 && my <= iconY + ORBIT_RISK_ICON_SIZE + 2) {
+                return row.selectionName();
+            }
+        }
+        return null;
+    }
+
+    private void showOrbitRiskExplanation(String entityName) {
+        String body = describeOrbitPivotRisk(project, entityName);
+        Window owner = getScene() != null ? getScene().getWindow() : null;
+        javafx.stage.Stage stage = new javafx.stage.Stage();
+        stage.initModality(javafx.stage.Modality.NONE);
+        stage.initOwner(owner);
+        stage.setTitle("Orbit Pivot Risk: " + entityName);
+
+        javafx.scene.control.TextArea area = new javafx.scene.control.TextArea(body);
+        area.setEditable(false);
+        area.setWrapText(true);
+        area.setStyle("-fx-control-inner-background: #1e1e1e; -fx-text-fill: #e0e0e0;"
+            + "-fx-font-size: 12px; -fx-background-color: #1e1e1e;");
+
+        Button close = new Button("Got it");
+        close.setDefaultButton(true);
+        close.setOnAction(ev -> stage.close());
+
+        VBox root = new VBox(10, area, close);
+        root.setPadding(new Insets(14));
+        root.setAlignment(Pos.BOTTOM_RIGHT);
+        VBox.setVgrow(area, Priority.ALWAYS);
+
+        javafx.scene.Scene scene = new javafx.scene.Scene(root, 480, 320);
+        if (getScene() != null) scene.getStylesheets().addAll(getScene().getStylesheets());
+        stage.setScene(scene);
+        stage.show();
+    }
+
+    static String describeOrbitPivotRisk(AnimationProject project, String entityName) {
+        if (project == null || entityName == null) return "";
+        String sourceEntity = project.getOrbitAnchorSourcesView().get(entityName);
+        StringBuilder sb = new StringBuilder();
+        sb.append("\"").append(entityName).append("\" has rotation keyframes, but Puppeteer cannot resolve ")
+            .append("a valid orbit pivot for it right now.\n\n");
+
+        if (!project.hasOrbitAnchor(entityName) && (sourceEntity == null || sourceEntity.isBlank())) {
+            sb.append("No orbit anchor is set on this entity.\n\n")
+              .append("What will export: rotation will fall back to a plain positional (X/Y) move — ")
+              .append("the entity will appear to travel rather than spin in place.\n\n")
+              .append("What will be lost: the pivot-centered rotation you see while an anchor is active.\n\n")
+              .append("Fix: place an anchor on the sprite in the Anchors panel and click \"Set Pivot\".");
+        } else if (sourceEntity != null && !sourceEntity.isBlank()) {
+            sb.append("This entity's pivot is sourced from \"").append(sourceEntity).append("\", ")
+              .append("but that entity has no resolvable anchor or scene snapshot.\n\n")
+              .append("What will export: rotation will fall back to a plain positional (X/Y) move.\n\n")
+              .append("What will be lost: the pivot following \"").append(sourceEntity).append("\".\n\n")
+              .append("Fix: give \"").append(sourceEntity).append("\" its own orbit anchor, or set a direct ")
+              .append("anchor on \"").append(entityName).append("\" instead.");
+        } else {
+            sb.append("An orbit anchor is set, but this entity has no valid scene snapshot to pivot around ")
+              .append("(it may not currently be visible/selected in the scene).\n\n")
+              .append("What will export: rotation will fall back to a plain positional (X/Y) move.\n\n")
+              .append("What will be lost: the pivot-centered rotation around the anchor.\n\n")
+              .append("Fix: reselect the entity in the scene so Puppeteer captures its snapshot, then re-place the anchor.");
+        }
+        return sb.toString();
     }
 
     private TrackRow findRowAt(double my) {
@@ -2758,12 +2878,61 @@ public class TimelinePanel extends VBox {
         MenuItem miPaste = new MenuItem("Paste at Playhead");
         miPaste.setDisable(copiedKeyframes.isEmpty());
         miPaste.setOnAction(ev -> pasteCopiedKeyframesAtPlayhead());
+        MenuItem miAddDialogueCue = new MenuItem("Add Dialogue Cue at Playhead...");
+        miAddDialogueCue.setOnAction(ev -> promptAddDialogueCueAtPlayhead());
         MenuItem miZoomFit = new MenuItem("Zoom to Fit");
         miZoomFit.setOnAction(ev -> zoomToFit());
         MenuItem miZoomSel = new MenuItem("Zoom to Selection");
         miZoomSel.setOnAction(ev -> zoomToSelection());
-        menu.getItems().addAll(miPaste, new SeparatorMenuItem(), miZoomFit, miZoomSel);
+        menu.getItems().addAll(miPaste, miAddDialogueCue, new SeparatorMenuItem(), miZoomFit, miZoomSel);
         return menu;
+    }
+
+    private void promptAddDialogueCueAtPlayhead() {
+        Dialog<Pair<String, String>> dialog = new Dialog<>();
+        dialog.setTitle("Add Dialogue Cue");
+        dialog.setHeaderText("Add dialogue cue at " + formatTime(project.getPlayheadMs()));
+        Window owner = canvas.getScene() != null ? canvas.getScene().getWindow() : null;
+        if (owner != null) dialog.initOwner(owner);
+        dialog.getDialogPane().getButtonTypes().addAll(ButtonType.OK, ButtonType.CANCEL);
+
+        TextField speakerField = new TextField();
+        speakerField.setPromptText("Speaker");
+        TextField textField = new TextField();
+        textField.setPromptText("Text preview (optional)");
+
+        GridPane grid = new GridPane();
+        grid.setHgap(8);
+        grid.setVgap(8);
+        grid.addRow(0, new Label("Speaker:"), speakerField);
+        grid.addRow(1, new Label("Text:"), textField);
+        dialog.getDialogPane().setContent(grid);
+
+        dialog.setResultConverter(button -> button == ButtonType.OK
+            ? new Pair<>(speakerField.getText(), textField.getText())
+            : null);
+
+        dialog.showAndWait().ifPresent(result -> addDialogueCueAtPlayhead(result.getKey(), result.getValue()));
+    }
+
+    private void addDialogueCueAtPlayhead(String speaker, String text) {
+        double timeMs = project.getPlayheadMs();
+        String speakerTrimmed = speaker != null ? speaker.trim() : "";
+        String textTrimmed = text != null ? text.trim() : "";
+        Map<String, String> payload = new LinkedHashMap<>();
+        payload.put("speaker", speakerTrimmed);
+        payload.put("text", textTrimmed);
+        EditorEventCue cue = new EditorEventCue(timeMs, "dialogue_marker", payload);
+        if (commandStack != null) {
+            commandStack.execute(new PuppeteerCommand("Add dialogue cue",
+                () -> project.addEditorEventCue(cue),
+                () -> project.removeEditorEventCue(cue)
+            ));
+        } else {
+            project.addEditorEventCue(cue);
+        }
+        notifyEdited();
+        render();
     }
 
     // ---------------------------------------------------------------------

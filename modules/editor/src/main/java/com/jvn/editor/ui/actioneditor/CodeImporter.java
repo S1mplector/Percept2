@@ -33,6 +33,7 @@ public class CodeImporter {
     private static final String CONSTRAINT_META_PREFIX = "// @jvn-puppeteer-constraint";
     private static final String ANCHOR_META_PREFIX = "// @jvn-puppeteer-anchor";
     private static final String EYE_FOCUS_META_PREFIX = "// @jvn-puppeteer-eye-focus";
+    private static final String CUE_META_PREFIX = "// @jvn-puppeteer-cue";
 
     /**
      * Import a JES timeline DSL block into a new {@link AnimationProject}.
@@ -59,6 +60,7 @@ public class CodeImporter {
             restoredEditorModel = true;
         } else {
             metadata.applySettings(project);
+            metadata.applyDialogueCues(project);
         }
         applySceneMetadata(project, parseSceneEntitySnapshots(code), !restoredEditorModel);
         project.setStageContext(parseStageContext(code));
@@ -237,6 +239,9 @@ public class CodeImporter {
                 VnEyeFocusProfile profile = parseEyeFocusProfile(
                     parseAttributes(line.substring(EYE_FOCUS_META_PREFIX.length()).trim()));
                 if (profile != null) metadata.eyeFocusProfiles.add(profile);
+            } else if (line.startsWith(CUE_META_PREFIX)) {
+                CueMeta cue = CueMeta.from(parseAttributes(line.substring(CUE_META_PREFIX.length()).trim()));
+                if (cue != null) metadata.cues.add(cue);
             }
         }
         metadata.groups.removeIf(group -> group == null || group.name().isBlank());
@@ -258,6 +263,7 @@ public class CodeImporter {
         private final List<ConstraintMeta> constraints = new ArrayList<>();
         private final List<AnchorMeta> anchors = new ArrayList<>();
         private final List<VnEyeFocusProfile> eyeFocusProfiles = new ArrayList<>();
+        private final List<CueMeta> cues = new ArrayList<>();
 
         void applyProjectAttributes(Map<String, String> attrs) {
             durationMs = parseOptionalDouble(attrs.get("duration"));
@@ -369,7 +375,19 @@ public class CodeImporter {
             for (AnchorMeta anchor : anchors) {
                 restored.setAnchor(anchor.entity(), new Anchor(anchor.name(), anchor.x(), anchor.y(), anchor.relative()));
             }
+            applyDialogueCues(restored);
             return restored;
+        }
+
+        void applyDialogueCues(AnimationProject project) {
+            if (project == null) return;
+            for (CueMeta cue : cues) {
+                Map<String, String> payload = new LinkedHashMap<>();
+                payload.put("speaker", cue.speaker());
+                payload.put("text", cue.text());
+                if (!cue.id().isBlank()) payload.put("id", cue.id());
+                project.addEditorEventCue(new EditorEventCue(cue.timeMs(), "dialogue_marker", payload));
+            }
         }
 
         private EntityTrack resolveMetadataTrack(AnimationProject project, KeyMeta key) {
@@ -417,6 +435,19 @@ public class CodeImporter {
                 decode(attrs.get("source")),
                 parseDouble(attrs.get("offsetX"), 0.0),
                 parseDouble(attrs.get("offsetY"), 0.0)
+            );
+        }
+    }
+
+    private record CueMeta(double timeMs, String speaker, String text, String id) {
+        static CueMeta from(Map<String, String> attrs) {
+            double timeMs = parseDouble(attrs.get("time"), -1);
+            if (timeMs < 0) return null;
+            return new CueMeta(
+                timeMs,
+                decode(attrs.get("speaker")),
+                decode(attrs.get("text")),
+                decode(attrs.get("id"))
             );
         }
     }

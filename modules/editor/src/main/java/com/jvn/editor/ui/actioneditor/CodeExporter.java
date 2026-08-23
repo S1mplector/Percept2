@@ -23,13 +23,22 @@ public class CodeExporter {
     }
 
     public static String exportNamed(AnimationProject project, String name, boolean exportNestedBlocks) {
+        return exportNamed(project, name, exportNestedBlocks, false);
+    }
+
+    public static String exportNamed(AnimationProject project, String name, boolean exportNestedBlocks, boolean blocking) {
         String body = export(project, exportNestedBlocks);
         StringBuilder sb = new StringBuilder();
         sb.append("// Timeline: ").append(name).append("\n");
-        sb.append("// Usage in VNS: @external jes_timeline ").append(name).append("\n\n");
+        sb.append("// Usage in VNS: @external jes_timeline ").append(name);
+        if (blocking) {
+            sb.append(" wait");
+        }
+        sb.append("\n\n");
         appendSceneEntityMetadata(sb, project);
         appendStageMetadata(sb, project);
         appendEditorProjectMetadata(sb, project);
+        appendDialogueCueMetadata(sb, project);
         sb.append(body);
         return sb.toString();
     }
@@ -114,6 +123,42 @@ public class CodeExporter {
         }
         appendRiggingMetadata(sb, project);
         sb.append("\n");
+    }
+
+    private static void appendDialogueCueMetadata(StringBuilder sb, AnimationProject project) {
+        if (sb == null || project == null) return;
+        List<EditorEventCue> cues = project.getEditorEventCues().stream()
+            .filter(cue -> cue != null && "dialogue_marker".equalsIgnoreCase(cue.getType()))
+            .toList();
+        if (cues.isEmpty()) return;
+
+        sb.append("// Puppeteer dialogue cue metadata. Runtime parsers ignore these comments.\n");
+        for (EditorEventCue cue : cues) {
+            String speaker = cue.getPayloadValue("speaker");
+            String text = cue.getPayloadValue("text");
+            String id = cue.getPayloadValue("id");
+            sb.append("// @jvn-puppeteer-cue")
+                .append(" time=").append(formatMetadataNumber(cue.getTimeMs()))
+                .append(" speaker=").append(encode(speaker))
+                .append(" text=").append(encode(text));
+            if (!id.isBlank()) {
+                sb.append(" id=").append(encode(id));
+            }
+            sb.append("\n");
+            String speakerForComment = sanitizeForInlineComment(speaker);
+            String textForComment = sanitizeForInlineComment(text);
+            sb.append("// cue: ");
+            if (!speakerForComment.isBlank()) {
+                sb.append(speakerForComment).append(" — ");
+            }
+            sb.append("\"").append(textForComment).append("\"\n");
+        }
+        sb.append("\n");
+    }
+
+    private static String sanitizeForInlineComment(String raw) {
+        if (raw == null) return "";
+        return raw.replace("\r\n", " ").replace("\n", " ").replace("\r", " ").replace("\"", "'").trim();
     }
 
     private static void appendTrackMetadata(StringBuilder sb, EntityTrack track) {
@@ -356,10 +401,7 @@ public class CodeExporter {
                 String entity = track.getEntityName();
                 if (!project.hasOrbitAnchor(entity)) continue;
                 if (!project.hasEffectiveAnimation(entity, PropertyType.ROTATION)) continue;
-                double[] anchor = project.getOrbitAnchorsView().get(entity);
-                AnimationProject.SceneEntitySnapshot snap =
-                        project.getSceneEntitySnapshotsView().get(entity);
-                if (anchor == null || snap == null || snap.width() <= 0 || snap.height() <= 0) continue;
+                if (project.isOrbitPivotAtRisk(entity)) continue;
                 orbitPivotEntities.add(entity);
             }
         }
@@ -427,6 +469,7 @@ public class CodeExporter {
 
         for (EditorEventCue evt : project.getEditorEventCues()) {
             if (evt == null || evt.getType().isBlank()) continue;
+            if ("dialogue_marker".equalsIgnoreCase(evt.getType())) continue;
             TimelineEvent ev = new TimelineEvent();
             ev.actionType = mapActionTypeForEventCue(evt);
             ev.target = resolveActionTarget(evt, ev.actionType);

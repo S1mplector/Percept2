@@ -3,41 +3,17 @@ package com.jvn.editor.ui.actioneditor;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.jvn.fx.testkit.FxToolkit;
+import com.jvn.fx.testkit.FxToolkitExtension;
 import java.util.List;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.FutureTask;
-import java.util.concurrent.TimeUnit;
 
-import javafx.application.Platform;
-
-import org.junit.jupiter.api.Assumptions;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 
+@ExtendWith(FxToolkitExtension.class)
 class EntitySelectorFxTest {
-  private static boolean toolkitAvailable;
-
-  @BeforeAll
-  static void startToolkit() throws Exception {
-    if (System.getProperty("os.name", "").toLowerCase().contains("linux")
-        && System.getenv().getOrDefault("DISPLAY", "").isBlank()) {
-      return;
-    }
-    try {
-      CountDownLatch ready = new CountDownLatch(1);
-      Platform.startup(ready::countDown);
-      toolkitAvailable = ready.await(10, TimeUnit.SECONDS);
-    } catch (IllegalStateException alreadyStarted) {
-      toolkitAvailable = true;
-    } catch (RuntimeException unavailable) {
-      toolkitAvailable = false;
-    }
-  }
-
   @Test
   void supportsMultipleSelectedEntities() throws Exception {
-    Assumptions.assumeTrue(toolkitAvailable, "JavaFX toolkit is unavailable in this environment");
-
     List<String> selected = runFx(() -> {
       AnimationProject project = new AnimationProject();
       project.getOrCreateTrack("body");
@@ -59,9 +35,8 @@ class EntitySelectorFxTest {
   }
 
   private static <T> T runFx(java.util.concurrent.Callable<T> callable) throws Exception {
-    FutureTask<T> task = new FutureTask<>(callable);
-    Platform.runLater(task);
-    assertTrue(task.get(30, TimeUnit.SECONDS) != null);
-    return task.get();
+    T result = FxToolkit.runFx(callable);
+    assertTrue(result != null);
+    return result;
   }
 }

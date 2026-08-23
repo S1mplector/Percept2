@@ -26,6 +26,55 @@ public final class LayeredCharacterResolver {
 
   public record CharacterRef(String characterId, String localId) {}
   public record LayerMatch(String characterId, String layerId, String path) {}
+  public record LayerChange(String fromLayerId, String toLayerId) {}
+  public record ExpressionLayerDiff(
+      List<String> unchangedLayerIds,
+      List<LayerChange> changedPairs,
+      List<String> addedLayerIds,
+      List<String> removedLayerIds) {}
+
+  /**
+   * Diffs the declared layer IDs of two expressions so unchanged layers can stay stable
+   * during a crossfade while only added/removed/changed layers transition.
+   */
+  public static ExpressionLayerDiff diffExpressionLayers(List<String> fromLayerIds, List<String> toLayerIds) {
+    List<String> from = fromLayerIds == null ? List.of() : fromLayerIds;
+    List<String> to = toLayerIds == null ? List.of() : toLayerIds;
+    Set<String> toSet = new LinkedHashSet<>(to);
+
+    List<String> unchanged = new ArrayList<>();
+    List<String> removedCandidates = new ArrayList<>();
+    for (String layerId : from) {
+      if (toSet.contains(layerId)) {
+        unchanged.add(layerId);
+      } else {
+        removedCandidates.add(layerId);
+      }
+    }
+
+    Set<String> fromSet = new LinkedHashSet<>(from);
+    List<String> addedCandidates = new ArrayList<>();
+    for (String layerId : to) {
+      if (!fromSet.contains(layerId)) {
+        addedCandidates.add(layerId);
+      }
+    }
+
+    List<LayerChange> changedPairs = new ArrayList<>();
+    List<String> removed = new ArrayList<>();
+    List<String> remainingAdded = new ArrayList<>(addedCandidates);
+    for (String removedId : removedCandidates) {
+      String replacement = inferReplacementLayerId(removedId, remainingAdded);
+      if (replacement != null) {
+        changedPairs.add(new LayerChange(removedId, replacement));
+        remainingAdded.remove(replacement);
+      } else {
+        removed.add(removedId);
+      }
+    }
+
+    return new ExpressionLayerDiff(unchanged, changedPairs, remainingAdded, removed);
+  }
 
   public static CharacterRef parseReference(String rawRef, String defaultCharacterId) {
     String ref = rawRef == null ? "" : rawRef.trim();

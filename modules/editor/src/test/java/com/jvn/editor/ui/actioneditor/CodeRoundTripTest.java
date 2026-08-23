@@ -8,6 +8,7 @@ import com.jvn.core.animation.TimelineDataParser;
 import com.jvn.core.vn.VnEyeFocusProfile;
 import org.junit.jupiter.api.Test;
 
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -385,11 +386,12 @@ class CodeRoundTripTest {
                 || exported.contains("event \"expression\""),
             "expected expression action/event header"
         );
-        assertTrue(exported.contains("event \"dialogue_marker\""));
+        // dialogue_marker cues have no runtime footprint: excluded from the DSL event{} path.
+        assertFalse(exported.contains("event \"dialogue_marker\""));
 
         // Re-import
         AnimationProject project2 = CodeImporter.importCode("rt_evt_2", exported);
-        assertEquals(2, project2.getEditorEventCues().size());
+        assertEquals(1, project2.getEditorEventCues().size());
         assertEquals("expression", project2.getEditorEventCues().get(0).getType());
     }
 
@@ -904,5 +906,123 @@ class CodeRoundTripTest {
         assertEquals(hero.getKeyframes(PropertyType.X).get(1).getEasingParams()[0],
             hero2.getKeyframes(PropertyType.X).get(1).getEasingParams()[0], 0.001);
         assertEquals(Easing.Type.HERO_POP, hero2.getKeyframes(PropertyType.X).get(2).getEasing());
+    }
+
+    @Test
+    void dialogueMarkerExportsAsCommentOnlyWithNoRuntimeEvent() {
+        AnimationProject project = new AnimationProject();
+        Map<String, String> payload = new LinkedHashMap<>();
+        payload.put("speaker", "Aria");
+        payload.put("text", "Wait, look out!");
+        project.addEditorEventCue(new EditorEventCue(1200, "dialogue_marker", payload));
+
+        String exported = CodeExporter.exportNamed(project, "cue_test");
+
+        assertTrue(exported.contains("@jvn-puppeteer-cue"), "should emit round-trip metadata comment");
+        assertTrue(exported.contains("time=1200"), "metadata should carry the cue time");
+        assertTrue(exported.contains("// cue:"), "should emit a human-readable inline comment");
+        assertFalse(exported.contains("event \"dialogue_marker\""), "dialogue markers must never become a fired DSL event");
+
+        // Confirm the parser sees zero event cues from this export (no runtime footprint).
+        TimelineData parsed = TimelineDataParser.parse("cue_test", exported);
+        assertTrue(parsed.getEventCues().isEmpty(), "dialogue markers must not appear as TimelineData.EventCue");
+    }
+
+    @Test
+    void dialogueMarkerRoundTripsThroughMetadataAloneWithNoOtherEditorModel() {
+        AnimationProject project = new AnimationProject();
+        Map<String, String> payload = new LinkedHashMap<>();
+        payload.put("speaker", "Aria");
+        payload.put("text", "Wait, look out!");
+        payload.put("id", "intro_beat_3");
+        project.addEditorEventCue(new EditorEventCue(1200, "dialogue_marker", payload));
+
+        String exported = CodeExporter.exportNamed(project, "cue_only");
+        AnimationProject imported = CodeImporter.importCode("cue_only", exported);
+
+        List<EditorEventCue> cues = imported.getEditorEventCues();
+        assertEquals(1, cues.size());
+        EditorEventCue cue = cues.get(0);
+        assertEquals("dialogue_marker", cue.getType());
+        assertEquals(1200.0, cue.getTimeMs(), 0.5);
+        assertEquals("Aria", cue.getPayloadValue("speaker"));
+        assertEquals("Wait, look out!", cue.getPayloadValue("text"));
+        assertEquals("intro_beat_3", cue.getPayloadValue("id"));
+    }
+
+    @Test
+    void dialogueMarkerRoundTripsAlongsideOtherEditorModel() {
+        AnimationProject project = new AnimationProject();
+        EntityTrack hero = project.getOrCreateTrack("hero");
+        hero.addKeyframe(PropertyType.X, new Keyframe(0, 100, Easing.Type.LINEAR));
+        Map<String, String> payload = new LinkedHashMap<>();
+        payload.put("speaker", "Bo");
+        payload.put("text", "Hello there");
+        project.addEditorEventCue(new EditorEventCue(400, "dialogue_marker", payload));
+
+        String exported = CodeExporter.exportNamed(project, "cue_and_track");
+        AnimationProject imported = CodeImporter.importCode("cue_and_track", exported);
+
+        assertNotNull(imported.getTrack("hero"));
+        List<EditorEventCue> cues = imported.getEditorEventCues();
+        assertEquals(1, cues.size());
+        assertEquals("Bo", cues.get(0).getPayloadValue("speaker"));
+    }
+
+    @Test
+    void dialogueMarkerWithBlankIdRoundTripsWithEmptyId() {
+        AnimationProject project = new AnimationProject();
+        Map<String, String> payload = new LinkedHashMap<>();
+        payload.put("speaker", "Nio");
+        payload.put("text", "No id set here");
+        // No "id" key at all -- this is the exact path UI-created cues take
+        // (TimelinePanel.addDialogueCueAtPlayhead never sets an id).
+        project.addEditorEventCue(new EditorEventCue(300, "dialogue_marker", payload));
+
+        String exported = CodeExporter.exportNamed(project, "cue_blank_id");
+        assertFalse(exported.contains("id="), "metadata line should omit the id attribute when blank/absent");
+
+        AnimationProject imported = CodeImporter.importCode("cue_blank_id", exported);
+        List<EditorEventCue> cues = imported.getEditorEventCues();
+        assertEquals(1, cues.size());
+        EditorEventCue cue = cues.get(0);
+        assertEquals("", cue.getPayloadValue("id"), "id should round-trip as empty string when absent");
+        assertEquals("Nio", cue.getPayloadValue("speaker"));
+        assertEquals("No id set here", cue.getPayloadValue("text"));
+    }
+
+    @Test
+    void dialogueMarkerWithEmbeddedNewlineSanitizesInlineCommentButPreservesMetadata() {
+        AnimationProject project = new AnimationProject();
+        Map<String, String> payload = new LinkedHashMap<>();
+        payload.put("speaker", "Aria");
+        payload.put("text", "Wait, look out!\nGet down now!");
+        project.addEditorEventCue(new EditorEventCue(600, "dialogue_marker", payload));
+
+        String exported = CodeExporter.exportNamed(project, "cue_newline");
+
+        // The human-readable "// cue: ..." comment line must be a single clean
+        // line with no bare, unescaped newline breaking it into an uncommented
+        // line outside any timeline {} block.
+        String[] lines = exported.split("\n", -1);
+        boolean foundCleanCueComment = false;
+        for (String line : lines) {
+            if (line.startsWith("// cue:")) {
+                assertFalse(line.contains("\r"), "inline cue comment must not contain a carriage return");
+                foundCleanCueComment = true;
+            }
+        }
+        assertTrue(foundCleanCueComment, "should emit a // cue: inline comment line");
+        // No line derived from the raw text may appear uncommented.
+        assertFalse(exported.lines().anyMatch(line -> line.equals("Get down now!")),
+            "the second physical line of the text must not leak out as a bare uncommented line");
+
+        // The machine-readable metadata line must still carry the original
+        // multi-line text intact via URL-encoding, unaffected by the comment fix.
+        AnimationProject imported = CodeImporter.importCode("cue_newline", exported);
+        List<EditorEventCue> cues = imported.getEditorEventCues();
+        assertEquals(1, cues.size());
+        assertEquals("Wait, look out!\nGet down now!", cues.get(0).getPayloadValue("text"),
+            "machine-readable metadata must round-trip the original text with the newline intact");
     }
 }

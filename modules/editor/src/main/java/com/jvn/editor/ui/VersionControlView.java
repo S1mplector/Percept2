@@ -7,11 +7,15 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
+import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.function.Consumer;
 
+import com.jvn.editor.vcs.GitHubApiClient;
+import com.jvn.editor.vcs.GitHubTokenStore;
 import com.jvn.editor.vcs.GitVcsService;
 
 import javafx.animation.KeyFrame;
@@ -27,8 +31,10 @@ import javafx.scene.control.ContentDisplay;
 import javafx.scene.control.Label;
 import javafx.scene.control.ListCell;
 import javafx.scene.control.ListView;
+import javafx.scene.control.PasswordField;
 import javafx.scene.control.ProgressIndicator;
 import javafx.scene.control.SelectionMode;
+import javafx.scene.control.SplitPane;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
 import javafx.scene.control.Tooltip;
@@ -43,9 +49,13 @@ import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
+import javafx.scene.Scene;
 import javafx.scene.shape.Circle;
 import javafx.scene.shape.Line;
+import javafx.stage.Modality;
 import javafx.stage.Popup;
+import javafx.stage.Stage;
+import javafx.stage.StageStyle;
 import javafx.stage.Window;
 import javafx.util.Duration;
 
@@ -70,6 +80,8 @@ public class VersionControlView extends BorderPane {
   private static final double GUIDE_POPUP_WIDTH = 320.0;
 
   private final GitVcsService vcs = new GitVcsService();
+  private final GitHubTokenStore githubTokenStore = new GitHubTokenStore();
+  private final GitHubApiClient githubApiClient = new GitHubApiClient();
   private final ExecutorService worker = Executors.newSingleThreadExecutor(r -> {
     Thread t = new Thread(r, "jvn-vcs-worker");
     t.setDaemon(true);
@@ -88,6 +100,10 @@ public class VersionControlView extends BorderPane {
   private final Label conflictLabel = new Label();
   private final Label remoteLabel = new Label("Remote: not configured");
   private final Button btnConfigureRemote = new Button("Add Remote");
+  private final Button btnRemoveRemote = new Button("Remove");
+  private final Label githubTokenStatusLabel = new Label("GitHub token: not connected");
+  private final Button btnChangeGitHubToken = new Button("Sign In");
+  private final Button btnRemoveGitHubToken = new Button("Remove");
   private final Popup guidePopup = new Popup();
   private final VBox guidePopupRoot = new VBox(0);
   private final Label guideArrowLabel = new Label("", CssIcon.arrowUp("#8ecaff"));
@@ -132,6 +148,16 @@ public class VersionControlView extends BorderPane {
       CssIcon.arrowUp(ICON_PUSH),
       "Upload your saved snapshots to the remote repository.",
       "vcs-action-button-success");
+  private final Button btnForcePull = actionButton(
+      "Force Pull",
+      CssIcon.arrowDown(ICON_DISCARD),
+      "Discard local commits and changes and make this branch match the remote exactly.",
+      "vcs-action-button-danger");
+  private final Button btnForcePush = actionButton(
+      "Force Push",
+      CssIcon.arrowUp(ICON_DISCARD),
+      "Overwrite the remote branch with your local history (force-with-lease).",
+      "vcs-action-button-danger");
   private final Button btnCommit = actionButton(
       "Save Snapshot",
       CssIcon.save(ICON_COMMIT),
@@ -204,11 +230,15 @@ public class VersionControlView extends BorderPane {
   private String lastRemoteCheckDisplay = "Online check: not checked yet";
   private String currentBranch = "";
   private Consumer<String> onOpenRelativePath;
+  private Runnable onWorkingTreeChanged;
   private Timeline autoRefreshTimer;
   private boolean disposed;
   private String lastRemoteFailure = "";
+  private long lastAuthFailureMs = -1L;
+  private String lastAuthFailureMessage = "";
   private String lastGuideKey = "";
   private String dismissedGuideKey = "";
+  private boolean guideTabActive = true;
   private String busyActionName = "";
   private final List<Node> currentGuideTargets = new ArrayList<>();
 
@@ -229,6 +259,12 @@ public class VersionControlView extends BorderPane {
     remoteLabel.getStyleClass().addAll("vcs-remote", "vcs-remote-missing");
     btnConfigureRemote.getStyleClass().add("vcs-text-button");
     btnConfigureRemote.setOnAction(e -> showAddRemoteDialog());
+    btnRemoveRemote.getStyleClass().add("vcs-text-button");
+    btnRemoveRemote.setOnAction(e -> confirmRemoveRemote());
+    btnRemoveRemote.setVisible(false);
+    btnRemoveRemote.setManaged(false);
+    githubTokenStatusLabel.getStyleClass().addAll("vcs-remote", "vcs-remote-missing");
+    updateGitHubTokenStatus();
     initHintLabel.getStyleClass().add("vcs-banner-copy");
     initHintLabel.setWrapText(true);
     txtCommitMessage.getStyleClass().add("vcs-text-field");
@@ -301,6 +337,8 @@ public class VersionControlView extends BorderPane {
     btnFetch.setOnAction(e -> runFetch());
     btnPull.setOnAction(e -> runPull());
     btnPush.setOnAction(e -> runPush());
+    btnForcePull.setOnAction(e -> runForcePull());
+    btnForcePush.setOnAction(e -> runForcePush());
     btnCommit.setOnAction(e -> runCommit());
     btnStash.setOnAction(e -> runStash());
     btnStashPop.setOnAction(e -> runStashPop());
@@ -318,19 +356,31 @@ public class VersionControlView extends BorderPane {
         selected = cbBranch.getEditor().getText();
       }
       if (selected == null || selected.isBlank() || selected.equals(currentBranch)) return;
-      if (selected != null && !selected.isBlank()) runSwitchBranch(selected);
+      if (cbBranch.getItems().contains(selected)) {
+        runSwitchBranch(selected);
+      } else {
+        appendLog("'" + selected + "' is not an existing branch. Click New Branch to create it.");
+      }
     });
 
     // Sync toolbar: refresh, fetch, pull, push
     HBox syncRow = new HBox(6, btnRefresh, btnFetch, btnPull, btnPush);
     syncRow.setAlignment(Pos.CENTER_LEFT);
 
+    // Danger zone: force pull (hard reset to remote) / force push (force-with-lease)
+    Label dangerZoneLabel = new Label("Danger Zone");
+    dangerZoneLabel.getStyleClass().add("vcs-danger-zone-label");
+    HBox dangerRow = new HBox(6, btnForcePull, btnForcePush);
+    dangerRow.setAlignment(Pos.CENTER_LEFT);
+    VBox dangerZoneBox = new VBox(4, dangerZoneLabel, dangerRow);
+    dangerZoneBox.getStyleClass().add("vcs-danger-zone");
+
     // Stash toolbar
     HBox stashRow = new HBox(6, btnStash, btnStashPop);
     stashRow.setAlignment(Pos.CENTER_LEFT);
 
     // Combined toolbar
-    VBox toolbar = new VBox(6, syncRow, stashRow);
+    VBox toolbar = new VBox(6, syncRow, dangerZoneBox, stashRow);
     toolbar.setAlignment(Pos.CENTER_LEFT);
     toolbar.setPadding(new Insets(4, 0, 4, 0));
 
@@ -348,7 +398,7 @@ public class VersionControlView extends BorderPane {
     setupDesc.getStyleClass().add("vcs-banner-copy");
     setupDesc.setWrapText(true);
 
-    // Option A: Create GitHub repo directly (if gh CLI available)
+    // Option A: Create GitHub repo directly via GitHub API
     Label optionALabel = new Label("Option A — Create a new GitHub repository:");
     optionALabel.getStyleClass().add("vcs-option-label");
     ComboBox<String> cbVisibility = new ComboBox<>(FXCollections.observableArrayList("Private", "Public"));
@@ -363,7 +413,7 @@ public class VersionControlView extends BorderPane {
     });
     HBox ghRow = new HBox(8, cbVisibility, btnCreateGitHub);
     ghRow.setAlignment(Pos.CENTER_LEFT);
-    Label ghHint = new Label("Requires GitHub CLI (gh). Installs remote + pushes in one step.");
+    Label ghHint = new Label("Sign in with GitHub, or use a personal access token. Creates the repository and sets it as origin.");
     ghHint.getStyleClass().add("vcs-hint");
     VBox optionA = new VBox(4, optionALabel, ghRow, ghHint);
 
@@ -400,40 +450,70 @@ public class VersionControlView extends BorderPane {
     HBox fileActionRow = new HBox(4, btnStageSelected, btnUnstageSelected, btnDiscardSelected, btnDiffSelected);
     fileActionRow.setAlignment(Pos.CENTER_LEFT);
 
-    // Remote row
-    HBox remoteRow = new HBox(6, remoteLabel, btnConfigureRemote);
-    remoteRow.setAlignment(Pos.CENTER_LEFT);
+    // Header section: one compact status line instead of a stack of separate labels
+    Label branchIcon = new Label("", CssIcon.branchPlus(ICON_BRANCH));
+    HBox branchChip = new HBox(4, branchIcon, branchLabel);
+    branchChip.setAlignment(Pos.CENTER_LEFT);
+    branchChip.getStyleClass().add("vcs-status-chip");
 
-    // Header section
-    VBox statusBox = new VBox(4, nextStepLabel, branchLabel, remoteRow, incomingLabel, syncLabel, summaryLabel, lastRemoteCheckLabel, conflictLabel);
+    syncLabel.getStyleClass().add("vcs-status-chip");
+    summaryLabel.getStyleClass().add("vcs-status-chip");
+    remoteLabel.getStyleClass().addAll("vcs-status-chip", "vcs-remote");
+
+    Region statusSpacer = new Region();
+    HBox.setHgrow(statusSpacer, Priority.ALWAYS);
+    HBox statusRow = new HBox(8, branchChip, syncLabel, summaryLabel, statusSpacer, remoteLabel, btnConfigureRemote, btnRemoveRemote);
+    statusRow.setAlignment(Pos.CENTER_LEFT);
+    statusRow.getStyleClass().add("vcs-status-row");
+
+    githubTokenStatusLabel.getStyleClass().addAll("vcs-status-chip", "vcs-remote");
+    btnChangeGitHubToken.getStyleClass().add("vcs-text-button");
+    btnChangeGitHubToken.setOnAction(e -> showGitHubDeviceFlowDialog(this::updateGitHubTokenStatus));
+    btnRemoveGitHubToken.getStyleClass().add("vcs-text-button");
+    btnRemoveGitHubToken.setOnAction(e -> removeGitHubToken());
+    Region githubTokenSpacer = new Region();
+    HBox.setHgrow(githubTokenSpacer, Priority.ALWAYS);
+    HBox githubTokenRow = new HBox(8, githubTokenStatusLabel, githubTokenSpacer, btnChangeGitHubToken, btnRemoveGitHubToken);
+    githubTokenRow.setAlignment(Pos.CENTER_LEFT);
+    githubTokenRow.getStyleClass().add("vcs-status-row");
+
+    VBox statusBox = new VBox(4, statusRow, githubTokenRow, nextStepLabel, conflictLabel);
     statusBox.getStyleClass().add("vcs-status-stack");
 
     HBox titleRow = new HBox(6, titleLabel, SidebarToolHelp.button(this, "Version Control", """
         The Version Control panel provides Git integration for your JVN project.
 
+Status bar:
+  • The pill row shows the current branch, unsynced snapshot counts, local \
+change count, and remote connection state
+  • The banner below it tells you the recommended next action
+
 Core workflow:
-  • Stage files — tick the checkboxes next to changed files
-  • Write a commit message and click Commit to record a snapshot
-  • Push / Pull sync your local commits with the remote repository
+  • Select a file in the Changes list, then use the stage / unstage / \
+discard / diff buttons above it
+  • Write a commit message and click Save Snapshot to record it
+  • Check Online, Get Updates, and Send Online sync your local snapshots \
+with the remote repository
 
 Branch management:
-  • The current branch is shown in the header
   • Use the branch row to create or switch branches
 
 Remote setup:
   If your project doesn't have a remote yet, the panel will guide you through \
-connecting to GitHub or another host. You can use Option A (create a new \
-GitHub repo via the gh CLI) or Option B (paste an existing remote URL).
+connecting to GitHub or another host. Option A creates a new GitHub \
+repository directly using a personal access token (paste it once; it is \
+encrypted and stored locally). Option B connects an existing remote by \
+pasting its URL.
 
-The Changes list shows files that differ from the last commit. \
-The Log shows recent commits on the current branch."""));
+Switch to the Graph view to see commit history. The Log below shows the \
+result of your most recent actions."""));
     titleRow.setAlignment(Pos.CENTER_LEFT);
+
+    VBox identityBox = new VBox(2, titleRow, repoLabel);
 
     VBox top = new VBox(
         6,
-        titleRow,
-        repoLabel,
-        toolLabel,
+        identityBox,
         statusBox,
         initBox,
         setupBox,
@@ -456,14 +536,22 @@ The Log shows recent commits on the current branch."""));
     changesView.getStyleClass().add("vcs-center-view");
     graphView.getStyleClass().add("vcs-center-view");
     centerViewStack.getChildren().setAll(changesView, graphView);
-    VBox center = new VBox(6, viewModeRow, centerViewStack, logLabel, txtLog);
-    center.getStyleClass().add("vcs-center");
-    center.setPadding(new Insets(0, 10, 10, 10));
     VBox.setVgrow(listChanges, Priority.ALWAYS);
     VBox.setVgrow(listGraph, Priority.ALWAYS);
     VBox.setVgrow(changesView, Priority.ALWAYS);
     VBox.setVgrow(graphView, Priority.ALWAYS);
-    VBox.setVgrow(centerViewStack, Priority.ALWAYS);
+
+    VBox logBox = new VBox(6, logLabel, txtLog);
+    SplitPane centerSplit = new SplitPane(centerViewStack, logBox);
+    centerSplit.setOrientation(javafx.geometry.Orientation.VERTICAL);
+    centerSplit.getStyleClass().add("sidebar-tool-split");
+    centerSplit.setDividerPositions(0.75);
+    SplitPane.setResizableWithParent(logBox, true);
+    VBox.setVgrow(centerSplit, Priority.ALWAYS);
+
+    VBox center = new VBox(6, viewModeRow, centerSplit);
+    center.getStyleClass().add("vcs-center");
+    center.setPadding(new Insets(0, 10, 10, 10));
     updateCenterViewMode();
 
     contentPane.setTop(top);
@@ -556,6 +644,20 @@ The Log shows recent commits on the current branch."""));
     this.onOpenRelativePath = onOpenRelativePath;
   }
 
+  /**
+   * Registers a callback fired after operations that can add, remove, or overwrite files on disk
+   * outside the editor's knowledge (branch switch/create, pull, force pull, stash pop) so hosts
+   * can refresh things like the Project Explorer tree. Not fired for operations that only touch
+   * the index/history (stage, commit, push).
+   */
+  public void setOnWorkingTreeChanged(Runnable onWorkingTreeChanged) {
+    this.onWorkingTreeChanged = onWorkingTreeChanged;
+  }
+
+  private void notifyWorkingTreeChanged() {
+    if (onWorkingTreeChanged != null) Platform.runLater(onWorkingTreeChanged);
+  }
+
   public void setProjectRoot(File projectRoot) {
     if (disposed) return;
     this.projectRoot = projectRoot;
@@ -626,9 +728,10 @@ The Log shows recent commits on the current branch."""));
       String remoteUrl = hasRemote ? vcs.getRemoteUrl(projectRoot) : null;
       List<String> branches = vcs.listBranches(projectRoot);
       List<GitVcsService.ChangeGraphEntry> graphEntries = vcs.changeGraphEntries(projectRoot, 80);
-      boolean hasConflicts = hasConflicts(status);
+      List<String> conflictedPaths = conflictedPaths(status);
+      boolean hasConflicts = !conflictedPaths.isEmpty();
       String finalRemoteCheckText = remoteCheckText;
-      Platform.runLater(() -> applyRepositoryStatus(status, hasRemote, remoteUrl, branches, graphEntries, hasConflicts, finalRemoteCheckText));
+      Platform.runLater(() -> applyRepositoryStatus(status, hasRemote, remoteUrl, branches, graphEntries, hasConflicts, conflictedPaths, finalRemoteCheckText));
     } catch (Exception ex) {
       appendLog(safeMessage(ex));
       Platform.runLater(() -> {
@@ -650,12 +753,13 @@ The Log shows recent commits on the current branch."""));
     currentChangeCount = 0;
     currentBranch = "";
     lastRemoteFailure = "";
-    branchLabel.setText("Branch: --");
-    incomingLabel.setText("Incoming: --");
-    syncLabel.setText("Sync: --");
-    summaryLabel.setText("Status: no project selected");
-    lastRemoteCheckLabel.setText("Online check: --");
-    remoteLabel.setText("Remote: not configured");
+    branchLabel.setText("--");
+    summaryLabel.setText("no project");
+    syncLabel.setVisible(false);
+    syncLabel.setManaged(false);
+    remoteLabel.setText("No remote");
+    btnRemoveRemote.setVisible(false);
+    btnRemoveRemote.setManaged(false);
     listChanges.getItems().clear();
     listGraph.getItems().clear();
     cbBranch.getItems().clear();
@@ -675,10 +779,12 @@ The Log shows recent commits on the current branch."""));
     currentBehind = 0;
     currentChangeCount = 0;
     lastRemoteFailure = "";
-    branchLabel.setText("Branch: --");
-    incomingLabel.setText("Incoming: --");
-    syncLabel.setText("Sync: --");
-    summaryLabel.setText("Status: Git unavailable");
+    branchLabel.setText("--");
+    summaryLabel.setText("Git unavailable");
+    syncLabel.setVisible(false);
+    syncLabel.setManaged(false);
+    btnRemoveRemote.setVisible(false);
+    btnRemoveRemote.setManaged(false);
     listChanges.getItems().clear();
     listGraph.getItems().clear();
     cbBranch.getItems().clear();
@@ -699,10 +805,12 @@ The Log shows recent commits on the current branch."""));
     currentChangeCount = 0;
     currentBranch = "";
     lastRemoteFailure = "";
-    branchLabel.setText("Branch: not initialized");
-    incomingLabel.setText("Incoming: unavailable until initialized");
-    syncLabel.setText("Sync: not connected");
-    summaryLabel.setText("Status: repository not initialized");
+    branchLabel.setText("not initialized");
+    summaryLabel.setText("not initialized");
+    syncLabel.setVisible(false);
+    syncLabel.setManaged(false);
+    btnRemoveRemote.setVisible(false);
+    btnRemoveRemote.setManaged(false);
     listChanges.getItems().clear();
     listGraph.getItems().clear();
     cbBranch.getItems().clear();
@@ -718,6 +826,7 @@ The Log shows recent commits on the current branch."""));
                                      List<String> branches,
                                      List<GitVcsService.ChangeGraphEntry> graphEntries,
                                      boolean hasConflicts,
+                                     List<String> conflictedPaths,
                                      String remoteCheckText) {
     markStatusLoaded();
     repositoryInitialized = true;
@@ -729,28 +838,51 @@ The Log shows recent commits on the current branch."""));
     currentChangeCount = status.entries() == null ? 0 : status.entries().size();
     currentBranch = safe(status.branch());
 
-    branchLabel.setText("Branch: " + currentBranch);
     String upstream = status.upstream() == null || status.upstream().isBlank() ? "not linked to online branch" : status.upstream();
-    syncLabel.setText("Outgoing: " + currentAhead + " local snapshot" + plural(currentAhead) + " not uploaded (" + upstream + ")");
-    summaryLabel.setText(status.clean()
-        ? "Status: no local file changes"
-        : "Status: " + currentChangeCount + " changed file" + plural(currentChangeCount));
-    incomingLabel.setText(buildIncomingText(hasRemote, currentBehind));
-    lastRemoteCheckLabel.setText(remoteCheckText == null || remoteCheckText.isBlank() ? lastRemoteCheckText() : remoteCheckText);
-    conflictLabel.setText(hasConflicts ? "Conflicts need manual resolution before syncing." : "");
+    branchLabel.setText(currentBranch);
+    branchLabel.setTooltip(new Tooltip("Current branch: " + currentBranch));
+    syncLabel.setText((currentAhead > 0 ? "↑" + currentAhead + " " : "") + (currentBehind > 0 ? "↓" + currentBehind : ""));
+    syncLabel.setTooltip(new Tooltip(
+        currentAhead + " local snapshot" + plural(currentAhead) + " not uploaded, "
+            + currentBehind + " online snapshot" + plural(currentBehind) + " waiting (" + upstream + ")"));
+    syncLabel.setVisible(currentAhead > 0 || currentBehind > 0);
+    syncLabel.setManaged(currentAhead > 0 || currentBehind > 0);
+    summaryLabel.setText(status.clean() ? "clean" : currentChangeCount + " changed file" + plural(currentChangeCount));
+    summaryLabel.setTooltip(new Tooltip(status.clean()
+        ? "No local file changes"
+        : currentChangeCount + " changed file" + plural(currentChangeCount)));
+    incomingLabel.setTooltip(new Tooltip(buildIncomingText(hasRemote, currentBehind)));
+    String checkText = remoteCheckText == null || remoteCheckText.isBlank() ? lastRemoteCheckText() : remoteCheckText;
+    lastRemoteCheckLabel.setTooltip(new Tooltip(checkText));
+    if (hasConflicts) {
+      int count = conflictedPaths == null ? 0 : conflictedPaths.size();
+      conflictLabel.setText("Conflicts in " + count + " file" + plural(count) + " need manual resolution before syncing.");
+      conflictLabel.setTooltip(new Tooltip(conflictedPaths == null || conflictedPaths.isEmpty()
+          ? "Conflicting files"
+          : "Conflicting files:\n" + String.join("\n", conflictedPaths)));
+    } else {
+      conflictLabel.setText("");
+      conflictLabel.setTooltip(null);
+    }
     conflictLabel.setVisible(hasConflicts);
     conflictLabel.setManaged(hasConflicts);
 
     remoteLabel.getStyleClass().removeAll("vcs-remote-configured", "vcs-remote-missing");
     if (hasRemote && remoteUrl != null && !remoteUrl.isBlank()) {
-      remoteLabel.setText("Remote: " + remoteUrl);
+      remoteLabel.setText("Remote connected");
+      remoteLabel.setTooltip(new Tooltip(remoteUrl));
       remoteLabel.getStyleClass().add("vcs-remote-configured");
       btnConfigureRemote.setText("Change");
+      btnRemoveRemote.setVisible(true);
+      btnRemoveRemote.setManaged(true);
       setSetupVisible(false);
     } else {
-      remoteLabel.setText("Remote: not configured");
+      remoteLabel.setText("No remote");
+      remoteLabel.setTooltip(new Tooltip("Remote: not configured"));
       remoteLabel.getStyleClass().add("vcs-remote-missing");
       btnConfigureRemote.setText("Add Remote");
+      btnRemoveRemote.setVisible(false);
+      btnRemoveRemote.setManaged(false);
       setSetupVisible(true);
     }
 
@@ -809,9 +941,13 @@ The Log shows recent commits on the current branch."""));
   }
 
   private void updateBranchChoices(List<String> branches, String selectedBranch) {
+    boolean editingBranchField = cbBranch.getEditor() != null && cbBranch.getEditor().isFocused();
     updatingBranchSelection = true;
     try {
       cbBranch.setItems(FXCollections.observableArrayList(branches == null ? List.of() : branches));
+      if (editingBranchField) {
+        return;
+      }
       cbBranch.setValue(selectedBranch == null || selectedBranch.isBlank() ? null : selectedBranch);
       if (cbBranch.getEditor() != null) {
         cbBranch.getEditor().setText(selectedBranch == null ? "" : selectedBranch);
@@ -827,25 +963,31 @@ The Log shows recent commits on the current branch."""));
   }
 
   private boolean hasConflicts(GitVcsService.RepositoryStatus status) {
-    if (status == null || status.entries() == null) return false;
+    return !conflictedPaths(status).isEmpty();
+  }
+
+  private List<String> conflictedPaths(GitVcsService.RepositoryStatus status) {
+    if (status == null || status.entries() == null) return List.of();
+    List<String> paths = new ArrayList<>();
     for (GitVcsService.StatusEntry entry : status.entries()) {
       String index = entry.indexStatus();
       String workTree = entry.workTreeStatus();
-      if ("U".equals(index) || "U".equals(workTree)) return true;
-      if ("D".equals(index) && "D".equals(workTree)) return true;
-      if ("A".equals(index) && "A".equals(workTree)) return true;
+      boolean conflicted = "U".equals(index) || "U".equals(workTree)
+          || ("D".equals(index) && "D".equals(workTree))
+          || ("A".equals(index) && "A".equals(workTree));
+      if (conflicted) paths.add(entry.path());
     }
-    return false;
+    return paths;
   }
 
   private void updateSyncChipStyle() {
-    incomingLabel.getStyleClass().removeAll("vcs-sync-neutral", "vcs-sync-success", "vcs-sync-warning", "vcs-sync-danger");
+    syncLabel.getStyleClass().removeAll("vcs-sync-neutral", "vcs-sync-success", "vcs-sync-warning", "vcs-sync-danger");
     if (currentHasConflicts) {
-      incomingLabel.getStyleClass().add("vcs-sync-danger");
+      syncLabel.getStyleClass().add("vcs-sync-danger");
     } else if (!currentHasRemote || currentBehind > 0) {
-      incomingLabel.getStyleClass().add("vcs-sync-warning");
+      syncLabel.getStyleClass().add("vcs-sync-warning");
     } else {
-      incomingLabel.getStyleClass().add("vcs-sync-success");
+      syncLabel.getStyleClass().add("vcs-sync-success");
     }
   }
 
@@ -879,7 +1021,7 @@ The Log shows recent commits on the current branch."""));
   private void updateGuidance() {
     clearGuideTargets();
     GuidanceStep step = computeGuidanceStep();
-    if (step == null || step.targets().isEmpty()) {
+    if (step == null || step.targets().isEmpty() || !guideTabActive) {
       lastGuideKey = "";
       guidePopup.hide();
       return;
@@ -1085,6 +1227,8 @@ The Log shows recent commits on the current branch."""));
     });
   }
 
+  private static final int DIVERGED_WARNING_THRESHOLD = 15;
+
   private void runFetch() {
     runAsync("Fetch", () -> {
       if (projectRoot == null) {
@@ -1092,9 +1236,19 @@ The Log shows recent commits on the current branch."""));
         return;
       }
       try {
-        appendCommandResult(vcs.fetch(projectRoot));
+        appendCommandResult(vcs.fetch(projectRoot, this::appendConsoleLine));
         lastRemoteCheckMs = System.currentTimeMillis();
         lastRemoteCheckDisplay = "Online check: " + LocalTime.now().format(CHECK_TIME_FORMAT);
+        GitVcsService.RepositoryStatus status = vcs.getRepositoryStatus(projectRoot);
+        if (status.behind() >= DIVERGED_WARNING_THRESHOLD) {
+          appendLog("Warning: this branch is " + status.behind()
+              + " snapshots behind the remote. Consider getting updates before making further changes"
+              + " to reduce the chance of a difficult rebase.");
+        }
+        if (status.ahead() >= DIVERGED_WARNING_THRESHOLD) {
+          appendLog("Warning: this branch is " + status.ahead()
+              + " snapshots ahead of the remote and not yet sent online. Consider sending online soon.");
+        }
       } catch (Exception ex) {
         lastRemoteCheckMs = System.currentTimeMillis();
         lastRemoteCheckDisplay = "Online check failed: " + safeMessage(ex);
@@ -1110,6 +1264,7 @@ The Log shows recent commits on the current branch."""));
         appendLog("Select a project before committing.");
         return;
       }
+      if (!confirmPreflight("Save Snapshot")) return;
       String message = txtCommitMessage.getText();
       if (message == null || message.isBlank()) {
         message = "Update project files";
@@ -1125,14 +1280,109 @@ The Log shows recent commits on the current branch."""));
     });
   }
 
+  /**
+   * Runs a preflight check and shows a blocking summary dialog on the FX thread.
+   * Must be called from the background worker thread. Returns true if the user
+   * chose to proceed.
+   */
+  private boolean confirmPreflight(String actionLabel) {
+    if (GitVcsService.isAuthCooldownActive(lastAuthFailureMs, System.currentTimeMillis(), REMOTE_CHECK_INTERVAL_MS)) {
+      return showPreflightBlockedDialog(actionLabel, lastAuthFailureMessage);
+    }
+
+    GitVcsService.PreflightResult result;
+    try {
+      result = vcs.preflight(projectRoot);
+    } catch (Exception ex) {
+      return showPreflightUnavailableDialog(actionLabel, ex.getMessage());
+    }
+
+    if (!result.credentialsOk()) {
+      lastAuthFailureMs = System.currentTimeMillis();
+      lastAuthFailureMessage = result.credentialIssue();
+    }
+
+    return showPreflightDialog(actionLabel, result);
+  }
+
+  private boolean showPreflightDialog(String actionLabel, GitVcsService.PreflightResult result) {
+    CompletableFuture<Boolean> decision = new CompletableFuture<>();
+    Platform.runLater(() -> {
+      VBox content = new VBox(6);
+      content.getStyleClass().add("editor-dialog-form");
+      for (String line : PreflightSummaryFormatter.format(result)) {
+        Label lineLabel = new Label(line);
+        lineLabel.getStyleClass().add("editor-dialog-field-label");
+        content.getChildren().add(lineLabel);
+      }
+
+      Optional<String> choice = EditorDialogs.show(
+          getScene() == null ? null : getScene().getWindow(),
+          actionLabel + "?",
+          "Review what will happen before continuing.",
+          content,
+          EditorDialogs.ActionSpec.neutral("cancel", "Cancel", null).defaultFocus(true),
+          EditorDialogs.ActionSpec.accent("proceed", actionLabel, null));
+      decision.complete("proceed".equals(choice.orElse(null)));
+    });
+    return decision.join();
+  }
+
+  private boolean showPreflightUnavailableDialog(String actionLabel, String errorMessage) {
+    CompletableFuture<Boolean> decision = new CompletableFuture<>();
+    Platform.runLater(() -> {
+      Optional<String> choice = EditorDialogs.show(
+          getScene() == null ? null : getScene().getWindow(),
+          actionLabel + "?",
+          "Could not read the current repository state: " + errorMessage
+              + "\n\nYou can still proceed, but the summary above could not be confirmed.",
+          null,
+          EditorDialogs.ActionSpec.neutral("cancel", "Cancel", null).defaultFocus(true),
+          EditorDialogs.ActionSpec.accent("proceed", actionLabel, null));
+      decision.complete("proceed".equals(choice.orElse(null)));
+    });
+    return decision.join();
+  }
+
+  private boolean showPreflightBlockedDialog(String actionLabel, String reason) {
+    CompletableFuture<Boolean> decision = new CompletableFuture<>();
+    Platform.runLater(() -> {
+      Optional<String> choice = EditorDialogs.show(
+          getScene() == null ? null : getScene().getWindow(),
+          "Sign-in required",
+          "The last attempt failed to authenticate with the remote repository:\n\n" + reason
+              + "\n\nFix your credentials before trying again.",
+          null,
+          EditorDialogs.ActionSpec.neutral("cancel", "Cancel", null).defaultFocus(true),
+          EditorDialogs.ActionSpec.accent("proceed", "Try Anyway", null));
+      decision.complete("proceed".equals(choice.orElse(null)));
+    });
+    return decision.join();
+  }
+
   private void runPull() {
     runAsync("Pull", () -> {
       if (projectRoot == null) {
         appendLog("Select a project before pulling.");
         return;
       }
+      if (hasUncommittedChanges() && !confirmAutostashPull()) {
+        appendLog("Pull cancelled.");
+        return;
+      }
       try {
-        appendCommandResult(vcs.pullRebase(projectRoot));
+        appendCommandResult(vcs.pullRebase(projectRoot, this::appendConsoleLine));
+        notifyWorkingTreeChanged();
+      } catch (GitVcsService.GitVcsException ex) {
+        if (ex.hasMergeConflict()) {
+          appendLog(ex.getMessage());
+          appendLog("Resolve the conflicted files listed above in the editor, then use Stage on "
+              + "each resolved file and Save Snapshot to continue, restore the pre-pull state "
+              + "manually to back out, or use Force Pull (Danger Zone) to discard local history "
+              + "and match the remote instead.");
+        } else {
+          appendLog(ex.getMessage());
+        }
       } catch (Exception ex) {
         appendLog(ex.getMessage());
       }
@@ -1140,19 +1390,224 @@ The Log shows recent commits on the current branch."""));
     });
   }
 
+  /** Must be called from the background worker thread. */
+  private boolean hasUncommittedChanges() {
+    CompletableFuture<Boolean> result = new CompletableFuture<>();
+    Platform.runLater(() -> result.complete(!listChanges.getItems().isEmpty()));
+    return result.join();
+  }
+
+  /**
+   * Called from the background worker before a pull that will temporarily shelve uncommitted
+   * changes. Must be called from the background worker thread.
+   */
+  private boolean confirmAutostashPull() {
+    CompletableFuture<Boolean> decision = new CompletableFuture<>();
+    Platform.runLater(() -> {
+      boolean confirmed = EditorDialogs.confirm(
+          getScene() == null ? null : getScene().getWindow(),
+          "Pull With Local Changes",
+          "You have uncommitted local changes. Getting updates will temporarily shelve them, "
+              + "rebase your branch onto the incoming changes, then restore them. "
+              + "If the rebase touches the same lines, restoring may fail and leave your changes "
+              + "in the stash list instead of your working files.\n\nContinue?",
+          "Get Updates",
+          false);
+      decision.complete(confirmed);
+    });
+    return decision.join();
+  }
+
+  private static final Set<String> PROTECTED_BRANCH_NAMES = Set.of("main", "master", "stable");
+
   private void runPush() {
     runAsync("Push", () -> {
       if (projectRoot == null) {
         appendLog("Select a project before pushing.");
         return;
       }
+      if (!confirmPreflight("Send Online")) return;
+      if (PROTECTED_BRANCH_NAMES.contains(currentBranch) && !confirmProtectedBranchPush(currentBranch)) {
+        appendLog("Push cancelled.");
+        return;
+      }
       try {
-        appendCommandResult(vcs.pushSafe(projectRoot));
+        appendCommandResult(vcs.pushSafe(projectRoot, this::appendConsoleLine));
+      } catch (Exception ex) {
+        if (GitVcsService.isCredentialFailure(ex.getMessage())) {
+          lastAuthFailureMs = System.currentTimeMillis();
+          lastAuthFailureMessage = ex.getMessage();
+        }
+        appendLog(ex.getMessage());
+        if (GitVcsService.isNonFastForwardRejection(ex.getMessage())) {
+          appendLog("The remote has snapshots this branch doesn't have. Use Get Updates to pull "
+              + "them in first, then Send Online again — or use Force Push (Danger Zone) if you "
+              + "intend to overwrite the remote's history with yours.");
+        }
+      }
+      loadStatus(true);
+    });
+  }
+
+  /**
+   * Called from the background worker before pushing directly to a protected branch
+   * (main/master/stable). Must be called from the background worker thread.
+   */
+  private boolean confirmProtectedBranchPush(String branch) {
+    CompletableFuture<Boolean> decision = new CompletableFuture<>();
+    Platform.runLater(() -> {
+      boolean confirmed = EditorDialogs.confirm(
+          getScene() == null ? null : getScene().getWindow(),
+          "Push to Protected Branch",
+          "You're about to push directly to '" + branch + "'. This branch is typically shared "
+              + "and often protected — consider using a feature branch and a pull request instead.\n\n"
+              + "Push anyway?",
+          "Push Anyway",
+          true);
+      decision.complete(confirmed);
+    });
+    return decision.join();
+  }
+
+  private void runForcePull() {
+    runAsync("Force Pull", () -> {
+      if (projectRoot == null) {
+        appendLog("Select a project before force-pulling.");
+        return;
+      }
+      if (!confirmDestructiveForceAction(
+          "Force Pull",
+          "Force pulling will make '" + currentBranch + "' match origin/" + currentBranch
+              + " exactly. Any local commits not on the remote, and any uncommitted changes, "
+              + "will be permanently discarded. This cannot be undone.",
+          currentBranch)) {
+        appendLog("Force pull cancelled.");
+        return;
+      }
+      try {
+        appendCommandResult(vcs.forcePull(projectRoot, this::appendConsoleLine));
+        notifyWorkingTreeChanged();
       } catch (Exception ex) {
         appendLog(ex.getMessage());
       }
       loadStatus(true);
     });
+  }
+
+  private void runForcePush() {
+    runAsync("Force Push", () -> {
+      if (projectRoot == null) {
+        appendLog("Select a project before force-pushing.");
+        return;
+      }
+      if (!confirmPreflight("Force Push")) return;
+      if (!confirmDestructiveForceAction(
+          "Force Push",
+          "Force pushing will overwrite the remote copy of '" + currentBranch + "' with your local "
+              + "history. Commits on the remote that aren't in your local history will be lost for "
+              + "anyone who hasn't already fetched them. This uses force-with-lease, so it will be "
+              + "rejected if someone else pushed since your last fetch — but it can still discard "
+              + "work once it succeeds.",
+          currentBranch)) {
+        appendLog("Force push cancelled.");
+        return;
+      }
+      try {
+        appendCommandResult(vcs.forcePush(projectRoot, this::appendConsoleLine));
+      } catch (Exception ex) {
+        if (GitVcsService.isCredentialFailure(ex.getMessage())) {
+          lastAuthFailureMs = System.currentTimeMillis();
+          lastAuthFailureMessage = ex.getMessage();
+        }
+        appendLog(ex.getMessage());
+      }
+      loadStatus(true);
+    });
+  }
+
+  /**
+   * Shows a type-to-confirm dialog requiring the user to type {@code confirmToken} exactly before
+   * the destructive action button enables, for irreversible operations like force pull/push where
+   * a plain Yes/No is too easy to click through. Must be called from the background worker thread.
+   */
+  private boolean confirmDestructiveForceAction(String title, String message, String confirmToken) {
+    CompletableFuture<Boolean> decision = new CompletableFuture<>();
+    Platform.runLater(() -> showTypeToConfirmDialog(title, message, confirmToken, decision));
+    return decision.join();
+  }
+
+  private void showTypeToConfirmDialog(String title, String message, String confirmToken,
+                                       CompletableFuture<Boolean> decision) {
+    StackPane overlay = new StackPane();
+    overlay.getStyleClass().add("editor-dialog-overlay");
+
+    VBox card = new VBox(12);
+    card.getStyleClass().add("editor-dialog-card");
+    card.setMaxWidth(480);
+    card.setFillWidth(true);
+    card.setPadding(new Insets(16));
+
+    Label titleLabel = new Label(title);
+    titleLabel.getStyleClass().add("editor-dialog-title");
+
+    Label messageLabel = new Label(message);
+    messageLabel.getStyleClass().add("editor-dialog-message");
+    messageLabel.setWrapText(true);
+
+    Label instructionLabel = new Label("Type \"" + confirmToken + "\" to confirm:");
+    instructionLabel.getStyleClass().add("editor-dialog-field-label");
+
+    TextField confirmField = new TextField();
+    confirmField.getStyleClass().add("vcs-text-field");
+    confirmField.setPromptText(confirmToken);
+
+    Button cancelButton = new Button("Cancel");
+    cancelButton.getStyleClass().addAll("editor-dialog-button", "editor-dialog-button-neutral");
+    Button confirmButton = new Button(title);
+    confirmButton.getStyleClass().addAll("editor-dialog-button", "editor-dialog-button-danger");
+    confirmButton.setDisable(true);
+
+    confirmField.textProperty().addListener((obs, oldVal, newVal) ->
+        confirmButton.setDisable(!confirmToken.equals(newVal)));
+
+    HBox actionsBox = new HBox(8, cancelButton, confirmButton);
+    actionsBox.setAlignment(Pos.CENTER_RIGHT);
+
+    card.getChildren().addAll(titleLabel, messageLabel, instructionLabel, confirmField, actionsBox);
+    overlay.getChildren().add(card);
+    overlay.setAlignment(Pos.CENTER);
+
+    Stage stage = new Stage(StageStyle.TRANSPARENT);
+    Window owner = getScene() == null ? null : getScene().getWindow();
+    if (owner != null) {
+      stage.initOwner(owner);
+      stage.initModality(Modality.WINDOW_MODAL);
+    } else {
+      stage.initModality(Modality.APPLICATION_MODAL);
+    }
+    Scene scene = new Scene(overlay);
+    scene.setFill(null);
+    scene.getStylesheets().addAll(getScene() == null ? List.of() : getScene().getStylesheets());
+    stage.setScene(scene);
+
+    cancelButton.setOnAction(e -> {
+      decision.complete(false);
+      stage.close();
+    });
+    confirmButton.setOnAction(e -> {
+      decision.complete(true);
+      stage.close();
+    });
+    overlay.setOnMouseClicked(e -> {
+      if (e.getTarget() == overlay) {
+        decision.complete(false);
+        stage.close();
+      }
+    });
+    stage.setOnCloseRequest(e -> decision.complete(false));
+
+    stage.show();
+    Platform.runLater(confirmField::requestFocus);
   }
 
   private void runStash() {
@@ -1172,6 +1627,7 @@ The Log shows recent commits on the current branch."""));
       if (projectRoot == null) return;
       try {
         appendCommandResult(vcs.stashPop(projectRoot));
+        notifyWorkingTreeChanged();
       } catch (Exception ex) {
         appendLog("Stash pop failed: " + ex.getMessage());
       }
@@ -1270,11 +1726,48 @@ The Log shows recent commits on the current branch."""));
     runAsync("Switch branch", () -> {
       try {
         appendCommandResult(vcs.switchBranch(projectRoot, branchName));
+        notifyWorkingTreeChanged();
+      } catch (GitVcsService.GitVcsException ex) {
+        if (ex.hasLocalChangesConflict()) {
+          handleSwitchBranchConflict(branchName);
+        } else {
+          appendLog("Branch switch failed: " + ex.getMessage());
+        }
       } catch (Exception ex) {
         appendLog("Branch switch failed: " + ex.getMessage());
       }
       loadStatus(false);
     });
+  }
+
+  /**
+   * Called from the background worker after a switch fails because local changes would be
+   * overwritten. Offers to stash them first, GitHub-Desktop style, then retries the switch.
+   */
+  private void handleSwitchBranchConflict(String branchName) {
+    CompletableFuture<String> decision = new CompletableFuture<>();
+    Platform.runLater(() -> {
+      Optional<String> choice = EditorDialogs.show(
+          getScene() == null ? null : getScene().getWindow(),
+          "Local Changes Would Be Overwritten",
+          "Switching to '" + branchName + "' would overwrite uncommitted local changes.\n\n"
+              + "You can stash your changes first and switch, or cancel and handle them manually.",
+          null,
+          EditorDialogs.ActionSpec.neutral("cancel", "Cancel", null).defaultFocus(true),
+          EditorDialogs.ActionSpec.accent("stash", "Stash Changes and Switch", null));
+      decision.complete(choice.orElse(null));
+    });
+    if (!"stash".equals(decision.join())) {
+      appendLog("Branch switch cancelled.");
+      return;
+    }
+    try {
+      appendCommandResult(vcs.stash(projectRoot, "Auto-stash before switching to " + branchName));
+      appendCommandResult(vcs.switchBranch(projectRoot, branchName));
+      notifyWorkingTreeChanged();
+    } catch (Exception ex) {
+      appendLog("Branch switch failed: " + ex.getMessage());
+    }
   }
 
   private void runCreateBranch() {
@@ -1284,14 +1777,15 @@ The Log shows recent commits on the current branch."""));
       appendLog("Enter a branch name in the branch selector to create a new branch.");
       return;
     }
-    if (name.equals(currentBranch)) {
-      appendLog("You are already on branch: " + name);
+    String branchToCreate = name.trim();
+    if (branchToCreate.equals(currentBranch)) {
+      appendLog("Enter a new branch name in the branch selector to create a new branch (it currently shows your current branch: " + currentBranch + ").");
       return;
     }
-    String branchToCreate = name.trim();
     runAsync("Create branch", () -> {
       try {
         appendCommandResult(vcs.createBranch(projectRoot, branchToCreate));
+        notifyWorkingTreeChanged();
       } catch (Exception ex) {
         appendLog("Create branch failed: " + ex.getMessage());
       }
@@ -1345,30 +1839,292 @@ The Log shows recent commits on the current branch."""));
     }
   }
 
-  private void showCreateGitHubRepoDialog(boolean isPrivate) {
-    // First check gh CLI availability
-    if (!vcs.isGhCliAvailable()) {
-      EditorDialogs.showTextBlock(
-          getScene() == null ? null : getScene().getWindow(),
-          "GitHub CLI Not Found",
-          "GitHub CLI (gh) is not installed",
-          "To create repositories directly, install the GitHub CLI:\n\n" +
-          "  macOS:   brew install gh\n" +
-          "  Windows: winget install GitHub.cli\n" +
-          "  Linux:   https://github.com/cli/cli#installation\n\n" +
-          "After installing, run:  gh auth login\n\n" +
-          "Alternatively, create a repository on github.com and use\n\"Connect to Remote Repository\" to paste the URL.",
-          "Close");
+  private void showGitHubDeviceFlowDialog(Runnable onSaved) {
+    VBox content = new VBox(10);
+    content.getStyleClass().add("editor-dialog-form");
+
+    Label statusLabel = new Label("Requesting a sign-in code from GitHub...");
+    statusLabel.getStyleClass().add("editor-dialog-message");
+    statusLabel.setWrapText(true);
+    statusLabel.setMaxWidth(380);
+
+    Label codeLabel = new Label("");
+    codeLabel.getStyleClass().add("vcs-device-code");
+    codeLabel.setVisible(false);
+    codeLabel.setManaged(false);
+
+    Button btnOpenBrowser = new Button("Open github.com/login/device");
+    btnOpenBrowser.getStyleClass().addAll("vcs-action-button", "vcs-action-button-accent");
+    btnOpenBrowser.setVisible(false);
+    btnOpenBrowser.setManaged(false);
+
+    Button btnCopyCode = new Button("Copy Code");
+    btnCopyCode.getStyleClass().add("vcs-text-button");
+    btnCopyCode.setVisible(false);
+    btnCopyCode.setManaged(false);
+
+    HBox actionsRow = new HBox(8, btnOpenBrowser, btnCopyCode);
+    actionsRow.setAlignment(Pos.CENTER_LEFT);
+
+    Button btnUseToken = new Button("Paste a personal access token instead");
+    btnUseToken.getStyleClass().add("vcs-text-button");
+
+    content.getChildren().addAll(statusLabel, codeLabel, actionsRow, btnUseToken);
+
+    Timeline[] pollTimeline = new Timeline[1];
+    boolean[] usingFallback = {false};
+
+    btnUseToken.setOnAction(e -> {
+      usingFallback[0] = true;
+      if (pollTimeline[0] != null) pollTimeline[0].stop();
+      Window dialogWindow = btnUseToken.getScene() == null ? null : btnUseToken.getScene().getWindow();
+      if (dialogWindow instanceof javafx.stage.Stage stage) stage.close();
+    });
+
+    worker.submit(() -> {
+      try {
+        GitHubApiClient.DeviceCodeResponse device = githubApiClient.requestDeviceCode();
+        Platform.runLater(() -> {
+          statusLabel.setText("1. Click below to open GitHub. 2. Enter this code. 3. Approve the request.");
+          codeLabel.setText(device.userCode());
+          codeLabel.setVisible(true);
+          codeLabel.setManaged(true);
+          btnOpenBrowser.setVisible(true);
+          btnOpenBrowser.setManaged(true);
+          btnCopyCode.setVisible(true);
+          btnCopyCode.setManaged(true);
+
+          btnOpenBrowser.setOnAction(e -> {
+            try {
+              java.awt.Desktop.getDesktop().browse(new java.net.URI(device.verificationUri()));
+            } catch (Exception ex) {
+              appendLog("Could not open browser: " + ex.getMessage());
+            }
+          });
+          btnCopyCode.setOnAction(e -> {
+            javafx.scene.input.ClipboardContent clipboardContent = new javafx.scene.input.ClipboardContent();
+            clipboardContent.putString(device.userCode());
+            javafx.scene.input.Clipboard.getSystemClipboard().setContent(clipboardContent);
+          });
+
+          pollTimeline[0] = new Timeline(new KeyFrame(
+              Duration.seconds(device.interval()),
+              e -> pollDeviceFlowOnce(device, statusLabel, pollTimeline, usingFallback, onSaved)));
+          pollTimeline[0].setCycleCount(Timeline.INDEFINITE);
+          pollTimeline[0].play();
+        });
+      } catch (Exception ex) {
+        Platform.runLater(() -> statusLabel.setText("Could not start sign-in: " + ex.getMessage()));
+      }
+    });
+
+    EditorDialogs.show(
+        getScene() == null ? null : getScene().getWindow(),
+        "Sign in with GitHub",
+        "Approve this device in your browser to connect your GitHub account.",
+        content,
+        EditorDialogs.ActionSpec.neutral("cancel", "Cancel", null));
+
+    if (pollTimeline[0] != null) pollTimeline[0].stop();
+    if (usingFallback[0]) showGitHubTokenDialog(onSaved);
+  }
+
+  private void pollDeviceFlowOnce(GitHubApiClient.DeviceCodeResponse device,
+                                  Label statusLabel,
+                                  Timeline[] pollTimeline,
+                                  boolean[] usingFallback,
+                                  Runnable onSaved) {
+    worker.submit(() -> {
+      try {
+        GitHubApiClient.DeviceTokenResult result = githubApiClient.pollDeviceToken(device.deviceCode());
+        Platform.runLater(() -> {
+          switch (result.status()) {
+            case PENDING -> { /* keep waiting */ }
+            case SLOW_DOWN -> {
+              if (pollTimeline[0] != null) pollTimeline[0].stop();
+              pollTimeline[0] = new Timeline(new KeyFrame(
+                  Duration.seconds(Math.max(5, result.retryIntervalSeconds())),
+                  e -> pollDeviceFlowOnce(device, statusLabel, pollTimeline, usingFallback, onSaved)));
+              pollTimeline[0].setCycleCount(Timeline.INDEFINITE);
+              pollTimeline[0].play();
+            }
+            case EXPIRED -> {
+              if (pollTimeline[0] != null) pollTimeline[0].stop();
+              statusLabel.setText("The code expired before it was approved. Close this dialog and try again.");
+            }
+            case DENIED -> {
+              if (pollTimeline[0] != null) pollTimeline[0].stop();
+              statusLabel.setText("Sign-in was declined. Close this dialog and try again.");
+            }
+            case ERROR -> {
+              if (pollTimeline[0] != null) pollTimeline[0].stop();
+              statusLabel.setText(result.errorMessage() == null ? "GitHub sign-in failed." : result.errorMessage());
+            }
+            case SUCCESS -> {
+              if (pollTimeline[0] != null) pollTimeline[0].stop();
+              statusLabel.setText("Verifying...");
+              finishDeviceFlowSignIn(result.accessToken(), statusLabel, onSaved);
+            }
+          }
+        });
+      } catch (Exception ex) {
+        Platform.runLater(() -> statusLabel.setText("Sign-in check failed: " + ex.getMessage()));
+      }
+    });
+  }
+
+  private void finishDeviceFlowSignIn(String accessToken, Label statusLabel, Runnable onSaved) {
+    worker.submit(() -> {
+      try {
+        if (!githubApiClient.verifyToken(accessToken)) {
+          Platform.runLater(() -> statusLabel.setText("GitHub rejected the sign-in. Close this dialog and try again."));
+          return;
+        }
+        githubTokenStore.saveToken(accessToken);
+        appendLog("Signed in to GitHub.");
+        Platform.runLater(() -> {
+          updateGitHubTokenStatus();
+          Window owner = statusLabel.getScene() == null ? null : statusLabel.getScene().getWindow();
+          if (owner instanceof javafx.stage.Stage stage) stage.close();
+          onSaved.run();
+        });
+      } catch (Exception ex) {
+        Platform.runLater(() -> statusLabel.setText("Could not save sign-in: " + ex.getMessage()));
+      }
+    });
+  }
+
+  private void showGitHubTokenDialog(Runnable onSaved) {
+    VBox content = new VBox(10);
+    content.getStyleClass().add("editor-dialog-form");
+
+    Label tokenLabel = new Label("GitHub Personal Access Token");
+    tokenLabel.getStyleClass().add("editor-dialog-field-label");
+    PasswordField tokenField = new PasswordField();
+    tokenField.getStyleClass().add("editor-dialog-text-field");
+    tokenField.setPromptText("ghp_...");
+    tokenField.setPrefWidth(350);
+
+    Label hint = new Label(
+        "Create a token at github.com/settings/tokens with \"repo\" scope, then paste it here. "
+            + "It is encrypted and stored locally on this machine.");
+    hint.getStyleClass().add("editor-dialog-message");
+    hint.setWrapText(true);
+    hint.setMaxWidth(380);
+
+    content.getChildren().addAll(tokenLabel, tokenField, hint);
+
+    Optional<String> result = EditorDialogs.show(
+        getScene() == null ? null : getScene().getWindow(),
+        "Connect GitHub Account",
+        "A personal access token lets the editor create repositories on your behalf.",
+        content,
+        tokenField,
+        EditorDialogs.ActionSpec.neutral("cancel", "Cancel", null),
+        EditorDialogs.ActionSpec.accent("save", "Save Token", null));
+
+    if (result.isPresent() && "save".equals(result.get()) && !tokenField.getText().trim().isBlank()) {
+      String token = tokenField.getText().trim();
+      runAsync("Verify GitHub token", () -> {
+        try {
+          if (!githubApiClient.verifyToken(token)) {
+            Platform.runLater(() -> EditorDialogs.warning(
+                getScene() == null ? null : getScene().getWindow(),
+                "Invalid Token",
+                "GitHub rejected this token. Check that it is correct and has not expired."));
+            return;
+          }
+          githubTokenStore.saveToken(token);
+          appendLog("GitHub token saved.");
+          Platform.runLater(() -> {
+            updateGitHubTokenStatus();
+            onSaved.run();
+          });
+        } catch (Exception ex) {
+          appendLog("Could not verify GitHub token: " + ex.getMessage());
+          Platform.runLater(() -> EditorDialogs.warning(
+              getScene() == null ? null : getScene().getWindow(),
+              "GitHub Connection Failed",
+              ex.getMessage() == null ? "Could not reach GitHub." : ex.getMessage()));
+        }
+      });
+    }
+  }
+
+  private void removeGitHubToken() {
+    boolean confirmed = EditorDialogs.confirm(
+        getScene() == null ? null : getScene().getWindow(),
+        "Remove GitHub Token",
+        "This removes the saved GitHub token from this machine. You can add a new one at any time.",
+        "Remove",
+        true);
+    if (!confirmed) return;
+    try {
+      githubTokenStore.clearToken();
+      appendLog("GitHub token removed.");
+    } catch (Exception ex) {
+      appendLog("Could not remove GitHub token: " + ex.getMessage());
+    }
+    updateGitHubTokenStatus();
+  }
+
+  private void updateGitHubTokenStatus() {
+    boolean present = githubTokenStore.hasToken();
+    applyGitHubTokenStatus(present, present ? null : false);
+    if (!present) return;
+
+    Optional<String> token = githubTokenStore.loadToken();
+    if (token.isEmpty()) {
+      applyGitHubTokenStatus(true, false);
       return;
     }
+    try {
+      worker.submit(() -> {
+        boolean valid;
+        try {
+          valid = githubApiClient.verifyToken(token.get());
+        } catch (Exception ex) {
+          return;
+        }
+        boolean stillValid = valid;
+        if (!disposed) Platform.runLater(() -> applyGitHubTokenStatus(true, stillValid));
+      });
+    } catch (RejectedExecutionException ex) {
+      // Worker is shutting down; leave status as "checking...".
+    }
+  }
 
-    if (!vcs.isGhCliAuthenticated()) {
-      EditorDialogs.showTextBlock(
-          getScene() == null ? null : getScene().getWindow(),
-          "GitHub CLI Not Authenticated",
-          "You need to log in to GitHub first",
-          "Run this command in your terminal:\n\n  gh auth login\n\nThen try again.",
-          "Close");
+  /**
+   * @param present whether a token is stored locally
+   * @param valid   null while validity is still being checked; otherwise whether GitHub accepted it
+   */
+  private void applyGitHubTokenStatus(boolean present, Boolean valid) {
+    String text;
+    boolean ok;
+    if (!present) {
+      text = "GitHub: not connected";
+      ok = false;
+    } else if (valid == null) {
+      text = "GitHub: checking...";
+      ok = true;
+    } else if (valid) {
+      text = "GitHub: connected";
+      ok = true;
+    } else {
+      text = "GitHub: not authorized";
+      ok = false;
+    }
+    githubTokenStatusLabel.setText(text);
+    githubTokenStatusLabel.getStyleClass().removeAll("vcs-remote-configured", "vcs-remote-missing");
+    githubTokenStatusLabel.getStyleClass().add(ok ? "vcs-remote-configured" : "vcs-remote-missing");
+    btnChangeGitHubToken.setText(present ? "Change" : "Sign In");
+    btnRemoveGitHubToken.setVisible(present);
+    btnRemoveGitHubToken.setManaged(present);
+  }
+
+  private void showCreateGitHubRepoDialog(boolean isPrivate) {
+    if (!githubTokenStore.hasToken()) {
+      showGitHubDeviceFlowDialog(() -> showCreateGitHubRepoDialog(isPrivate));
       return;
     }
 
@@ -1407,11 +2163,19 @@ The Log shows recent commits on the current branch."""));
   private void runCreateGitHubRepo(String repoName, boolean isPrivate) {
     runAsync("Create GitHub repo", () -> {
       try {
+        Optional<String> token = githubTokenStore.loadToken();
+        if (token.isEmpty()) {
+          appendLog("Create GitHub repo failed: no GitHub token configured.");
+          loadStatus(true);
+          return;
+        }
+
         appendLog("Creating " + (isPrivate ? "private" : "public") + " GitHub repository: " + repoName + "...");
-        appendCommandResult(vcs.createGitHubRepo(projectRoot, repoName, isPrivate));
-        appendLog("Repository created successfully on GitHub!");
+        GitHubApiClient.CreatedRepo created = githubApiClient.createRepository(token.get(), repoName, isPrivate);
+        appendLog("Repository created successfully on GitHub: " + created.htmlUrl());
         appendLog("Setting up remote 'origin'...");
-        
+        appendCommandResult(vcs.addRemote(projectRoot, "origin", created.cloneUrl()));
+
         appendLog("Pushing code to GitHub...");
         try {
           appendCommandResult(vcs.pushSafe(projectRoot));
@@ -1435,6 +2199,29 @@ The Log shows recent commits on the current branch."""));
         appendLog("Remote '" + name + "' added: " + url);
       } catch (Exception ex) {
         appendLog("Add remote failed: " + ex.getMessage());
+      }
+      loadStatus(true);
+    });
+  }
+
+  private void confirmRemoveRemote() {
+    boolean confirmed = EditorDialogs.confirm(
+        getScene() == null ? null : getScene().getWindow(),
+        "Remove Remote",
+        "This disconnects 'origin' from this project. Your local commits and history are kept; "
+            + "you can add a remote again at any time.",
+        "Remove",
+        true);
+    if (!confirmed) return;
+    runRemoveRemote();
+  }
+
+  private void runRemoveRemote() {
+    runAsync("Remove remote", () -> {
+      try {
+        appendCommandResult(vcs.removeRemote(projectRoot, "origin"));
+      } catch (Exception ex) {
+        appendLog("Remove remote failed: " + ex.getMessage());
       }
       loadStatus(true);
     });
@@ -1531,6 +2318,8 @@ The Log shows recent commits on the current branch."""));
     btnFetch.setDisable(busy || !repoReady || !currentHasRemote);
     btnPull.setDisable(busy || !canSync);
     btnPush.setDisable(busy || !canSync || currentBehind > 0 || (currentAhead == 0 && currentHasUpstream));
+    btnForcePull.setDisable(busy || !repoReady || !currentHasRemote);
+    btnForcePush.setDisable(busy || !repoReady || !currentHasRemote);
     btnCommit.setDisable(busy || !repoReady || !hasChanges || currentHasConflicts);
     btnStash.setDisable(busy || !repoReady || !hasChanges);
     btnStashPop.setDisable(busy || !repoReady);
@@ -1544,6 +2333,7 @@ The Log shows recent commits on the current branch."""));
     listChanges.setDisable(!repoReady);
     chkInitCommit.setDisable(busy || !hasProject || repositoryInitialized);
     btnConfigureRemote.setDisable(busy || !repoReady);
+    btnRemoveRemote.setDisable(busy || !repoReady);
     updateActionEmphasis();
     updateGuidance();
   }
@@ -1566,6 +2356,20 @@ The Log shows recent commits on the current branch."""));
     });
   }
 
+  /**
+   * Appends a single streamed progress line (e.g. from a JGit {@code ProgressMonitor} callback
+   * during a fetch/pull/push) as its own console line, without the blank-line separation used
+   * between discrete log entries. Safe to call from any thread.
+   */
+  private void appendConsoleLine(String line) {
+    if (line == null || line.isBlank()) return;
+    Platform.runLater(() -> {
+      if (!txtLog.getText().isBlank()) txtLog.appendText("\n");
+      txtLog.appendText("> " + line.trim());
+      txtLog.setScrollTop(Double.MAX_VALUE);
+    });
+  }
+
   private String safe(String value) {
     return value == null || value.isBlank() ? "--" : value;
   }
@@ -1574,6 +2378,18 @@ The Log shows recent commits on the current branch."""));
     if (ex == null) return "Unknown error";
     String message = ex.getMessage();
     return message == null || message.isBlank() ? ex.getClass().getSimpleName() : message.trim();
+  }
+
+  /** Hides the floating guidance popup without disposing the view, e.g. when its tab loses focus. */
+  public void hideGuidePopup() {
+    guideTabActive = false;
+    guidePopup.hide();
+  }
+
+  /** Marks the guidance popup as eligible to show again, e.g. when its tab regains focus. */
+  public void showGuidePopupIfActive() {
+    guideTabActive = true;
+    updateGuidance();
   }
 
   public void dispose() {

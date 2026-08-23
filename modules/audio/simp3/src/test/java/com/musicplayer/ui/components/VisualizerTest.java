@@ -5,9 +5,11 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import org.junit.jupiter.api.BeforeAll;
+
+import com.jvn.fx.testkit.FxToolkitExtension;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 import javafx.application.Application;
 import javafx.application.Platform;
@@ -22,24 +24,9 @@ import javafx.stage.Stage;
  * Unit tests for audio visualizer components.
  * Also includes a visual test application for manual verification.
  */
+@ExtendWith(FxToolkitExtension.class)
 public class VisualizerTest {
-    
-    private static boolean javaFxInitialized = false;
-    
-    @BeforeAll
-    public static void initJavaFX() {
-        if (!javaFxInitialized) {
-            // Initialize JavaFX toolkit for tests
-            try {
-                Platform.startup(() -> {});
-                javaFxInitialized = true;
-            } catch (IllegalStateException e) {
-                // JavaFX already initialized
-                javaFxInitialized = true;
-            }
-        }
-    }
-    
+
     @Test
     @DisplayName("VisualizerConfig should have correct default values")
     public void testVisualizerConfigDefaults() {

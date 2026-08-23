@@ -60,6 +60,18 @@ Named export can also include Puppeteer-only metadata comments. Runtime parsers 
 // @jvn-puppeteer-eye-focus character=john expression=neutral source=eyes sourceX=0.5 sourceY=0.26 deadZone=0.12 maxNudge=3 strength=1 layer1=eyes_01 layer2=eyes_02 layer3=eyes_03 layer4=eyes_04 layer5=eyes_05 layer6=eyes_06 layer7=eyes_07 layer8=eyes_08 layer9=eyes_09
 ```
 
+### Dialogue Cue Markers
+
+Dialogue cue markers placed on the timeline are authoring metadata only — they never become a fired `event {}` block and have zero runtime footprint. Each marker exports as a `@jvn-puppeteer-cue` comment (carrying `time`, `speaker`, `text`, and an optional `id`) plus a human-readable `// cue:` line for quick scanning of the exported file:
+
+```jes
+// Puppeteer dialogue cue metadata. Runtime parsers ignore these comments.
+// @jvn-puppeteer-cue time=1200 speaker=Aria text=Wait%2C%20look%20out%21
+// cue: Aria — "Wait, look out!"
+```
+
+`speaker` and `text` are URL-encoded on the `@jvn-puppeteer-cue` line so embedded punctuation and newlines round-trip exactly on import; the `// cue:` line is a display-only convenience and collapses any newlines to a single space.
+
 ### Reusable Source With Puppeteer Motifs
 
 For repeated animation patterns, a source may declare named, parameterized `motif` fragments before its timeline and invoke them with `use`:

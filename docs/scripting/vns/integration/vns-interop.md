@@ -351,6 +351,27 @@ For reusable animation clips, register them in the `TimelineRegistry` (typically
 
 Use inline blocks for one-off animations close to story text; use named timelines for reusable clips.
 
+### Blocking vs. Non-Blocking Playback
+
+By default, an inline `timeline { ... }` block **blocks** — the script waits for the timeline to finish before moving to the next line. A named `[call jes_timeline name]` defaults the other way: it starts the timeline and **immediately continues** without waiting.
+
+Add a modifier keyword right after the block (or after the timeline name) to override the default:
+
+| Modifier | Effect |
+|----------|--------|
+| `wait`, `sync`, `block`, `await`, `wait=true` | Block until the timeline finishes |
+| `async`, `nowait`, `no_wait`, `fire`, `fire_and_forget`, `wait=false` | Start the timeline and continue immediately |
+
+```vns
+timeline wait=false {
+  move "hero" { x: 640 dur: 600 easing: ease_out_back }
+}
+hero: I'm already moving while I say this.
+
+[call jes_timeline hero_entrance wait]
+hero: That entrance is done now.
+```
+
 ---
 
 ## Menu Commands

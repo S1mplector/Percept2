@@ -100,6 +100,30 @@ class VnSlotHelperTest {
     }
 
     @Test
+    void insertDialogueMarkerWithSpeakerAndTextAddsEventToProject() {
+        AnimationProject project = new AnimationProject();
+        VnSlotHelper.insertDialogueMarker(project, "intro_beat_4", "Aria", "Wait, look out!", 1500);
+
+        assertEquals(1, project.getEditorEventCues().size());
+        EditorEventCue evt = project.getEditorEventCues().get(0);
+        assertEquals("dialogue_marker", evt.getType());
+        assertEquals(1500.0, evt.getTimeMs(), 0.01);
+        assertEquals("intro_beat_4", evt.getPayloadValue("id"));
+        assertEquals("Aria", evt.getPayloadValue("speaker"));
+        assertEquals("Wait, look out!", evt.getPayloadValue("text"));
+    }
+
+    @Test
+    void insertDialogueMarkerLegacyOverloadStillOmitsSpeakerAndText() {
+        AnimationProject project = new AnimationProject();
+        VnSlotHelper.insertDialogueMarker(project, "intro_beat_3", 1000);
+
+        EditorEventCue evt = project.getEditorEventCues().get(0);
+        assertEquals("", evt.getPayloadValue("speaker"));
+        assertEquals("", evt.getPayloadValue("text"));
+    }
+
+    @Test
     void multipleSlotPlacementsOnSameTrack() {
         AnimationProject project = new AnimationProject();
         VnSlotHelper.placeAtSlot(project, "hero", VnSlotHelper.Slot.LEFT, 0, 1920, 1080);

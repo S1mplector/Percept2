@@ -424,6 +424,33 @@ public class AnimationProject {
         orbitAnchorSourceOffsets.clear();
     }
 
+    /**
+     * True when {@code entityName} has rotation keyframes but its orbit pivot cannot be
+     * resolved to a valid anchor point + non-degenerate scene snapshot at export time —
+     * mirrors the fallback condition in CodeExporter.collectEvents, which silently exports
+     * plain X/Y movement instead of pivot+rotate when this is the case. Also covers the
+     * reload-risk case where the anchor is sourced from another entity whose own anchor/
+     * snapshot is missing or invalid.
+     */
+    public boolean isOrbitPivotAtRisk(String entityName) {
+        if (entityName == null || entityName.isBlank()) return false;
+        if (!hasEffectiveAnimation(entityName, PropertyType.ROTATION)) return false;
+
+        String sourceEntity = orbitAnchorSources.get(entityName);
+        if (sourceEntity != null && !sourceEntity.isBlank()) {
+            return !hasResolvableOrbitAnchor(sourceEntity);
+        }
+        return !hasResolvableOrbitAnchor(entityName);
+    }
+
+    private boolean hasResolvableOrbitAnchor(String entityName) {
+        if (!hasOrbitAnchor(entityName)) return false;
+        double[] anchor = orbitAnchors.get(entityName);
+        if (anchor == null || anchor.length < 2) return false;
+        SceneEntitySnapshot snap = sceneEntitySnapshots.get(entityName);
+        return snap != null && snap.width() > 0 && snap.height() > 0;
+    }
+
     public Map<String, SceneEntitySnapshot> getSceneEntitySnapshotsView() {
         return Collections.unmodifiableMap(new LinkedHashMap<>(sceneEntitySnapshots));
     }

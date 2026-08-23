@@ -50,6 +50,12 @@ public final class VnsScriptAnalyzer {
   }
 
   public static Analysis analyze(String text, File projectRoot, File sourceFile) {
+    return analyze(text, projectRoot, sourceFile,
+        EditorPreferences.DEFAULT_LARGE_TIMELINE_BLOCK_ACTION_THRESHOLD);
+  }
+
+  public static Analysis analyze(
+      String text, File projectRoot, File sourceFile, int largeTimelineBlockActionThreshold) {
     String source = text == null ? "" : text;
     List<Diagnostic> diagnostics = new ArrayList<>();
     File effectiveRoot = resolveProjectRoot(projectRoot, sourceFile);
@@ -260,7 +266,8 @@ public final class VnsScriptAnalyzer {
 
     List<LabelNode> labels = new ArrayList<>(labelsByName.values());
     if (parsedScenario != null) {
-      diagnostics.addAll(VnsTimelineDiagnostics.analyze(source, parsedScenario));
+      diagnostics.addAll(VnsTimelineDiagnostics.analyze(
+          source, parsedScenario, largeTimelineBlockActionThreshold));
     }
 
     labels.sort((a, b) -> Integer.compare(a.line(), b.line()));
@@ -1160,13 +1167,20 @@ public final class VnsScriptAnalyzer {
                          boolean definedTarget) {
   }
 
+  public enum Severity {
+    ERROR,
+    WARNING,
+    /** Lightweight advisory diagnostic (e.g. performance hints) — not a script problem. */
+    INFO
+  }
+
   public static final class Diagnostic {
     private final String kind;
     private final String message;
     private final int start;
     private final int end;
     private final int line;
-    private final boolean warning;
+    private final Severity severity;
     private final String label;
     private final String assetPath;
     private final int blockEnd;
@@ -1176,7 +1190,7 @@ public final class VnsScriptAnalyzer {
                        int start,
                        int end,
                        int line,
-                       boolean warning,
+                       Severity severity,
                        String label,
                        String assetPath,
                        int blockEnd) {
@@ -1185,7 +1199,7 @@ public final class VnsScriptAnalyzer {
       this.start = Math.max(0, start);
       this.end = Math.max(this.start, end);
       this.line = Math.max(0, line);
-      this.warning = warning;
+      this.severity = severity == null ? Severity.ERROR : severity;
       this.label = label;
       this.assetPath = assetPath;
       this.blockEnd = blockEnd;
@@ -1199,7 +1213,7 @@ public final class VnsScriptAnalyzer {
                                    String label,
                                    String assetPath,
                                    int blockEnd) {
-      return new Diagnostic(kind, message, start, end, line, false, label, assetPath, blockEnd);
+      return new Diagnostic(kind, message, start, end, line, Severity.ERROR, label, assetPath, blockEnd);
     }
 
     public static Diagnostic warning(String kind,
@@ -1210,7 +1224,18 @@ public final class VnsScriptAnalyzer {
                                      String label,
                                      String assetPath,
                                      int blockEnd) {
-      return new Diagnostic(kind, message, start, end, line, true, label, assetPath, blockEnd);
+      return new Diagnostic(kind, message, start, end, line, Severity.WARNING, label, assetPath, blockEnd);
+    }
+
+    public static Diagnostic info(String kind,
+                                  String message,
+                                  int start,
+                                  int end,
+                                  int line,
+                                  String label,
+                                  String assetPath,
+                                  int blockEnd) {
+      return new Diagnostic(kind, message, start, end, line, Severity.INFO, label, assetPath, blockEnd);
     }
 
     public String kind() {
@@ -1218,14 +1243,16 @@ public final class VnsScriptAnalyzer {
     }
 
     public LanguageDiagnostic toLanguageDiagnostic(String source, String sourceName) {
-      LanguageDiagnostic.Severity severity = warning
-          ? LanguageDiagnostic.Severity.WARNING
-          : LanguageDiagnostic.Severity.ERROR;
+      LanguageDiagnostic.Severity languageSeverity = switch (severity) {
+        case WARNING -> LanguageDiagnostic.Severity.WARNING;
+        case INFO -> LanguageDiagnostic.Severity.INFO;
+        case ERROR -> LanguageDiagnostic.Severity.ERROR;
+      };
       int computedColumn = columnForOffset(source, start);
       return new LanguageDiagnostic(
           "vns",
           sourceName,
-          severity,
+          languageSeverity,
           kind,
           message,
           start,
@@ -1251,7 +1278,15 @@ public final class VnsScriptAnalyzer {
     }
 
     public boolean warning() {
-      return warning;
+      return severity == Severity.WARNING;
+    }
+
+    public boolean info() {
+      return severity == Severity.INFO;
+    }
+
+    public Severity severity() {
+      return severity;
     }
 
     public String label() {

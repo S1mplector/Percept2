@@ -28,7 +28,9 @@ import com.jvn.core.config.VnConfig;
 import com.jvn.core.localization.Localization;
 import com.jvn.core.scene2d.Entity2D;
 import com.jvn.core.scene2d.ParticleEmitter2D;
+import com.jvn.core.scene2d.RenderDiagnostics;
 import com.jvn.core.scene2d.Sprite2D;
+import com.jvn.fx.scene2d.MissingAssetPlaceholder;
 import com.jvn.core.ui.BoundsPointCodec;
 import com.jvn.core.vn.BubbleAnchor;
 import com.jvn.core.vn.CharacterPosition;
@@ -159,6 +161,12 @@ public class VnRenderer {
   private static final double DEFAULT_CHARACTER_BASELINE_Y = 1.0;
   private static final int VISUALIZER_BAR_COUNT = VnAudioVisualizerConfig.MAX_BARS;
   private static final int MAX_CACHED_LAYER_PATH_SPECS = 256;
+  // Position is bucketed to this grid (in scene pixels) when building the stage-lighting
+  // cache key, so idle-bob/breathing jitter of a few pixels reuses the last lit bitmap
+  // instead of forcing a full per-pixel relight every frame. Lighting falloff is smooth
+  // over distances far larger than this, so the visual difference is imperceptible; any
+  // movement crossing a bucket boundary still relights correctly.
+  private static final double LIGHTING_CACHE_POSITION_GRID_PX = 4.0;
   private static final String VAR_CHARACTER_HEIGHT_FACTOR = "ui.characterHeightFactor";
   private static final String VAR_CHARACTER_BASELINE_Y = "ui.characterBaselineY";
   private static final String VAR_DIALOGUE_FADE_MS = "ui.dialogueFadeMs";
@@ -246,6 +254,7 @@ public class VnRenderer {
   // Reusable per-frame lists to reduce GC pressure (cleared + re-populated each frame)
   private final List<CharacterRenderEntry> reusableCharacterEntries = new ArrayList<>();
   private final List<LayeredSceneDraw> reusableLayeredDraws = new ArrayList<>();
+  private final com.jvn.core.diagnostics.DrawCallStats drawCallStats = new com.jvn.core.diagnostics.DrawCallStats();
   // Expression path specifications are immutable for a rendered scenario. Caching their
   // layer lists avoids splitting and allocating once per character on every frame.
   private final Map<String, List<String>> layerPathCache = new HashMap<>();
@@ -334,8 +343,13 @@ public class VnRenderer {
   /**
    * Render the complete VN scene
    */
+  public com.jvn.core.diagnostics.DrawCallStats getDrawCallStats() {
+    return drawCallStats;
+  }
+
   public void render(VnState state, VnScenario scenario, double width, double height) {
     RenderThreadGuard.requireFxThread("VnRenderer.render");
+    drawCallStats.reset();
     this.currentState = state;
     syncAccessibilitySettings(state);
     applyRuntimeCharacterFramingOverrides(state);
@@ -608,6 +622,7 @@ public class VnRenderer {
 
   private void renderParticles(double width, double height) {
     if (particleEmitter.getParticleCount() <= 0 && renderedParticleCommand == null) return;
+    drawCallStats.incrementOther();
     particleBlitter.setViewport(width, height);
     particleBlitter.push();
     particleBlitter.translate(particleEmitter.getX(), particleEmitter.getY());
@@ -629,6 +644,7 @@ public class VnRenderer {
   private void renderBackground(VnBackground background, VnStagePreset stage, double width, double height, String timelineEntityId) {
     String backgroundPath = resolveBackgroundPath(background, stage);
     if (backgroundPath == null || backgroundPath.isBlank()) return;
+    drawCallStats.incrementOther();
     Image img = loadBackgroundImage(backgroundPath);
     com.jvn.core.scene2d.Entity2D proxy = timelineAccessor != null
         && background != null
@@ -828,6 +844,41 @@ public class VnRenderer {
   ) {
   }
 
+  record LayerDrawPlanEntry(String layerId, String path, double alpha) {}
+
+  /**
+   * Builds a per-layer draw plan for an expression transition: unchanged layers draw once at
+   * full alpha (no flicker), changed pairs crossfade, added layers fade in, removed layers fade out.
+   */
+  static List<LayerDrawPlanEntry> buildLayerCrossfadePlan(
+      LayeredCharacterResolver.ExpressionLayerDiff diff,
+      List<String> toLayerOrder,
+      Map<String, String> fromLayerPathsById,
+      Map<String, String> toLayerPathsById,
+      double baseAlpha,
+      double progress) {
+    List<LayerDrawPlanEntry> plan = new ArrayList<>();
+    for (String layerId : diff.unchangedLayerIds()) {
+      String path = toLayerPathsById.get(layerId);
+      if (path != null) plan.add(new LayerDrawPlanEntry(layerId, path, baseAlpha));
+    }
+    for (LayeredCharacterResolver.LayerChange change : diff.changedPairs()) {
+      String fromPath = fromLayerPathsById.get(change.fromLayerId());
+      if (fromPath != null) plan.add(new LayerDrawPlanEntry(change.fromLayerId(), fromPath, baseAlpha * (1.0 - progress)));
+      String toPath = toLayerPathsById.get(change.toLayerId());
+      if (toPath != null) plan.add(new LayerDrawPlanEntry(change.toLayerId(), toPath, baseAlpha * progress));
+    }
+    for (String layerId : diff.addedLayerIds()) {
+      String path = toLayerPathsById.get(layerId);
+      if (path != null) plan.add(new LayerDrawPlanEntry(layerId, path, baseAlpha * progress));
+    }
+    for (String layerId : diff.removedLayerIds()) {
+      String path = fromLayerPathsById.get(layerId);
+      if (path != null) plan.add(new LayerDrawPlanEntry(layerId, path, baseAlpha * (1.0 - progress)));
+    }
+    return plan;
+  }
+
   private record EyeFocusDraw(
       boolean active,
       String selectedLayerId,
@@ -869,6 +920,12 @@ public class VnRenderer {
       String imagePath = character.getExpressionPath(expression);
       VnState.ExpressionTransition transition = state != null ? state.getExpressionTransition(slot) : null;
       if (transition != null && transition.appliesTo(expression)) {
+        LayeredCharacterResolver.ExpressionLayerDiff layerDiff = transition.getLayerDiff();
+        if (layerDiff != null) {
+          renderLayeredExpressionCrossfade(layerDiff, transition, character, position,
+              width, height, offsetX, offsetY, slot.getCharacterId(), state, scenario, stage, alpha);
+          return;
+        }
         String fromPath = character.getExpressionPath(transition.getFromExpression());
         String toPath = character.getExpressionPath(transition.getToExpression());
         if (fromPath != null && toPath != null) {
@@ -922,6 +979,86 @@ public class VnRenderer {
     gc.restore();
   }
 
+  private void renderLayeredExpressionCrossfade(
+      LayeredCharacterResolver.ExpressionLayerDiff layerDiff,
+      VnState.ExpressionTransition transition,
+      VnCharacter character,
+      CharacterPosition position,
+      double width,
+      double height,
+      double offsetX,
+      double offsetY,
+      String characterId,
+      VnState state,
+      VnScenario scenario,
+      VnStagePreset stage,
+      double alpha) {
+    String fromExpression = transition.getFromExpression();
+    String toExpression = transition.getToExpression();
+    Map<String, String> fromLayerPathsById = layerPathsById(character, fromExpression);
+    Map<String, String> toLayerPathsById = layerPathsById(character, toExpression);
+    List<String> toLayerOrder = character.getExpressionLayerIds(toExpression);
+
+    String toImagePath = character.getExpressionPath(toExpression);
+    List<String> toImageLayerPaths = layerPathsFor(toImagePath);
+    Image reference = loadSpriteSourceImage(toImagePath, toImageLayerPaths);
+    double spriteHeight = height * characterHeightFactor * characterScale(character);
+    double spriteWidth = reference != null ? reference.getWidth() * (spriteHeight / reference.getHeight()) : spriteHeight * 0.5;
+    double x = position.computeScreenX(width, spriteWidth) + offsetX;
+    double y = position.computeScreenY(height, spriteHeight, characterBaselineY) + offsetY;
+
+    List<LayerDrawPlanEntry> plan = buildLayerCrossfadePlan(
+        layerDiff, toLayerOrder, fromLayerPathsById, toLayerPathsById, alpha, transition.getProgress());
+
+    gc.save();
+    applyGroupTransforms(characterId, state);
+    for (LayerDrawPlanEntry planEntry : plan) {
+      if (planEntry.alpha() <= 0.001) continue;
+      Image layerImage = loadSpriteLayerImage(planEntry.path());
+      if (layerImage == null) {
+        String context = characterId + ":" + fromExpression + "->" + toExpression + ":" + planEntry.layerId();
+        MissingAssetPlaceholder.report(gc, planEntry.path(), context, x, y, spriteWidth, spriteHeight);
+        continue;
+      }
+      gc.save();
+      if (planEntry.alpha() < 0.999) gc.setGlobalAlpha(planEntry.alpha());
+      drawCharacterImage(layerImage, planEntry.path(), x, y, spriteWidth, spriteHeight, width, height, stage);
+      gc.restore();
+    }
+    gc.restore();
+  }
+
+  /**
+   * Warns once per missing character layer path so a blank/silhouette sprite is traceable
+   * back to the offending character/expression/layer instead of failing silently.
+   */
+  static void reportMissingCharacterLayers(VnCharacter character, String characterId, String expression, String imagePath) {
+    if (character == null) return;
+    List<String> layerIds = character.getExpressionLayerIds(expression);
+    if (layerIds.isEmpty()) {
+      RenderDiagnostics.missingAsset(imagePath, characterId + ":" + expression);
+      return;
+    }
+    List<String> layerPaths = parseLayerPaths(character.getExpressionPath(expression));
+    for (int i = 0; i < layerIds.size(); i++) {
+      String layerId = layerIds.get(i);
+      String path = i < layerPaths.size() ? layerPaths.get(i) : character.getLayerPath(layerId);
+      RenderDiagnostics.missingAsset(path == null ? imagePath : path, characterId + ":" + expression + ":" + layerId);
+    }
+  }
+
+  private Map<String, String> layerPathsById(VnCharacter character, String expression) {
+    List<String> layerIds = character.getExpressionLayerIds(expression);
+    List<String> layerPaths = layerPathsFor(character.getExpressionPath(expression));
+    Map<String, String> byId = new LinkedHashMap<>();
+    for (int i = 0; i < layerIds.size(); i++) {
+      String layerId = layerIds.get(i);
+      String path = i < layerPaths.size() ? layerPaths.get(i) : character.getLayerPath(layerId);
+      if (path != null) byId.put(layerId, path);
+    }
+    return byId;
+  }
+
   private void applyGroupTransforms(String targetId, VnState state) {
     if (state == null || timelineAccessor == null) return;
     String parentId = state.getDynamicGroups().get(targetId);
@@ -942,6 +1079,9 @@ public class VnRenderer {
   private void renderCharacterSprite(String imagePath, String expression, VnCharacter character, CharacterPosition position, double width, double height, double offsetX, double offsetY, String characterId, VnState state, VnScenario scenario, VnStagePreset stage) {
     List<String> layerPaths = layerPathsFor(imagePath);
     Image reference = loadSpriteSourceImage(imagePath, layerPaths);
+    if (reference == null) {
+      reportMissingCharacterLayers(character, characterId, expression, imagePath);
+    }
     SpriteLayout spriteLayout = resolveSpriteLayout(
         reference == null ? 0.0 : reference.getWidth(),
         reference == null ? 0.0 : reference.getHeight(),
@@ -1088,7 +1228,10 @@ public class VnRenderer {
       Image layerImage = isLoadedImage(layer.image())
           ? layer.image()
           : loadSpriteLayerImage(layer.path());
-      if (!isLoadedImage(layerImage)) continue;
+      if (!isLoadedImage(layerImage)) {
+        MissingAssetPlaceholder.report(gc, layer.path(), "layer:" + layer.layerId(), defaultX, defaultY, spriteWidth, spriteHeight);
+        continue;
+      }
       SpriteLayer drawLayer = new SpriteLayer(
           layer.path(), layer.layerId(), layer.targetNames(), layer.groupTargets(), layerImage);
       double nudgeX = 0.0;
@@ -1099,7 +1242,10 @@ public class VnRenderer {
             || (!selectedLayerPresent && layer.layerId().equals(eyeFocus.replacementSlotLayerId()));
         if (!drawSelected) continue;
         Image selectedImage = loadSpriteLayerImage(eyeFocus.selectedPath());
-        if (!isLoadedImage(selectedImage)) continue;
+        if (!isLoadedImage(selectedImage)) {
+          MissingAssetPlaceholder.report(gc, eyeFocus.selectedPath(), "layer:" + eyeFocus.selectedLayerId(), defaultX, defaultY, spriteWidth, spriteHeight);
+          continue;
+        }
         drawLayer = new SpriteLayer(
             eyeFocus.selectedPath(),
             eyeFocus.selectedLayerId(),
@@ -1532,24 +1678,7 @@ public class VnRenderer {
       String expression,
       String layerId
   ) {
-    String safeCharacter = selectorSafeName(characterId);
-    String safeLayer = selectorSafeName(layerId);
-    if (safeCharacter.isBlank() || safeLayer.isBlank()) return List.of();
-    LinkedHashSet<String> names = new LinkedHashSet<>();
-    names.add(safeCharacter + "_" + safeLayer);
-    String currentExpression = selectorSafeName(expression == null || expression.isBlank() ? "neutral" : expression);
-    if (!currentExpression.isBlank()) {
-      names.add(safeCharacter + "_" + currentExpression + "_" + safeLayer);
-    }
-    if (character != null) {
-      for (String declaredExpression : character.getExpressionLayerIdsByName().keySet()) {
-        String safeExpression = selectorSafeName(declaredExpression);
-        if (!safeExpression.isBlank()) {
-          names.add(safeCharacter + "_" + safeExpression + "_" + safeLayer);
-        }
-      }
-    }
-    return List.copyOf(names);
+    return com.jvn.core.vn.LayerTargetNaming.declaredLayerTargetNames(character, characterId, expression, layerId);
   }
 
   private Entity2D firstProxy(List<String> targetNames) {
@@ -1606,14 +1735,7 @@ public class VnRenderer {
   }
 
   private List<String> timelineLayerTargetNames(String characterId, String expression, String layerId) {
-    String safeCharacter = selectorSafeName(characterId);
-    String safeExpression = selectorSafeName(expression == null || expression.isBlank() ? "neutral" : expression);
-    String safeLayer = selectorSafeName(layerId);
-    if (safeCharacter.isBlank() || safeExpression.isBlank() || safeLayer.isBlank()) return List.of();
-    LinkedHashSet<String> names = new LinkedHashSet<>();
-    names.add(safeCharacter + "_" + safeExpression + "_" + safeLayer);
-    names.add(safeCharacter + "_" + safeLayer);
-    return List.copyOf(names);
+    return com.jvn.core.vn.LayerTargetNaming.layerTargetNames(characterId, expression, layerId);
   }
 
   private List<GroupLayerTarget> timelineGroupTargets(
@@ -1635,14 +1757,7 @@ public class VnRenderer {
   }
 
   static List<String> timelineGroupTargetNames(String characterId, String expression, String groupId) {
-    String safeCharacter = selectorSafeNameStatic(characterId);
-    String safeExpression = selectorSafeNameStatic(expression == null || expression.isBlank() ? "neutral" : expression);
-    String safeGroup = selectorSafeNameStatic(groupId);
-    if (safeCharacter.isBlank() || safeExpression.isBlank() || safeGroup.isBlank()) return List.of();
-    LinkedHashSet<String> names = new LinkedHashSet<>();
-    names.add(safeCharacter + "_" + safeGroup);
-    names.add(safeCharacter + "_" + safeExpression + "_" + safeGroup);
-    return List.copyOf(names);
+    return com.jvn.core.vn.LayerTargetNaming.groupTargetNames(characterId, expression, groupId);
   }
 
   private String fallbackLayerId(String path, int index) {
@@ -1667,25 +1782,9 @@ public class VnRenderer {
   }
 
   private String selectorSafeName(String raw) {
-    return selectorSafeNameStatic(raw);
+    return com.jvn.core.vn.LayerTargetNaming.selectorSafeName(raw);
   }
 
-  private static String selectorSafeNameStatic(String raw) {
-    String value = raw == null ? "" : raw.trim();
-    StringBuilder out = new StringBuilder();
-    for (int i = 0; i < value.length(); i++) {
-      char ch = value.charAt(i);
-      if (Character.isLetterOrDigit(ch) || ch == '_' || ch == '-') {
-        out.append(ch);
-      } else {
-        out.append('_');
-      }
-    }
-    String cleaned = out.toString().replaceAll("_+", "_");
-    while (cleaned.startsWith("_")) cleaned = cleaned.substring(1);
-    while (cleaned.endsWith("_")) cleaned = cleaned.substring(0, cleaned.length() - 1);
-    return cleaned;
-  }
 
   public static List<String> parseLayerPaths(String imagePathSpec) {
     if (imagePathSpec == null || imagePathSpec.isBlank()) return List.of();
@@ -1767,18 +1866,45 @@ public class VnRenderer {
                                   double canvasHeight,
                                   VnStagePreset stage) {
     if (source == null) return;
+    drawCallStats.incrementCharacterLayer();
     if (stage == null || stage.getLights().isEmpty()) {
       gc.drawImage(source, x, y, drawWidth, drawHeight);
       return;
     }
-    String key = spriteTag
-        + "|stage:" + stage.getCacheToken()
-        + "|pos:" + Math.round(x) + "," + Math.round(y)
+    String key = stageCharacterCacheKey(spriteTag, stage.getCacheToken(), x, y, drawWidth, drawHeight, canvasWidth, canvasHeight);
+    boolean[] missed = {false};
+    Image lit = stageCharacterCache.computeIfAbsent(key, unused -> {
+      missed[0] = true;
+      return VnStageLightingSupport.buildLitCharacter(source, spriteTag, x, y, drawWidth, drawHeight, canvasWidth, canvasHeight, stage);
+    });
+    if (missed[0]) drawCallStats.incrementStageLightingRecomposite();
+    gc.drawImage(lit, x, y, drawWidth, drawHeight);
+  }
+
+  /**
+   * Builds the stage-lighting cache key for a character layer. Position is snapped to
+   * {@link #LIGHTING_CACHE_POSITION_GRID_PX} so idle-bob/breathing jitter reuses the last
+   * lit bitmap instead of forcing a relight every frame; the draw itself still uses the
+   * exact float position passed separately to {@code gc.drawImage}. Everything else that
+   * can change rendered output (sprite identity, stage/lighting config, drawn size, canvas
+   * size) stays exact so a real change always invalidates the cache.
+   */
+  static String stageCharacterCacheKey(
+      String spriteTag,
+      String stageCacheToken,
+      double x,
+      double y,
+      double drawWidth,
+      double drawHeight,
+      double canvasWidth,
+      double canvasHeight) {
+    long gx = Math.round(x / LIGHTING_CACHE_POSITION_GRID_PX);
+    long gy = Math.round(y / LIGHTING_CACHE_POSITION_GRID_PX);
+    return spriteTag
+        + "|stage:" + stageCacheToken
+        + "|pos:" + gx + "," + gy
         + "|size:" + Math.round(drawWidth) + "x" + Math.round(drawHeight)
         + "|canvas:" + Math.round(canvasWidth) + "x" + Math.round(canvasHeight);
-    Image lit = stageCharacterCache.computeIfAbsent(key, unused ->
-        VnStageLightingSupport.buildLitCharacter(source, spriteTag, x, y, drawWidth, drawHeight, canvasWidth, canvasHeight, stage));
-    gc.drawImage(lit, x, y, drawWidth, drawHeight);
   }
 
   private void drawLayerStack(List<String> layerPaths, double x, double y, double width, double height) {
@@ -1898,6 +2024,7 @@ public class VnRenderer {
       decayVisualizer(0.86, true);
       return;
     }
+    drawCallStats.incrementOther();
     int activeBars = settings.bars();
     if (activeBars <= 0) {
       decayVisualizer(0.86, true);
@@ -4164,13 +4291,12 @@ public class VnRenderer {
 
   private Image loadImage(String path) {
     if (path == null) return null;
-    
+
     return imageCache.computeIfAbsent(path, p -> loadResolvedImage(p, true));
   }
 
   private Image loadBackgroundImage(String path) {
     if (path == null) return null;
-
     return backgroundImageCache.computeIfAbsent(path, p -> loadResolvedImage(p, true));
   }
 

@@ -3,6 +3,22 @@
 > **Historical snapshot:** This report records the repository state on 2026-05-14. Several gaps it
 > identifies were resolved later. Use the current [Documentation Home](../README.md),
 > [Complete Index](../INDEX.md), and [Maintenance Guide](../MAINTENANCE.md) for present-day structure.
+>
+> **Status as of 2026-08-18:**
+> - P0 — Platform runtime docs: **resolved.** `docs/runtime/platforms/` now covers android-runtime,
+>   ios-runtime, web-runtime, and swing-runtime, and `docs/architecture/core/render-api.md` exists.
+> - P0 — `Character2D` → `CharacterEntity2D` symbol drift: **resolved** in the flagged pages.
+> - P1 — INDEX.md anchor mismatches: **resolved**; no matches remain for the cited anchors.
+> - P1 — Stale generated screenshots: **resolved.** A full batch run of
+>   `./gradlew :editor:generateDocsScreenshots` on 2026-08-18 refreshed every generated screenshot
+>   page, including the previously stale puppeteer, image-attributes, layout-launcher,
+>   puppeteer-launcher, version-control, vns-diagnostics, welcome-center, and image-tint pages.
+> - P2 — Missing sidebar file reference (`sidebar-audio-synth-controls.md`): **resolved**; the
+>   dangling reference no longer exists in `sidebar-utilities.md`.
+> - P2 — Plugin module docs: the module cross-walk below predates `plugin-api`, `plugin-runtime`,
+>   and `plugin-example`; all three are now documented under [Plugins](../plugins/README.md), so
+>   the "16 modules" baseline in this report is out of date. Treat the module counts and percentages
+>   throughout this report as 2026-05-14 figures only.
 
 **Date:** 2026-05-14  
 **Scope:** Full audit of docs/, modules/, generated screenshots, links, and symbol drift  

@@ -9,48 +9,26 @@ import com.jvn.core.vn.VnAudioCommand;
 import com.jvn.core.vn.VnNode;
 import com.jvn.core.vn.VnNodeType;
 import com.jvn.core.vn.VnScenario;
+import com.jvn.fx.testkit.FxToolkit;
+import com.jvn.fx.testkit.FxToolkitExtension;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Set;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicReference;
-import javafx.application.Platform;
 import javafx.scene.Node;
 import javafx.scene.Scene;
 import javafx.scene.control.ButtonBase;
 import javafx.scene.control.ToggleButton;
 import javafx.scene.layout.HBox;
-import org.junit.jupiter.api.Assumptions;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.io.TempDir;
 
+@ExtendWith(FxToolkitExtension.class)
 class FileEditorTabVnsLaunchTest {
-  private static boolean toolkitAvailable;
-
-  @BeforeAll
-  static void startToolkit() throws Exception {
-    if (System.getProperty("os.name", "").toLowerCase().contains("linux")
-        && System.getenv().getOrDefault("DISPLAY", "").isBlank()) {
-      return;
-    }
-    CountDownLatch ready = new CountDownLatch(1);
-    try {
-      Platform.startup(ready::countDown);
-      toolkitAvailable = ready.await(5, TimeUnit.SECONDS);
-    } catch (IllegalStateException alreadyStarted) {
-      toolkitAvailable = true;
-    } catch (RuntimeException unavailable) {
-      toolkitAvailable = false;
-    }
-  }
-
   @Test
   void runningVnsFromTheStripMakesTheDetachedPreviewVisible(@TempDir Path tempDir)
       throws Exception {
-    Assumptions.assumeTrue(toolkitAvailable, "JavaFX toolkit is unavailable in this environment");
     Path script = tempDir.resolve("launch_test.vns");
     Files.writeString(
         script,
@@ -75,7 +53,6 @@ class FileEditorTabVnsLaunchTest {
 
   @Test
   void vnsStripExposesWorkingReviewControls(@TempDir Path tempDir) throws Exception {
-    Assumptions.assumeTrue(toolkitAvailable, "JavaFX toolkit is unavailable in this environment");
     Path script = tempDir.resolve("review_controls.vns");
     Files.writeString(script, String.join("\n",
         "@scenario review_controls",
@@ -156,8 +133,6 @@ class FileEditorTabVnsLaunchTest {
 
   @Test
   void loadingVnsKeepsAudioSilentUntilPreviewIsVisible() throws Exception {
-    Assumptions.assumeTrue(toolkitAvailable, "JavaFX toolkit is unavailable in this environment");
-
     onFxThread(() -> {
       RecordingAudio audio = new RecordingAudio();
       VnPreviewView preview = new VnPreviewView(audio);
@@ -216,20 +191,6 @@ class FileEditorTabVnsLaunchTest {
   }
 
   private static <T> T onFxThread(java.util.concurrent.Callable<T> work) throws Exception {
-    CountDownLatch done = new CountDownLatch(1);
-    AtomicReference<T> result = new AtomicReference<>();
-    AtomicReference<Throwable> failure = new AtomicReference<>();
-    Platform.runLater(() -> {
-      try {
-        result.set(work.call());
-      } catch (Throwable error) {
-        failure.set(error);
-      } finally {
-        done.countDown();
-      }
-    });
-    assertTrue(done.await(15, TimeUnit.SECONDS), "JavaFX work timed out");
-    if (failure.get() != null) throw new AssertionError(failure.get());
-    return result.get();
+    return FxToolkit.runFx(work);
   }
 }

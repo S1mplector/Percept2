@@ -1019,6 +1019,7 @@ modules/editor/src/main/java/com/jvn/editor/
 │       ├── TimelineDiagnostic.java         # Validation: ranges, entities, easing names
 │       ├── VnSlotHelper.java              # VN slot positions + expression/dialogue markers
 │       ├── PuppeteerVerification.java      # Runtime registration verification pass
+│       ├── PuppeteerCharacterRigResolver.java # Parses the source .vns script into a VnCharacter for rig-aware diagnostics
 │       ├── PuppeteerCommand.java           # Undo/redo command stack
 │       ├── PuppeteerDraftStore.java        # Auto-save/restore unsaved work
 │       ├── PuppeteerWorkspacePrefs.java    # Per-project editor preferences
@@ -1090,7 +1091,7 @@ The easing picker (`EasingPickerModel`) is searchable — type part of a family 
 `CodeImporter` parses exported JES timeline blocks (including Puppeteer metadata comments) back into an `AnimationProject`. This enables a visual → text → visual round-trip workflow for collaborative editing and hand-tuning. The code panel provides Preview Parse → Commit/Discard staging. Named exports preserve editor state such as groups, locks, constraints, named anchors, and orbit-anchor tooling data so registered animations can be reopened for later work without losing rigging context.
 
 ### Timeline Diagnostics
-`TimelineDiagnostic` validates timelines during registration and code preview. It catches alpha/zoom/pivot range issues, missing entities, empty event types, unknown easing names (with edit-distance suggestions), camera key misplacement, and missing audio files.
+`TimelineDiagnostic` validates timelines during registration and code preview. It catches alpha/zoom/pivot range issues, missing entities, empty event types, unknown easing names (with edit-distance suggestions), camera key misplacement, and missing audio files. `PuppeteerVerification` layers additional export/registration-time checks on top, including orbit-pivot-at-risk detection and unresolved-layer-proxy detection: the latter (`diagnoseUnresolvedLayerProxies`) flags tracks with keyframes on a character rig layer/group id that has no runtime-resolvable proxy name in the current scene, using `PuppeteerCharacterRigResolver` to parse the source `.vns` script's rig declarations. See [Puppeteer Editor Guide § Unresolved Layer Proxy Warnings](puppeteer-editor-guide.md#unresolved-layer-proxy-warnings).
 
 ### Animation Clips
 `AnimationClip` captures keyframe segments, serializes them as `.properties` files under `config/puppeteer/clips/`, and supports apply with duration scaling and Layer On Top / Replace Range modes.
@@ -1119,7 +1120,6 @@ draft.
 - **Snapshot is static** — the VNS snapshot at launch time captures the state up to the cursor line; it does not update if the VNS script changes while Puppeteer is open
 - **No drag-from-asset-picker** — assets are added via button click; drag-and-drop onto the preview is not yet implemented
 - **Group baking is scalar timeline output** — curved group rotation/scale is baked to child position samples for runtime playback; very long arcs may produce denser exported JES
-- **Async-only playback** — `[call jes_timeline ...]` always runs asynchronously; there is no blocking variant (use `[wait N]` to synchronize)
 - **No timeline chaining** — there is no built-in way to sequence named timelines; chain them manually with `[wait]` between `[call]` commands
 
 ---

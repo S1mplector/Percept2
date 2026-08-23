@@ -185,7 +185,13 @@ public class PuppeteerWindow extends Stage {
     public final AnimationProject project;
     public JesScene2D scene;
 
+    private final PuppeteerExpressionOverride expressionOverride = new PuppeteerExpressionOverride();
+    private List<PuppeteerExpressionOverride.SpriteSnapshot> expressionPreviewSnapshot = List.of();
+    private String expressionPreviewTarget;
+    private String expressionPreviewExpression;
+
     private final EntitySelector entitySelector;
+    private ExpressionPreviewPanel expressionPreviewPanel;
     public final TimelinePanel timelinePanel;
     public final KeyframeEditor keyframeEditor;
     private AnchorEditor anchorEditor;
@@ -473,6 +479,7 @@ public class PuppeteerWindow extends Stage {
         setHeight(900);
 
         entitySelector = new EntitySelector();
+        expressionPreviewPanel = new ExpressionPreviewPanel();
         timelinePanel = new TimelinePanel(this.project, commandStack);
         selectionModel = timelinePanel.getSelectionModel();
         keyframeEditor = new KeyframeEditor();
@@ -565,6 +572,8 @@ public class PuppeteerWindow extends Stage {
         keyframeEditor.setCameraState(animationPreview.getCamera().getX(), animationPreview.getCamera().getY(), animationPreview.getCamera().getZoom());
 
         timelinePanel.setOnTargetSelectionChanged((name, isGroup) -> {
+            clearExpressionPreview();
+            refreshExpressionPreviewPanel(name, isGroup);
             keyframeEditor.setSelectionContext(
                 selectionLabel(name, isGroup),
                 isGroup,
@@ -597,6 +606,8 @@ public class PuppeteerWindow extends Stage {
         });
 
         entitySelector.setOnSelectionChanged((name, isGroup) -> {
+            clearExpressionPreview();
+            refreshExpressionPreviewPanel(name, isGroup);
             timelinePanel.setSelectedTarget(name, isGroup);
             if (!isGroup) {
                 animationPreview.selectEntities(entitySelector.getSelectedEntityNames(), name);
@@ -605,6 +616,31 @@ public class PuppeteerWindow extends Stage {
             if (constraintEditor != null) constraintEditor.selectEntity(isGroup ? null : name);
             refreshPropertyPickerChoices();
             updateStatusBar();
+        });
+
+        expressionPreviewPanel.setOnExpressionChosen(expression -> {
+            String target = timelinePanel != null ? timelinePanel.getSelectedEntity() : null;
+            if (target == null || target.isBlank()) return;
+            previewExpression(target, expression);
+            expressionPreviewPanel.setPreviewingState(expression);
+            animationPreview.setExpressionPreviewIndicator(target, expression, true);
+        });
+
+        expressionPreviewPanel.setOnClear(() -> {
+            String target = timelinePanel != null ? timelinePanel.getSelectedEntity() : null;
+            clearExpressionPreview();
+            expressionPreviewPanel.setPreviewingState(null);
+            if (target != null && !target.isBlank()) {
+                animationPreview.setExpressionPreviewIndicator(
+                    target, preferredExpressionForTarget(target), false);
+            }
+        });
+
+        expressionPreviewPanel.setOnApply(() -> {
+            String target = getExpressionPreviewEntityName();
+            String expression = getExpressionPreviewName();
+            if (target == null || expression == null) return;
+            showExpressionKeyframeDialog(target, expression);
         });
 
         entitySelector.setOnCreateGroup(groupName -> {
@@ -741,6 +777,7 @@ public class PuppeteerWindow extends Stage {
         });
 
         timelinePanel.setOnPlayheadChanged(time -> {
+            clearExpressionPreview();
             this.project.setPlayheadMs(time);
             updateTimeLabel();
             updatePreview();
@@ -1611,6 +1648,8 @@ public class PuppeteerWindow extends Stage {
         previewPane.setTop(viewportInfoLabel);
         previewPane.setStyle("-fx-background-color: #121212;");
         DockSlot previewSlot = createDockSlot(createDockItem("preview", "Preview", previewPane, false));
+        DockSlot expressionPreviewSlot = createDockSlot(
+            createDockItem("expression-preview", "Expression Preview", expressionPreviewPanel, false));
         DockSlot keyframeSlot = createDockSlot(createDockItem("keyframes-panel", "Keyframes", keyframeEditor, false));
         DockSlot timelineSlot = createDockSlot(createDockItem("timeline-panel", "Timeline", timelinePanel, false));
         DockSlot codeSlot = createDockSlot(createDockItem("code", "Code", codePreview, false));
@@ -1666,11 +1705,13 @@ public class PuppeteerWindow extends Stage {
         topWorkspaceSplit.setOrientation(Orientation.HORIZONTAL);
         topWorkspaceSplit.setMinWidth(0);
         topWorkspaceSplit.setMinHeight(0);
-        topWorkspaceSplit.getItems().addAll(entitiesSlot, previewSlot);
+        topWorkspaceSplit.getItems().addAll(entitiesSlot, previewSlot, expressionPreviewSlot);
         SplitPane.setResizableWithParent(entitiesSlot, Boolean.TRUE);
         SplitPane.setResizableWithParent(previewSlot, Boolean.TRUE);
+        SplitPane.setResizableWithParent(expressionPreviewSlot, Boolean.TRUE);
         registerDockSlotHome(entitiesSlot, topWorkspaceSplit, 0, false);
         registerDockSlotHome(previewSlot, topWorkspaceSplit, 1, false);
+        registerDockSlotHome(expressionPreviewSlot, topWorkspaceSplit, 2, false);
         registerDockGroup("workspace-top", topWorkspaceSplit);
         topWorkspaceSplit.setDividerPositions(DEFAULT_TOP_WORKSPACE_DIVIDER_POSITION);
 
@@ -3082,6 +3123,22 @@ public class PuppeteerWindow extends Stage {
             }
         }
         return row;
+    }
+
+    private void refreshExpressionPreviewPanel(String name, boolean isGroup) {
+        if (expressionPreviewPanel == null) return;
+        if (isGroup || name == null || name.isBlank()) {
+            expressionPreviewPanel.setCharacterContext(null, List.of(), null);
+            expressionPreviewPanel.setDisable(true);
+            animationPreview.setExpressionPreviewIndicator(null, null, false);
+            return;
+        }
+        String characterId = inferCharacterIdFromSelection(name);
+        List<String> expressionNames = expressionSuggestionsForTarget(name);
+        String currentExpression = preferredExpressionForTarget(name);
+        expressionPreviewPanel.setDisable(false);
+        expressionPreviewPanel.setCharacterContext(characterId, expressionNames, currentExpression);
+        animationPreview.setExpressionPreviewIndicator(name, currentExpression, false);
     }
 
     public void refreshSidebarTabs() {
@@ -7960,6 +8017,10 @@ public class PuppeteerWindow extends Stage {
         }
     }
 
+    java.io.File getSourceScriptFile() {
+        return scriptTargetFile;
+    }
+
     public void showAssetImporterWindow() {
         if (assetImporterWindow != null) {
             assetImporterWindow.show();
@@ -8292,6 +8353,7 @@ public class PuppeteerWindow extends Stage {
 
     public void play() {
         if (project.isPlaying()) return;
+        clearExpressionPreview();
         project.setPlaying(true);
         lastNanos = System.nanoTime();
         playbackTimelineRefreshGate.reset();
@@ -9003,6 +9065,20 @@ public class PuppeteerWindow extends Stage {
         return selection;
     }
 
+    private record ResolvedCharacterContext(com.jvn.core.vn.VnCharacter character, String characterId) {
+        static final ResolvedCharacterContext EMPTY = new ResolvedCharacterContext(null, null);
+    }
+
+    private ResolvedCharacterContext resolveCharacterForDiagnostics() {
+        File scriptFile = getSourceScriptFile();
+        if (scriptFile == null) return ResolvedCharacterContext.EMPTY;
+        String characterId = inferExpressionTargetFromSelection();
+        if (characterId == null || characterId.isBlank()) return ResolvedCharacterContext.EMPTY;
+        com.jvn.core.vn.VnCharacter character = PuppeteerCharacterRigResolver.resolve(scriptFile, characterId);
+        if (character == null) return ResolvedCharacterContext.EMPTY;
+        return new ResolvedCharacterContext(character, characterId);
+    }
+
     private List<String> expressionTargetSuggestions() {
         LinkedHashSet<String> targets = new LinkedHashSet<>();
         String inferred = inferExpressionTargetFromSelection();
@@ -9143,6 +9219,49 @@ public class PuppeteerWindow extends Stage {
             }
         }
         return applied > 0;
+    }
+
+    void previewExpression(String rawTarget, String expression) {
+        clearExpressionPreview();
+        if (scene == null || rawTarget == null || rawTarget.isBlank()
+            || expression == null || expression.isBlank()) return;
+        List<ExpressionLayerCandidate> candidates = expressionLayerCandidates(rawTarget);
+        if (candidates.isEmpty()) return;
+        List<com.jvn.core.scene2d.Sprite2D> sprites = new ArrayList<>();
+        for (ExpressionLayerCandidate candidate : candidates) {
+            if (candidate != null && candidate.sprite() != null) sprites.add(candidate.sprite());
+        }
+        expressionPreviewSnapshot = expressionOverride.snapshot(sprites);
+        boolean applied = applyLayeredExpressionCue(rawTarget, expression, Map.of());
+        if (!applied) {
+            expressionOverride.revert(expressionPreviewSnapshot);
+            expressionPreviewSnapshot = List.of();
+            return;
+        }
+        expressionPreviewTarget = rawTarget;
+        expressionPreviewExpression = expression;
+        animationPreview.render();
+    }
+
+    void clearExpressionPreview() {
+        if (expressionPreviewSnapshot.isEmpty()) return;
+        expressionOverride.revert(expressionPreviewSnapshot);
+        expressionPreviewSnapshot = List.of();
+        expressionPreviewTarget = null;
+        expressionPreviewExpression = null;
+        if (animationPreview != null) animationPreview.render();
+    }
+
+    boolean isExpressionPreviewActive() {
+        return !expressionPreviewSnapshot.isEmpty();
+    }
+
+    String getExpressionPreviewEntityName() {
+        return expressionPreviewTarget;
+    }
+
+    String getExpressionPreviewName() {
+        return expressionPreviewExpression;
     }
 
     private List<ExpressionLayerSpec> resolveExpressionLayerSpecs(String rawTarget,
@@ -9902,12 +10021,15 @@ public class PuppeteerWindow extends Stage {
     private void performCopyExportedCodeToClipboard() {
         try {
             String code = CodeExporter.export(project);
+            ResolvedCharacterContext rigContext = resolveCharacterForDiagnostics();
             List<TimelineDiagnostic.Message> findings = new ArrayList<>(
                 PuppeteerVerification.diagnose(
                     project,
                     knownSceneEntities(),
                     projectRoot,
-                    PuppeteerVerification.Mode.EXPORT_CODE
+                    PuppeteerVerification.Mode.EXPORT_CODE,
+                    rigContext.character(),
+                    rigContext.characterId()
                 )
             );
             findings.addAll(TimelineDiagnostic.diagnoseDsl(code));
@@ -10215,12 +10337,15 @@ public class PuppeteerWindow extends Stage {
     public void refreshExportPreview() {
         try {
             codePreview.setCode(compactExport ? CodeExporter.exportCompact(project) : CodeExporter.export(project));
+            ResolvedCharacterContext rigContext = resolveCharacterForDiagnostics();
             List<TimelineDiagnostic.Message> diags = new ArrayList<>(
                 PuppeteerVerification.diagnose(
                     project,
                     knownSceneEntities(),
                     projectRoot,
-                    PuppeteerVerification.Mode.EXPORT_CODE
+                    PuppeteerVerification.Mode.EXPORT_CODE,
+                    rigContext.character(),
+                    rigContext.characterId()
                 )
             );
             diags.addAll(TimelineDiagnostic.diagnoseDsl(codePreview.getCode()));
@@ -10747,7 +10872,13 @@ public class PuppeteerWindow extends Stage {
     }
 
     private void showExpressionKeyframeDialog() {
-        String initialTarget = inferExpressionTargetFromSelection();
+        showExpressionKeyframeDialog(null, null);
+    }
+
+    private void showExpressionKeyframeDialog(String presetTarget, String presetExpression) {
+        String initialTarget = (presetTarget != null && !presetTarget.isBlank())
+            ? presetTarget
+            : inferExpressionTargetFromSelection();
         ComboBox<String> cbTarget = new ComboBox<>();
         cbTarget.setEditable(true);
         styleExpressionKeyframeCombo(cbTarget);
@@ -10759,7 +10890,11 @@ public class PuppeteerWindow extends Stage {
         cbExpression.setEditable(true);
         styleExpressionKeyframeCombo(cbExpression);
         cbExpression.getItems().setAll(expressionSuggestionsForTarget(initialTarget));
-        cbExpression.setValue(preferredExpressionForTarget(initialTarget));
+        String initialExpression = (presetExpression != null && !presetExpression.isBlank()
+            && expressionSuggestionsForTarget(initialTarget).contains(presetExpression))
+            ? presetExpression
+            : preferredExpressionForTarget(initialTarget);
+        cbExpression.setValue(initialExpression);
         cbExpression.setPromptText("expression");
 
         TextField tfTime = new TextField(String.format(Locale.ROOT, "%.0f", project.getPlayheadMs()));
@@ -10895,6 +11030,9 @@ public class PuppeteerWindow extends Stage {
                     cbEmbedResolved.isSelected());
                 project.addEditorEventCue(new EditorEventCue(timeMs, "expression", payload));
                 timelinePanel.refresh();
+                clearExpressionPreview();
+                if (expressionPreviewPanel != null) expressionPreviewPanel.setPreviewingState(null);
+                animationPreview.setExpressionPreviewIndicator(target, expression, false);
                 updatePreview();
                 refreshExportPreviewAndMarkDirty();
                 overlayDialog.hideOverlay();
@@ -12057,11 +12195,14 @@ public class PuppeteerWindow extends Stage {
     public KeyframeSelectionModel getSelectionModel() { return selectionModel; }
 
     public void showRuntimeVerificationReport() {
+        ResolvedCharacterContext rigContext = resolveCharacterForDiagnostics();
         List<TimelineDiagnostic.Message> findings = PuppeteerVerification.diagnose(
             project,
             knownSceneEntities(),
             projectRoot,
-            PuppeteerVerification.Mode.REGISTER_RUNTIME
+            PuppeteerVerification.Mode.REGISTER_RUNTIME,
+            rigContext.character(),
+            rigContext.characterId()
         );
         boolean hasErrors = findings.stream().anyMatch(message -> message.severity() == TimelineDiagnostic.Severity.ERROR);
         boolean hasWarnings = findings.stream().anyMatch(message -> message.severity() == TimelineDiagnostic.Severity.WARNING);
@@ -12122,11 +12263,14 @@ public class PuppeteerWindow extends Stage {
             return;
         }
         project.setName(name);
+        ResolvedCharacterContext rigContext = resolveCharacterForDiagnostics();
         List<TimelineDiagnostic.Message> findings = PuppeteerVerification.diagnose(
             project,
             knownSceneEntities(),
             projectRoot,
-            PuppeteerVerification.Mode.REGISTER_RUNTIME
+            PuppeteerVerification.Mode.REGISTER_RUNTIME,
+            rigContext.character(),
+            rigContext.characterId()
         );
         boolean hasErrors = findings.stream().anyMatch(message -> message.severity() == TimelineDiagnostic.Severity.ERROR);
         boolean hasWarnings = findings.stream().anyMatch(message -> message.severity() == TimelineDiagnostic.Severity.WARNING);
@@ -12180,7 +12324,15 @@ public class PuppeteerWindow extends Stage {
         }
         details.add("This will not insert or edit any .vns script line; reference it manually with @external jes_timeline " + name + " when needed.");
 
-        VBox body = buildActionDetailsContent(details);
+        boolean hasOrbitPivotRisk = findings.stream()
+            .anyMatch(message -> message.description().contains(PuppeteerVerification.ORBIT_PIVOT_RISK_MARKER));
+        boolean hasUnresolvedLayerProxies = findings.stream()
+            .anyMatch(message -> message.description().contains(PuppeteerVerification.UNRESOLVED_LAYER_PROXY_MARKER));
+
+        VBox body = new VBox(10);
+        body.setFillWidth(true);
+        body.getChildren().add(buildExportSummaryContent(name));
+        body.getChildren().add(buildActionDetailsContent(details));
         if (hasWarnings) {
             Label warningHeader = new Label("Warnings that will be accepted if you continue:");
             warningHeader.setStyle("-fx-text-fill: #ffe2a8; -fx-font-size: 11px; -fx-font-weight: bold;");
@@ -12188,16 +12340,80 @@ public class PuppeteerWindow extends Stage {
             body.getChildren().add(buildVerificationContent(findings));
         }
 
+        javafx.scene.control.CheckBox strictOrbitCheck = null;
+        if (hasOrbitPivotRisk) {
+            strictOrbitCheck = new javafx.scene.control.CheckBox(
+                "Treat orbit-pivot warnings as blocking for this registration");
+            strictOrbitCheck.setStyle("-fx-text-fill: #d0d0d0; -fx-font-size: 11px;");
+            body.getChildren().add(strictOrbitCheck);
+        }
+        javafx.scene.control.CheckBox strictCheckRef = strictOrbitCheck;
+
+        javafx.scene.control.CheckBox strictUnresolvedLayerCheck = null;
+        if (hasUnresolvedLayerProxies) {
+            strictUnresolvedLayerCheck = new javafx.scene.control.CheckBox(
+                "Treat unresolved-layer warnings as blocking for this registration");
+            strictUnresolvedLayerCheck.setStyle("-fx-text-fill: #d0d0d0; -fx-font-size: 11px;");
+            body.getChildren().add(strictUnresolvedLayerCheck);
+        }
+        javafx.scene.control.CheckBox strictUnresolvedLayerCheckRef = strictUnresolvedLayerCheck;
+
+        Label playbackHeader = new Label("Timeline playback:");
+        playbackHeader.setStyle("-fx-text-fill: #d8eefc; -fx-font-size: 11px; -fx-font-weight: bold;");
+        javafx.scene.control.ToggleGroup playbackGroup = new javafx.scene.control.ToggleGroup();
+        javafx.scene.control.RadioButton nonBlockingOption = new javafx.scene.control.RadioButton(
+            "Non-blocking - dialogue can continue during playback");
+        nonBlockingOption.setToggleGroup(playbackGroup);
+        nonBlockingOption.setSelected(true);
+        nonBlockingOption.setStyle("-fx-text-fill: #d0d0d0; -fx-font-size: 11px;");
+        javafx.scene.control.RadioButton blockingOption = new javafx.scene.control.RadioButton(
+            "Blocking - VNS waits for the timeline to finish before advancing");
+        blockingOption.setToggleGroup(playbackGroup);
+        blockingOption.setStyle("-fx-text-fill: #d0d0d0; -fx-font-size: 11px;");
+        body.getChildren().add(playbackHeader);
+        body.getChildren().add(nonBlockingOption);
+        body.getChildren().add(blockingOption);
+
         overlayDialog.showDialog(
             hasWarnings ? "Register Timeline With Warnings?" : "Register Timeline?",
             "Review exactly what Puppeteer will do before it saves and registers \"" + name + "\".",
             body,
             ActionEditorDialogOverlay.ActionSpec.neutral("Cancel", overlayDialog::hideOverlay).defaultFocus(true),
-            ActionEditorDialogOverlay.ActionSpec.accent("Register", () -> performRegisterTimeline(name, onSuccess))
+            ActionEditorDialogOverlay.ActionSpec.accent("Register", () -> {
+                if (strictCheckRef != null && strictCheckRef.isSelected()) {
+                    showVerificationOverlay(
+                        "Registration Blocked",
+                        "Strict validation is on for this registration. Resolve the orbit-pivot warnings below before registering.",
+                        findings.stream()
+                            .filter(message -> message.description().contains(PuppeteerVerification.ORBIT_PIVOT_RISK_MARKER))
+                            .toList(),
+                        null,
+                        null
+                    );
+                    return;
+                }
+                if (strictUnresolvedLayerCheckRef != null && strictUnresolvedLayerCheckRef.isSelected()) {
+                    showVerificationOverlay(
+                        "Registration Blocked",
+                        "Strict validation is on for this registration. Resolve the unresolved-layer warnings below before registering.",
+                        findings.stream()
+                            .filter(message -> message.description().contains(PuppeteerVerification.UNRESOLVED_LAYER_PROXY_MARKER))
+                            .toList(),
+                        null,
+                        null
+                    );
+                    return;
+                }
+                performRegisterTimeline(name, onSuccess, blockingOption.isSelected());
+            })
         );
     }
 
     private boolean performRegisterTimeline(String name, Runnable onSuccess) {
+        return performRegisterTimeline(name, onSuccess, false);
+    }
+
+    private boolean performRegisterTimeline(String name, Runnable onSuccess, boolean blockingPlayback) {
         try {
             List<TimelineDiagnostic.Message> nameFindings = PuppeteerVerification.validateTimelineName(name);
             boolean hasNameErrors = nameFindings.stream()
@@ -12215,7 +12431,7 @@ public class PuppeteerWindow extends Stage {
             project.setName(name);
             project.setSceneEntitySnapshots(captureSceneEntitySnapshots());
             TimelineData data = project.toTimelineData(name);
-            String code = CodeExporter.exportNamed(project, name, exportNestedBlocks);
+            String code = CodeExporter.exportNamed(project, name, exportNestedBlocks, blockingPlayback);
             codePreview.setCode(code);
             boolean saved = saveTimelineFile(name, code);
             if (!saved) {
@@ -12290,17 +12506,151 @@ public class PuppeteerWindow extends Stage {
         List<String> details,
         Runnable onContinue
     ) {
+        String previewName = tfTimelineName.getText() != null ? tfTimelineName.getText().trim() : "";
+        VBox body = new VBox(10);
+        body.setFillWidth(true);
+        body.getChildren().add(buildExportSummaryContent(previewName.isBlank() ? project.getName() : previewName));
+        body.getChildren().add(buildActionDetailsContent(details));
+
+        List<TimelineDiagnostic.Message> orbitRiskFindings = new ArrayList<>();
+        for (EntityTrack track : project.getTracks()) {
+            if (track == null) continue;
+            String entity = track.getEntityName();
+            if (!project.isOrbitPivotAtRisk(entity)) continue;
+            orbitRiskFindings.add(new TimelineDiagnostic.Message(
+                TimelineDiagnostic.Severity.WARNING,
+                entity,
+                "\"" + entity + "\" " + PuppeteerVerification.ORBIT_PIVOT_RISK_MARKER
+                    + "; rotation will export as a plain positional move instead of pivoting",
+                "Open the orbit-pivot warning badge on this entity's track for details"
+            ));
+        }
+
+        List<TimelineDiagnostic.Message> unresolvedLayerFindings = new ArrayList<>();
+        ResolvedCharacterContext rigContext = resolveCharacterForDiagnostics();
+        if (rigContext.character() != null) {
+            for (TimelineDiagnostic.Message message : PuppeteerVerification.diagnose(
+                project,
+                knownSceneEntities(),
+                projectRoot,
+                PuppeteerVerification.Mode.EXPORT_CODE,
+                rigContext.character(),
+                rigContext.characterId()
+            )) {
+                if (message.description().contains(PuppeteerVerification.UNRESOLVED_LAYER_PROXY_MARKER)) {
+                    unresolvedLayerFindings.add(message);
+                }
+            }
+        }
+
+        javafx.scene.control.CheckBox strictOrbitCheck = null;
+        if (!orbitRiskFindings.isEmpty()) {
+            Label warningHeader = new Label("Orbit-pivot warnings that will be accepted if you continue:");
+            warningHeader.setStyle("-fx-text-fill: #ffe2a8; -fx-font-size: 11px; -fx-font-weight: bold;");
+            body.getChildren().add(warningHeader);
+            body.getChildren().add(buildVerificationContent(orbitRiskFindings));
+            strictOrbitCheck = new javafx.scene.control.CheckBox(
+                "Treat orbit-pivot warnings as blocking for this action");
+            strictOrbitCheck.setStyle("-fx-text-fill: #d0d0d0; -fx-font-size: 11px;");
+            body.getChildren().add(strictOrbitCheck);
+        }
+        javafx.scene.control.CheckBox strictCheckRef = strictOrbitCheck;
+        List<TimelineDiagnostic.Message> orbitRiskFindingsRef = orbitRiskFindings;
+
+        javafx.scene.control.CheckBox strictUnresolvedLayerCheck = null;
+        if (!unresolvedLayerFindings.isEmpty()) {
+            Label unresolvedLayerHeader = new Label("Unresolved-layer warnings that will be accepted if you continue:");
+            unresolvedLayerHeader.setStyle("-fx-text-fill: #ffe2a8; -fx-font-size: 11px; -fx-font-weight: bold;");
+            body.getChildren().add(unresolvedLayerHeader);
+            body.getChildren().add(buildVerificationContent(unresolvedLayerFindings));
+            strictUnresolvedLayerCheck = new javafx.scene.control.CheckBox(
+                "Treat unresolved-layer warnings as blocking for this action");
+            strictUnresolvedLayerCheck.setStyle("-fx-text-fill: #d0d0d0; -fx-font-size: 11px;");
+            body.getChildren().add(strictUnresolvedLayerCheck);
+        }
+        javafx.scene.control.CheckBox strictUnresolvedLayerCheckRef = strictUnresolvedLayerCheck;
+        List<TimelineDiagnostic.Message> unresolvedLayerFindingsRef = unresolvedLayerFindings;
+
         overlayDialog.showDialog(
             title,
             header,
-            buildActionDetailsContent(details),
+            body,
             ActionEditorDialogOverlay.ActionSpec.neutral("Cancel", overlayDialog::hideOverlay).defaultFocus(true),
             ActionEditorDialogOverlay.ActionSpec.accent(actionLabel, () -> {
+                if (strictCheckRef != null && strictCheckRef.isSelected()) {
+                    showVerificationOverlay(
+                        "Action Blocked",
+                        "Strict validation is on for this action. Resolve the orbit-pivot warnings below before continuing.",
+                        orbitRiskFindingsRef,
+                        null,
+                        null
+                    );
+                    return;
+                }
+                if (strictUnresolvedLayerCheckRef != null && strictUnresolvedLayerCheckRef.isSelected()) {
+                    showVerificationOverlay(
+                        "Action Blocked",
+                        "Strict validation is on for this action. Resolve the unresolved-layer warnings below before continuing.",
+                        unresolvedLayerFindingsRef,
+                        null,
+                        null
+                    );
+                    return;
+                }
                 if (onContinue != null) {
                     onContinue.run();
                 }
             })
         );
+    }
+
+    private VBox buildExportSummaryContent(String timelineName) {
+        String safeName = timelineName == null || timelineName.isBlank() ? project.getName() : timelineName;
+        String code = CodeExporter.exportNamed(project, safeName, exportNestedBlocks);
+        TimelineData data = project.toTimelineData(safeName);
+        TimelineExportSummary summary = TimelineExportSummary.of(project, code, data);
+
+        VBox content = new VBox(4);
+        content.setFillWidth(true);
+        content.setMaxWidth(520);
+        content.setStyle(
+            "-fx-background-color: #14202b;"
+                + "-fx-background-radius: 6;"
+                + "-fx-border-color: #2c4257;"
+                + "-fx-border-radius: 6;"
+                + "-fx-padding: 8 10;"
+        );
+
+        Label statsLine = new Label(String.format(
+            Locale.ROOT,
+            "%d lines (%d metadata comments, %d script actions) - %d tracks - %d actions - %.1fs duration",
+            summary.totalLineCount(),
+            summary.commentLineCount(),
+            summary.actionLineCount(),
+            summary.trackCount(),
+            summary.actionCount(),
+            summary.durationMs() / 1000.0
+        ));
+        statsLine.setWrapText(true);
+        statsLine.setStyle("-fx-text-fill: #d8eefc; -fx-font-size: 11px; -fx-font-weight: bold;");
+        content.getChildren().add(statsLine);
+
+        if (!summary.affectedEntityNames().isEmpty()) {
+            Label affected = new Label("Affected: " + String.join(", ", summary.affectedEntityNames()));
+            affected.setWrapText(true);
+            affected.setStyle("-fx-text-fill: #9eb8d8; -fx-font-size: 11px;");
+            content.getChildren().add(affected);
+        }
+
+        if (summary.isLarge()) {
+            Label warning = new Label(
+                "Large export - may increase editor parse time and runtime script load.");
+            warning.setWrapText(true);
+            warning.setStyle("-fx-text-fill: #ffe2a8; -fx-font-size: 11px; -fx-font-weight: bold;");
+            content.getChildren().add(warning);
+        }
+
+        return content;
     }
 
     private VBox buildActionDetailsContent(List<String> details) {

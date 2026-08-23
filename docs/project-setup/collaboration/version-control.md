@@ -2,8 +2,10 @@
 
 JVN includes built-in project version-control tooling for team workflows.
 
-Prerequisites:
-- `git` installed and available on `PATH`
+The editor's Version Control panel talks to Git repositories directly through
+[JGit](https://www.eclipse.org/jgit/) — no `git` executable, `gh` CLI, or other external binary is
+required on `PATH`. See [Sidebar — Version Control](../../editor/sidebars/right/sidebar-version-control.md)
+for the full panel reference, including GitHub sign-in and repository creation.
 
 ## Where It Is Integrated
 
@@ -20,12 +22,57 @@ Prerequisites:
 ## Panel Operations
 
 - `Refresh`: reads branch/sync/change status
-- `Init Repo`: initializes repo and writes managed Git defaults
-- `Commit All`: stages all changes and commits with provided message
-- `Pull --rebase`: pulls with `--rebase --autostash`
-- `Push`: pushes current branch
+- `Initialize`: initializes repo and writes managed Git defaults
+- `Save Snapshot`: stages all changes and commits with provided message
+- `Get Updates`: pulls with `--rebase --autostash`
+- `Send Online`: pushes current branch
 
 Changed files are listed and can be opened directly by double-clicking an entry.
+
+### Safety Warnings
+
+The panel proactively warns before a few operations that are easy to get wrong:
+
+- **Pulling with uncommitted changes** — asks for confirmation before shelving your changes,
+  rebasing, and restoring them, since a restore can fail if the rebase touched the same lines. If
+  the restore does fail, the changes stay safe in the stash list (**Restore Shelf**) instead of
+  being lost.
+- **Pushing directly to `main`, `master`, or `stable`** — asks for confirmation, since these are
+  shared integration branches (see [Collaboration Recommendations](#collaboration-recommendations)
+  below); prefer pushing a topic branch and merging instead.
+- **Switching branches with uncommitted changes** — offers to stash them first rather than
+  blocking the switch outright.
+- **Checking online when far behind or ahead** — logs a warning once the branch diverges from the
+  remote by 15+ snapshots in either direction, as a nudge to sync before the gap grows.
+
+See [Sidebar — Version Control](../../editor/sidebars/right/sidebar-version-control.md#warnings)
+for the full list of warning conditions.
+
+### Danger Zone: Force Pull / Force Push
+
+For the rare case where the normal safety checks are actually in the way — a branch you know
+should just match the remote, or a history you deliberately want to overwrite — the panel has a
+separate **Danger Zone** section with **Force Pull** (`git fetch && git reset --hard
+origin/<branch>`, discarding local commits and changes) and **Force Push** (`git push
+--force-with-lease`). Both require typing the branch name to confirm before they run. See
+[Danger Zone](../../editor/sidebars/right/sidebar-version-control.md#danger-zone) for details —
+these bypass the "no force-push/force-pull" behavior the rest of the panel relies on, so use them
+deliberately, not as a routine way past a conflict.
+
+## GitHub Sign-In And Remote Creation
+
+When a project has no remote configured, the panel offers two ways to connect a GitHub repository:
+
+- **Create GitHub Repository** — creates a new repo on your GitHub account via the GitHub REST API,
+  sets it as `origin`, and pushes. Requires signing in first (device flow or a personal access
+  token); see [GitHub Sign-In](../../editor/sidebars/right/sidebar-version-control.md#github-sign-in).
+- **Add Remote Manually** — paste an existing repository URL (GitHub, GitLab, Bitbucket, or any Git
+  host) to use as `origin`.
+
+Signing in stores a GitHub token using the current OS's native credential store (Windows Credential
+Manager, macOS Keychain, or Linux Secret Service) when available, falling back to a locally
+encrypted file otherwise. The token is only used to authenticate Git operations and GitHub API calls
+made by the editor; it is never written into project files or committed.
 
 ## Managed Defaults
 
@@ -70,9 +117,15 @@ Additional recommendations:
 
 ## Troubleshooting
 
-- If `Init Repo` fails with tool errors, verify `git --version` in terminal.
-- If commit fails due identity, configure Git user:
+- If commit fails due to missing identity, configure Git user globally (JGit reads the same global
+  `.gitconfig` a command-line `git` would use):
   - `git config --global user.name "Your Name"`
   - `git config --global user.email "you@example.com"`
 - If push fails due missing upstream, set it once:
   - `git push -u origin <branch>`
+- If GitHub sign-in or repo creation fails, check the panel's log area for the GitHub API error
+  message. A `401`/token-rejected error usually means the stored token expired or was revoked; use
+  **Change** to sign in again.
+- If a GitHub token seems "lost" after an OS update or profile move, note that it is stored in the
+  OS-native credential store (Windows Credential Manager, macOS Keychain, or Linux Secret Service),
+  not in the project or a dotfile — it does not travel with the project directory.

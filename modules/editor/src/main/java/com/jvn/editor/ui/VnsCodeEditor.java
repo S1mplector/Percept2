@@ -70,7 +70,7 @@ public class VnsCodeEditor extends BorderPane {
   private File projectRoot;
   private List<Issue> issues = List.of();
   private int highlightedIssueLine = -1;
-  private boolean highlightedIssueWarning = false;
+  private Issue.Severity highlightedIssueSeverity = Issue.Severity.ERROR;
   private Consumer<String> onTextChanged;
   private Consumer<String> onLaunchFromHere;
   private IntConsumer onLaunchFromCursor;
@@ -85,6 +85,7 @@ public class VnsCodeEditor extends BorderPane {
 
   // Code folding
   private final Set<Integer> foldedRegionStarts = new HashSet<>();
+  private Runnable onFoldStateChanged;
   private List<FoldRegion> foldRegionCache = List.of();
   private boolean foldRegionCacheDirty = true;
   // Tracks which paragraph indices currently have the collapse style applied.
@@ -96,6 +97,9 @@ public class VnsCodeEditor extends BorderPane {
   private double fontSizePx = 13.0;
   // Word wrap
   private boolean wordWrapEnabled = false;
+  // Threshold for the "large timeline block" performance hint
+  private int largeTimelineBlockActionThreshold =
+      EditorPreferences.DEFAULT_LARGE_TIMELINE_BLOCK_ACTION_THRESHOLD;
   // Minimap
   private VnsCodeMinimap minimap;
   private javafx.scene.layout.Region minimapSeparator;
@@ -156,6 +160,7 @@ public class VnsCodeEditor extends BorderPane {
     + "|call|gosub|return|character|char|choice)\\b";
   private static final String ARROW_PATTERN = "->";
   private static final String SPEAKER_PATTERN = "(?m)^(?:[^\\s#:][^:]{0,30}):";
+  private static final Pattern DIALOGUE_LINE_PATTERN = Pattern.compile("^(?:[^\\s#:][^:]{0,30}):");
   private static final String CHOICE_MARK_PATTERN = "(?m)^\\s*>";
   private static final String TIMELINE_PATTERN = "(?m)^\\s*timeline\\b";
   private static final String VALUE_PATTERN =
@@ -471,6 +476,14 @@ public class VnsCodeEditor extends BorderPane {
       // Ctrl+Shift+] — Unfold all timeline blocks
       if (ctrl && e.isShiftDown() && e.getCode() == KeyCode.CLOSE_BRACKET) {
         unfoldAllTimelineBlocks(); e.consume(); return;
+      }
+      // Ctrl+Shift+Down — Next Dialogue Line
+      if (ctrl && e.isShiftDown() && e.getCode() == KeyCode.DOWN) {
+        jumpToNextDialogueLine(); e.consume(); return;
+      }
+      // Ctrl+Shift+Up — Previous Dialogue Line
+      if (ctrl && e.isShiftDown() && e.getCode() == KeyCode.UP) {
+        jumpToPreviousDialogueLine(); e.consume(); return;
       }
       // Ctrl+V / Cmd+V — auto-fold any timeline blocks introduced by the paste
       if (ctrl && e.getCode() == KeyCode.V) {
@@ -788,6 +801,10 @@ public class VnsCodeEditor extends BorderPane {
     });
   }
 
+  public void setOnFoldStateChanged(Runnable listener) {
+    this.onFoldStateChanged = listener;
+  }
+
   public void setOnStoryboardLineRequested(Consumer<Integer> listener) {
     this.onStoryboardLineRequested = listener;
   }
@@ -872,11 +889,27 @@ public class VnsCodeEditor extends BorderPane {
     applyAnalysis(getText());
   }
 
+  private static String linenoStyleClassForSeverity(Issue.Severity severity) {
+    return switch (severity) {
+      case WARNING -> "lineno-warning";
+      case INFO -> "lineno-hint";
+      case ERROR -> "lineno-error";
+    };
+  }
+
+  private static String lineStyleClassForSeverity(Issue.Severity severity) {
+    return switch (severity) {
+      case WARNING -> "warning-line";
+      case INFO -> "hint-line";
+      case ERROR -> "error-line";
+    };
+  }
+
   private javafx.scene.Node makeLineNumberLabel(int line) {
     Label ln = new Label(String.format("%d", line + 1));
     ln.getStyleClass().add("lineno");
     if (line == highlightedIssueLine) {
-      ln.getStyleClass().add(highlightedIssueWarning ? "lineno-warning" : "lineno-error");
+      ln.getStyleClass().add(linenoStyleClassForSeverity(highlightedIssueSeverity));
     }
 
     boolean isStoryboardLine = storyboardModeActive && storyboardCursorLine == line + 1;
@@ -894,7 +927,7 @@ public class VnsCodeEditor extends BorderPane {
     gutter.setAlignment(Pos.CENTER_LEFT);
     gutter.getStyleClass().add("lineno");
     if (line == highlightedIssueLine) {
-      gutter.getStyleClass().add(highlightedIssueWarning ? "lineno-warning" : "lineno-error");
+      gutter.getStyleClass().add(linenoStyleClassForSeverity(highlightedIssueSeverity));
     }
 
     if (storyboardModeActive) {
@@ -1034,7 +1067,11 @@ public class VnsCodeEditor extends BorderPane {
 
     if (currentIssues != null) {
       for (Issue issue : currentIssues) {
-        String cls = issue.warning ? "warning" : "error";
+        String cls = switch (issue.severity) {
+          case WARNING -> "warning";
+          case INFO -> "hint";
+          case ERROR -> "error";
+        };
         spans = overlay(spans, issue.start, issue.end, cls);
       }
     }
@@ -1049,28 +1086,37 @@ public class VnsCodeEditor extends BorderPane {
   private void refreshIssuePresentation() {
     int prevLine = highlightedIssueLine;
     highlightedIssueLine = -1;
-    highlightedIssueWarning = false;
+    highlightedIssueSeverity = Issue.Severity.ERROR;
 
     if (prevLine >= 0 && prevLine < codeArea.getParagraphs().size()) {
-      removeParagraphStyleClasses(prevLine, Set.of("warning-line", "error-line"));
+      removeParagraphStyleClasses(prevLine, Set.of("warning-line", "error-line", "hint-line"));
     }
 
     Issue firstError = null;
     Issue firstWarning = null;
+    Issue firstHint = null;
     int errors = 0;
     int warnings = 0;
+    int hints = 0;
 
     for (Issue issue : issues) {
-      if (issue.warning) {
-        warnings++;
-        if (firstWarning == null) firstWarning = issue;
-      } else {
-        errors++;
-        if (firstError == null) firstError = issue;
+      switch (issue.severity) {
+        case WARNING -> {
+          warnings++;
+          if (firstWarning == null) firstWarning = issue;
+        }
+        case INFO -> {
+          hints++;
+          if (firstHint == null) firstHint = issue;
+        }
+        case ERROR -> {
+          errors++;
+          if (firstError == null) firstError = issue;
+        }
       }
     }
 
-    if (errors == 0 && warnings == 0) {
+    if (errors == 0 && warnings == 0 && hints == 0) {
       lintLabel.setText("No issues");
     } else {
       StringBuilder summary = new StringBuilder();
@@ -1079,7 +1125,11 @@ public class VnsCodeEditor extends BorderPane {
         if (summary.length() > 0) summary.append(", ");
         summary.append(warnings).append(warnings == 1 ? " warning" : " warnings");
       }
-      Issue first = firstError != null ? firstError : firstWarning;
+      if (hints > 0) {
+        if (summary.length() > 0) summary.append(", ");
+        summary.append(hints).append(hints == 1 ? " hint" : " hints");
+      }
+      Issue first = firstError != null ? firstError : firstWarning != null ? firstWarning : firstHint;
       if (first != null && first.message != null && !first.message.isBlank()) {
         summary.append(" - ").append(first.message);
       }
@@ -1089,10 +1139,10 @@ public class VnsCodeEditor extends BorderPane {
     Issue focusIssue = firstError != null ? firstError : firstWarning;
     if (focusIssue != null && focusIssue.line >= 0) {
       highlightedIssueLine = focusIssue.line;
-      highlightedIssueWarning = focusIssue.warning;
+      highlightedIssueSeverity = focusIssue.severity;
       if (highlightedIssueLine < codeArea.getParagraphs().size()) {
-        removeParagraphStyleClasses(highlightedIssueLine, Set.of("warning-line", "error-line"));
-        addParagraphStyleClass(highlightedIssueLine, highlightedIssueWarning ? "warning-line" : "error-line");
+        removeParagraphStyleClasses(highlightedIssueLine, Set.of("warning-line", "error-line", "hint-line"));
+        addParagraphStyleClass(highlightedIssueLine, lineStyleClassForSeverity(highlightedIssueSeverity));
       }
     }
 
@@ -1105,33 +1155,23 @@ public class VnsCodeEditor extends BorderPane {
    * Converts VnsScriptAnalyzer.Diagnostic to local Issue type for UI integration.
    */
   private List<Issue> computeIssues(String text) {
-    VnsScriptAnalyzer.Analysis analysis = VnsScriptAnalyzer.analyze(text, projectRoot);
+    VnsScriptAnalyzer.Analysis analysis = VnsScriptAnalyzer.analyze(
+        text, projectRoot, null, largeTimelineBlockActionThreshold);
     List<Issue> out = new ArrayList<>();
 
     for (VnsScriptAnalyzer.Diagnostic diag : analysis.diagnostics()) {
-      if (diag.warning()) {
-        out.add(Issue.warning(
-            diag.kind(),
-            diag.message(),
-            diag.start(),
-            diag.end(),
-            diag.line(),
-            diag.label(),
-            diag.assetPath(),
-            diag.blockEnd()
-        ));
-      } else {
-        out.add(Issue.error(
-            diag.kind(),
-            diag.message(),
-            diag.start(),
-            diag.end(),
-            diag.line(),
-            diag.label(),
-            diag.assetPath(),
-            diag.blockEnd()
-        ));
-      }
+      Issue issue = switch (diag.severity()) {
+        case ERROR -> Issue.error(
+            diag.kind(), diag.message(), diag.start(), diag.end(), diag.line(),
+            diag.label(), diag.assetPath(), diag.blockEnd());
+        case WARNING -> Issue.warning(
+            diag.kind(), diag.message(), diag.start(), diag.end(), diag.line(),
+            diag.label(), diag.assetPath(), diag.blockEnd());
+        case INFO -> Issue.info(
+            diag.kind(), diag.message(), diag.start(), diag.end(), diag.line(),
+            diag.label(), diag.assetPath(), diag.blockEnd());
+      };
+      out.add(issue);
     }
 
     return out;
@@ -1883,12 +1923,14 @@ public class VnsCodeEditor extends BorderPane {
   }
 
   private static final class Issue {
+    enum Severity { ERROR, WARNING, INFO }
+
     final String kind;
     final String message;
     final int start;
     final int end;
     final int line;
-    final boolean warning;
+    final Severity severity;
     final String label;
     final String assetPath;
     final int blockEnd;
@@ -1898,7 +1940,7 @@ public class VnsCodeEditor extends BorderPane {
                   int start,
                   int end,
                   int line,
-                  boolean warning,
+                  Severity severity,
                   String label,
                   String assetPath,
                   int blockEnd) {
@@ -1907,10 +1949,18 @@ public class VnsCodeEditor extends BorderPane {
       this.start = Math.max(0, start);
       this.end = Math.max(this.start, end);
       this.line = Math.max(0, line);
-      this.warning = warning;
+      this.severity = severity;
       this.label = label;
       this.assetPath = assetPath;
       this.blockEnd = blockEnd;
+    }
+
+    boolean isWarning() {
+      return severity == Severity.WARNING;
+    }
+
+    boolean isInfo() {
+      return severity == Severity.INFO;
     }
 
     static Issue error(String kind,
@@ -1921,7 +1971,7 @@ public class VnsCodeEditor extends BorderPane {
                        String label,
                        String assetPath,
                        int blockEnd) {
-      return new Issue(kind, message, start, end, line, false, label, assetPath, blockEnd);
+      return new Issue(kind, message, start, end, line, Severity.ERROR, label, assetPath, blockEnd);
     }
 
     static Issue warning(String kind,
@@ -1932,7 +1982,18 @@ public class VnsCodeEditor extends BorderPane {
                          String label,
                          String assetPath,
                          int blockEnd) {
-      return new Issue(kind, message, start, end, line, true, label, assetPath, blockEnd);
+      return new Issue(kind, message, start, end, line, Severity.WARNING, label, assetPath, blockEnd);
+    }
+
+    static Issue info(String kind,
+                      String message,
+                      int start,
+                      int end,
+                      int line,
+                      String label,
+                      String assetPath,
+                      int blockEnd) {
+      return new Issue(kind, message, start, end, line, Severity.INFO, label, assetPath, blockEnd);
     }
   }
 
@@ -2016,7 +2077,11 @@ public class VnsCodeEditor extends BorderPane {
     spans.add(new Span(last, text.length(), Collections.emptyList()));
     if (currentIssues != null) {
       for (Issue issue : currentIssues) {
-        String cls = issue.warning ? "warning" : "error";
+        String cls = switch (issue.severity) {
+          case WARNING -> "warning";
+          case INFO -> "hint";
+          case ERROR -> "error";
+        };
         spans = overlay(spans, issue.start, issue.end, cls);
       }
     }
@@ -2092,8 +2157,10 @@ public class VnsCodeEditor extends BorderPane {
   static {
     VNS_COMMAND_DOCS.put("bg", "Set background image. Usage: [bg image_name]");
     VNS_COMMAND_DOCS.put("background", "Set background image. Usage: [background image_name]");
-    VNS_COMMAND_DOCS.put("show", "Show a character sprite. Usage: [show character_id pos=center expr=neutral layer=10] or [show character_id center]");
-    VNS_COMMAND_DOCS.put("move", "Move an existing character sprite or display slot. Usage: [move character_id pos=right expr=smile ease=easeInOut dur=500], [move slot=head at=0.5,0.7], or [move @head at 0.5,0.7]");
+    VNS_COMMAND_DOCS.put("show", "Show a character sprite. Usage: [show character_id pos=center expr=neutral layer=10] or [show character_id center]\n\n"
+        + "expr= changes crossfade over 180ms by default. Use dur=0 for an instant swap, or dur=500 for a slower fade.");
+    VNS_COMMAND_DOCS.put("move", "Move an existing character sprite or display slot. Usage: [move character_id pos=right expr=smile ease=easeInOut dur=500], [move slot=head at=0.5,0.7], or [move @head at 0.5,0.7]\n\n"
+        + "expr= changes crossfade over 180ms by default (dur=0 swaps instantly, dur=500 crossfades over 500ms).");
     VNS_COMMAND_DOCS.put("hide", "Hide a character sprite or display slot. Usage: [hide character], [hide slot=head], or [hide @head]");
     VNS_COMMAND_DOCS.put("showpreset", "Show every slot in a display preset. Usage: [showpreset preset_id] or [showpreset preset_id at 0.5,1.0]");
     VNS_COMMAND_DOCS.put("movepreset", "Move every slot in a display preset. Usage: [movepreset preset_id at 0.5,0.72 ease_out_quad 240]");
@@ -2160,6 +2227,11 @@ public class VnsCodeEditor extends BorderPane {
     VNS_COMMAND_DOCS.put("@bind", "Bind a Java interop variable. Usage: @bind Type:variableName");
     VNS_COMMAND_DOCS.put("@jimport", "Import a Java package or class for VNS Java interop. Usage: @jimport com.example.GameHooks");
     VNS_COMMAND_DOCS.put("@external", "Declare an editor/runtime interop cue. Usage: @external jes_timeline timeline_id");
+  }
+
+  /** Package-private accessor for tests: returns the hover doc text for a command/directive key, or null. */
+  static String commandHoverDoc(String key) {
+    return VNS_COMMAND_DOCS.get(key);
   }
 
   private final Tooltip hoverTooltip = new Tooltip();
@@ -2231,6 +2303,111 @@ public class VnsCodeEditor extends BorderPane {
     boolean containsOffset(int offset) {
       return offset >= startOffset && offset < endOffset;
     }
+  }
+
+  /**
+   * A single {@code timeline { ... }} block's location within the document,
+   * for consumers (e.g. an outline view) that need block boundaries without
+   * duplicating this class's brace-scanning.
+   */
+  public record TimelineOutlineEntry(int oneBasedStartLine, int oneBasedEndLine, int startOffset, int endOffset) {}
+
+  /**
+   * Returns the document-order list of {@code timeline { ... }} blocks in the
+   * current text, reusing the same cached brace-scan {@link #computeFoldRegions()}
+   * already performs for code folding — callers must not re-scan the raw text
+   * themselves.
+   */
+  public List<TimelineOutlineEntry> computeTimelineOutlineEntries() {
+    List<TimelineOutlineEntry> entries = new ArrayList<>();
+    for (FoldRegion region : computeFoldRegions()) {
+      if (region.kind() != FoldKind.TIMELINE) continue;
+      entries.add(new TimelineOutlineEntry(
+          region.startLine() + 1, region.endLine() + 1, region.startOffset(), region.endOffset()));
+    }
+    return entries;
+  }
+
+  /**
+   * Returns the currently-folded {@code timeline { ... }} blocks as stable keys (document-order
+   * ordinal among timeline blocks + a hash of the block's header line), suitable for persisting
+   * across script reopens. Line-number-based fold state ({@link #foldedRegionStarts}) does not
+   * survive edits that shift lines, so callers must use this instead of that set directly.
+   */
+  public List<VnsFoldStateStore.FoldedBlockKey> exportFoldedTimelineBlocks() {
+    List<VnsFoldStateStore.FoldedBlockKey> keys = new ArrayList<>();
+    int ordinal = 0;
+    for (FoldRegion region : computeFoldRegions()) {
+      if (region.kind() != FoldKind.TIMELINE) continue;
+      if (foldedRegionStarts.contains(region.startLine())) {
+        keys.add(new VnsFoldStateStore.FoldedBlockKey(ordinal, timelineHeaderHash(region)));
+      }
+      ordinal++;
+    }
+    return keys;
+  }
+
+  /**
+   * Applies previously exported fold state to the current document. Keys whose ordinal no
+   * longer exists, or whose header hash no longer matches the block at that ordinal, are
+   * dropped silently — this is what prevents folding an unrelated block after edits move or
+   * insert timelines above the folded one.
+   */
+  public void restoreFoldedTimelineBlocks(List<VnsFoldStateStore.FoldedBlockKey> keys) {
+    if (keys == null || keys.isEmpty()) return;
+    Map<Integer, String> wanted = new HashMap<>();
+    for (VnsFoldStateStore.FoldedBlockKey key : keys) {
+      wanted.put(key.ordinal(), key.headerHash());
+    }
+    boolean changed = false;
+    int ordinal = 0;
+    for (FoldRegion region : computeFoldRegions()) {
+      if (region.kind() != FoldKind.TIMELINE) continue;
+      String wantedHash = wanted.get(ordinal);
+      if (wantedHash != null && wantedHash.equals(timelineHeaderHash(region))
+          && !foldedRegionStarts.contains(region.startLine())) {
+        foldedRegionStarts.add(region.startLine());
+        changed = true;
+      }
+      ordinal++;
+    }
+    if (changed) {
+      refreshFoldedRegionStyles();
+      Platform.runLater(() -> codeArea.setParagraphGraphicFactory(this::makeLineNumberLabel));
+      scheduleMinimapRedraw();
+    }
+  }
+
+  private String timelineHeaderHash(FoldRegion region) {
+    String header = codeArea.getParagraph(region.startLine()).getText();
+    return Integer.toHexString(header.hashCode());
+  }
+
+  void toggleTimelineFoldAtLineForTest(int line) {
+    toggleFold(line);
+  }
+
+  /**
+   * Parses the given timeline block's text and returns its approximate
+   * duration already formatted (ms below one second, seconds above),
+   * matching the format used by the timeline hover preview/summary. Returns
+   * {@code null} if the block fails to parse.
+   */
+  public static String formatTimelineOutlineDuration(String blockText) {
+    if (blockText == null || blockText.isBlank()) return null;
+    try {
+      TimelineData data = TimelineDataParser.parse("_vns_editor_outline", blockText);
+      return formatTimelineDurationStatic(data.getDurationMs());
+    } catch (Exception ex) {
+      return null;
+    }
+  }
+
+  private static String formatTimelineDurationStatic(double durationMs) {
+    if (durationMs < 1000.0) {
+      return String.format(Locale.ROOT, "%.0f ms", durationMs);
+    }
+    return String.format(Locale.ROOT, "%.2f s", durationMs / 1000.0);
   }
 
   private record TimelineNavTarget(FoldRegion region, int ordinal, int total, int visibleStart, int visibleEnd) {}
@@ -2512,6 +2689,7 @@ public class VnsCodeEditor extends BorderPane {
     refreshFoldedRegionStyles();
     Platform.runLater(() -> codeArea.setParagraphGraphicFactory(this::makeLineNumberLabel));
     scheduleMinimapRedraw();
+    notifyFoldStateChanged();
   }
 
   private void toggleTimelineBlockAtCaret() {
@@ -2531,6 +2709,7 @@ public class VnsCodeEditor extends BorderPane {
       refreshFoldedRegionStyles();
       Platform.runLater(() -> codeArea.setParagraphGraphicFactory(this::makeLineNumberLabel));
       scheduleMinimapRedraw();
+      notifyFoldStateChanged();
     }
   }
 
@@ -2551,7 +2730,12 @@ public class VnsCodeEditor extends BorderPane {
       refreshFoldedRegionStyles();
       Platform.runLater(() -> codeArea.setParagraphGraphicFactory(this::makeLineNumberLabel));
       scheduleMinimapRedraw();
+      notifyFoldStateChanged();
     }
+  }
+
+  private void notifyFoldStateChanged() {
+    if (onFoldStateChanged != null) onFoldStateChanged.run();
   }
 
   private void refreshFoldedRegionStyles() {
@@ -3232,6 +3416,8 @@ public class VnsCodeEditor extends BorderPane {
       {"Insert Snippet", "Open snippet palette (Ctrl+J)"},
       {"Toggle Bookmark", "Set/clear bookmark (Ctrl+F2)"},
       {"Next Bookmark", "Jump to next bookmark (F2)"},
+      {"Next Dialogue Line", "Jump to next speaker line, skipping timelines (Ctrl+Shift+Down)"},
+      {"Previous Dialogue Line", "Jump to previous speaker line, skipping timelines (Ctrl+Shift+Up)"},
       {"Zoom In", "Increase font size (Ctrl+=)"},
       {"Zoom Out", "Decrease font size (Ctrl+-)"},
       {"Toggle Word Wrap", "Toggle line wrapping (Ctrl+Shift+W)"},
@@ -3315,6 +3501,8 @@ public class VnsCodeEditor extends BorderPane {
       case "Insert Snippet" -> showSnippetPalette();
       case "Toggle Bookmark" -> toggleBookmark();
       case "Next Bookmark" -> jumpToNextBookmark();
+      case "Next Dialogue Line" -> jumpToNextDialogueLine();
+      case "Previous Dialogue Line" -> jumpToPreviousDialogueLine();
       case "Zoom In" -> zoomIn();
       case "Zoom Out" -> zoomOut();
       case "Toggle Word Wrap" -> toggleWordWrap();
@@ -3347,6 +3535,45 @@ public class VnsCodeEditor extends BorderPane {
       codeArea.moveTo(next, 0);
       codeArea.requestFollowCaret();
       codeArea.requestFocus();
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════
+  //  FEATURE: Dialogue Line Navigation (Ctrl+Shift+Down/Up)
+  // ═══════════════════════════════════════════════════════════════════
+  private boolean isDialogueLine(int paragraphIndex) {
+    if (paragraphIndex < 0 || paragraphIndex >= codeArea.getParagraphs().size()) return false;
+    String line = codeArea.getParagraph(paragraphIndex).getText();
+    return DIALOGUE_LINE_PATTERN.matcher(line).find();
+  }
+
+  public void jumpToNextDialogueLine() {
+    int count = codeArea.getParagraphs().size();
+    if (count <= 0) return;
+    int current = codeArea.getCurrentParagraph();
+    for (int i = 1; i <= count; i++) {
+      int candidate = (current + i) % count;
+      if (isDialogueLine(candidate)) {
+        codeArea.moveTo(candidate, 0);
+        codeArea.requestFollowCaret();
+        codeArea.requestFocus();
+        return;
+      }
+    }
+  }
+
+  public void jumpToPreviousDialogueLine() {
+    int count = codeArea.getParagraphs().size();
+    if (count <= 0) return;
+    int current = codeArea.getCurrentParagraph();
+    for (int i = 1; i <= count; i++) {
+      int candidate = ((current - i) % count + count) % count;
+      if (isDialogueLine(candidate)) {
+        codeArea.moveTo(candidate, 0);
+        codeArea.requestFollowCaret();
+        codeArea.requestFocus();
+        return;
+      }
     }
   }
 
@@ -3410,6 +3637,14 @@ public class VnsCodeEditor extends BorderPane {
   public void setWordWrapEnabled(boolean enabled) {
     wordWrapEnabled = enabled;
     codeArea.setWrapText(enabled);
+  }
+
+  /** Applies the global default without treating it as a toolbar toggle. */
+  public void setLargeTimelineBlockActionThreshold(int threshold) {
+    int clamped = Math.max(0, threshold);
+    if (clamped == largeTimelineBlockActionThreshold) return;
+    largeTimelineBlockActionThreshold = clamped;
+    applyAnalysis(codeArea.getText());
   }
 
   public void setMinimapVisible(boolean visible) {
@@ -3495,7 +3730,12 @@ public class VnsCodeEditor extends BorderPane {
     if (issues == null || issues.isEmpty()) return List.of();
     List<VnsCodeMinimap.DiagnosticMarker> out = new ArrayList<>();
     for (Issue issue : issues) {
-      out.add(new VnsCodeMinimap.DiagnosticMarker(issue.line, issue.warning, issue.message));
+      VnsCodeMinimap.DiagnosticSeverity severity = switch (issue.severity) {
+        case WARNING -> VnsCodeMinimap.DiagnosticSeverity.WARNING;
+        case INFO -> VnsCodeMinimap.DiagnosticSeverity.INFO;
+        case ERROR -> VnsCodeMinimap.DiagnosticSeverity.ERROR;
+      };
+      out.add(new VnsCodeMinimap.DiagnosticMarker(issue.line, severity, issue.message));
     }
     return out;
   }

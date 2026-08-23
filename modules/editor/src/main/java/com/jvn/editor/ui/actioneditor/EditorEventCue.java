@@ -56,6 +56,9 @@ public class EditorEventCue implements Comparable<EditorEventCue> {
                 blankFallback(value, "?"),
                 suffix);
         }
+        if ("dialogue_marker".equals(normalizedType)) {
+            return String.format(Locale.ROOT, "%.0fms  dialogue  %s", timeMs, dialogueMarkerLabel());
+        }
         String target = firstPayload("target");
         String value = firstPayload("value", "expression", "id", "name");
         String suffix = "";
@@ -78,13 +81,15 @@ public class EditorEventCue implements Comparable<EditorEventCue> {
             String layerBadge = payload.containsKey("layers") ? "*" : "";
             return shorten("EXP " + blankFallback(target, "?") + ":" + blankFallback(value, "?") + layerBadge, 34);
         }
+        if ("dialogue_marker".equals(normalizedType)) {
+            return shorten(dialogueMarkerLabel(), 34);
+        }
         String target = firstPayload("target");
         String base = switch (normalizedType) {
             case "show" -> "SHOW";
             case "hide" -> "HIDE";
             case "replace" -> "REPL";
             case "scene" -> "SCENE";
-            case "dialogue_marker" -> "MARK";
             case "script_call" -> "CALL";
             default -> normalizedType.isBlank() ? "EVT" : normalizedType.toUpperCase(Locale.ROOT);
         };
@@ -117,6 +122,15 @@ public class EditorEventCue implements Comparable<EditorEventCue> {
         }
         sb.append("}");
         return sb.toString();
+    }
+
+    private String dialogueMarkerLabel() {
+        String speaker = firstPayload("speaker");
+        String text = firstPayload("text");
+        if (!speaker.isBlank() && !text.isBlank()) return speaker + ": " + text;
+        if (!speaker.isBlank()) return speaker;
+        if (!text.isBlank()) return text;
+        return "CUE";
     }
 
     @Override

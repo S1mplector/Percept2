@@ -310,6 +310,9 @@ public class AnimationPreview extends VBox {
     private Entity2D selectedEntity;
     private String selectedEntityName;
     private final Set<String> selectedEntityNames = new LinkedHashSet<>();
+    private String expressionIndicatorEntityName;
+    private String expressionIndicatorLabel;
+    private boolean expressionIndicatorPreviewing;
     private String selectedGroupName;
     private final Set<String> selectedGroupMemberNames = new HashSet<>();
     private boolean draggingEntity = false;
@@ -626,7 +629,10 @@ public class AnimationPreview extends VBox {
                 if (showInterpolationGhosts && project != null) drawInterpolationGhosts();
                 scene.render(blitter, viewportLogicalWidth, viewportLogicalHeight);
                 drawMotionPaths();
-                if (selectedEntity != null) drawSelectionHighlight(selectedEntity);
+                if (selectedEntity != null) {
+                    drawSelectionHighlight(selectedEntity);
+                    drawExpressionPreviewIndicator(selectedEntity);
+                }
                 drawAdditionalEntitySelectionHighlights();
                 if (selectedGroupName != null && !selectedGroupMemberNames.isEmpty()) {
                     drawGroupSelectionHighlight(selectedGroupName);
@@ -1661,6 +1667,13 @@ public class AnimationPreview extends VBox {
     public void setOnionFrames(int frames) { this.onionFrames = Math.max(1, Math.min(10, frames)); }
     public boolean isShowInterpolationGhosts() { return showInterpolationGhosts; }
     public void setShowInterpolationGhosts(boolean show) { this.showInterpolationGhosts = show; render(); }
+
+    public void setExpressionPreviewIndicator(String entityName, String expressionLabel, boolean isPreviewing) {
+        this.expressionIndicatorEntityName = entityName;
+        this.expressionIndicatorLabel = expressionLabel;
+        this.expressionIndicatorPreviewing = isPreviewing;
+        render();
+    }
 
     public boolean isShowSpriteRegions() { return showSpriteRegions; }
     public void setShowSpriteRegions(boolean show) { this.showSpriteRegions = show; render(); }
@@ -3248,6 +3261,31 @@ public class AnimationPreview extends VBox {
             gc.setFont(javafx.scene.text.Font.font(javafx.scene.text.Font.getDefault().getFamily(), 10.0 / z));
             gc.fillText(selectedEntityName, minWx, minWy - (6.0 / z));
         }
+        gc.restore();
+    }
+
+    private void drawExpressionPreviewIndicator(Entity2D entity) {
+        if (entity == null || expressionIndicatorEntityName == null
+            || !expressionIndicatorEntityName.equals(selectedEntityName)
+            || expressionIndicatorLabel == null || expressionIndicatorLabel.isBlank()) {
+            return;
+        }
+        double z = Math.max(1e-6, displayScale);
+        double[] corners = getEntityCorners(entity);
+        if (corners.length < 8) return;
+        double minWx = Double.POSITIVE_INFINITY;
+        double minWy = Double.POSITIVE_INFINITY;
+        for (int i = 0; i < 4; i++) {
+            minWx = Math.min(minWx, corners[i * 2]);
+            minWy = Math.min(minWy, corners[i * 2 + 1]);
+        }
+
+        gc.save();
+        applyCameraTransform();
+        String text = (expressionIndicatorPreviewing ? "Previewing: " : "Expression: ") + expressionIndicatorLabel;
+        gc.setFill(expressionIndicatorPreviewing ? Color.web("#f0b673") : Color.web("#9ca3af"));
+        gc.setFont(javafx.scene.text.Font.font(javafx.scene.text.Font.getDefault().getFamily(), 10.0 / z));
+        gc.fillText(text, minWx, minWy - (20.0 / z));
         gc.restore();
     }
 

@@ -3,40 +3,20 @@ package com.jvn.editor.ui;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicReference;
-import javafx.application.Platform;
+import com.jvn.fx.testkit.FxToolkit;
+import com.jvn.fx.testkit.FxToolkitExtension;
 import javafx.scene.Group;
 import javafx.scene.Scene;
 import javafx.scene.image.WritableImage;
 import javafx.scene.layout.StackPane;
 import javafx.scene.shape.SVGPath;
-import org.junit.jupiter.api.Assumptions;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 
+@ExtendWith(FxToolkitExtension.class)
 class NewTabIconTest {
-  private static boolean toolkitAvailable;
-
-  @BeforeAll
-  static void startToolkit() throws Exception {
-    if (System.getProperty("os.name", "").toLowerCase().contains("linux")
-        && System.getenv().getOrDefault("DISPLAY", "").isBlank()) return;
-    CountDownLatch ready = new CountDownLatch(1);
-    try {
-      Platform.startup(ready::countDown);
-      toolkitAvailable = ready.await(5, TimeUnit.SECONDS);
-    } catch (IllegalStateException alreadyStarted) {
-      toolkitAvailable = true;
-    } catch (RuntimeException unavailable) {
-      toolkitAvailable = false;
-    }
-  }
-
   @Test
   void rendersPlainPlusAtCompactSize() throws Exception {
-    Assumptions.assumeTrue(toolkitAvailable, "JavaFX toolkit is unavailable in this environment");
     WritableImage image = onFxThread(() -> {
       NewTabIcon icon = NewTabIcon.compact();
       StackPane root = new StackPane(icon);
@@ -63,20 +43,6 @@ class NewTabIconTest {
   }
 
   private static <T> T onFxThread(java.util.concurrent.Callable<T> work) throws Exception {
-    CountDownLatch done = new CountDownLatch(1);
-    AtomicReference<T> result = new AtomicReference<>();
-    AtomicReference<Throwable> failure = new AtomicReference<>();
-    Platform.runLater(() -> {
-      try {
-        result.set(work.call());
-      } catch (Throwable error) {
-        failure.set(error);
-      } finally {
-        done.countDown();
-      }
-    });
-    assertTrue(done.await(10, TimeUnit.SECONDS));
-    if (failure.get() != null) throw new AssertionError(failure.get());
-    return result.get();
+    return FxToolkit.runFx(work);
   }
 }

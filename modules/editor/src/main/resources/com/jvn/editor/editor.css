@@ -593,6 +593,19 @@ The editor.css file defines the visual styling for the editor module, including 
   -fx-border-width: 1;
 }
 
+.vcs-status-row {
+  -fx-padding: 0;
+}
+
+.vcs-status-chip {
+  -fx-padding: 2 8 2 8;
+  -fx-background-color: #1c1c1c;
+  -fx-background-radius: 999;
+  -fx-text-fill: #cfd3d8;
+  -fx-font-size: 11px;
+  -fx-font-weight: 700;
+}
+
 .vcs-banner {
   -fx-padding: 10;
   -fx-background-radius: 8;
@@ -852,6 +865,16 @@ The editor.css file defines the visual styling for the editor module, including 
   -fx-fill-width: true;
 }
 
+.sidebar-tool-split {
+  -fx-background-color: transparent;
+  -fx-padding: 0;
+}
+
+.sidebar-tool-split > .split-pane-divider {
+  -fx-background-color: #2a2a2a;
+  -fx-padding: 0 0 3 0;
+}
+
 .vcs-graph-list {
   -fx-background-color: #101317;
   -fx-border-color: #2b3440;
@@ -1086,6 +1109,25 @@ The editor.css file defines the visual styling for the editor module, including 
 
 .vcs-log {
   -fx-text-fill: #dcdcdc;
+  -fx-font-family: "Consolas", "Cascadia Mono", "JetBrains Mono", monospace;
+}
+
+.vcs-log .content {
+  -fx-background-color: #141414;
+}
+
+.vcs-danger-zone {
+  -fx-padding: 6 8 6 8;
+  -fx-border-color: #5c2733;
+  -fx-border-radius: 7;
+  -fx-background-color: #241417;
+  -fx-background-radius: 7;
+}
+
+.vcs-danger-zone-label {
+  -fx-text-fill: #f38ba8;
+  -fx-font-size: 11px;
+  -fx-font-weight: bold;
 }
 
 .vcs-list .list-cell {
@@ -1130,6 +1172,15 @@ The editor.css file defines the visual styling for the editor module, including 
 
 .vcs-dialog-visibility-public {
   -fx-text-fill: #f0b673;
+}
+
+.vcs-device-code {
+  -fx-font-size: 26px;
+  -fx-font-weight: 900;
+  -fx-font-family: monospace;
+  -fx-text-fill: #f0f0f0;
+  -fx-padding: 8 0 8 0;
+  -fx-letter-spacing: 2px;
 }
 
 /* Refresh - circular arrow */
@@ -1243,6 +1294,11 @@ The editor.css file defines the visual styling for the editor module, including 
   -fx-fill: #f0b673;
 }
 
+.code-area .hint {
+  -fx-underline: true;
+  -fx-fill: #7aa2d8;
+}
+
 .error-line {
   -fx-background-color: rgba(243, 139, 168, 0.1);
 }
@@ -1250,8 +1306,13 @@ The editor.css file defines the visual styling for the editor module, including 
 .warning-line {
   -fx-background-color: rgba(240, 182, 115, 0.12);
 }
+
+.hint-line {
+  -fx-background-color: rgba(122, 162, 216, 0.08);
+}
 .lineno-error { -fx-background-color: #311118; }
 .lineno-warning { -fx-background-color: #2f2613; }
+.lineno-hint { -fx-background-color: #16202e; }
 
 .lint-label {
   -fx-padding: 4 8 4 8;
@@ -3024,6 +3085,50 @@ The editor.css file defines the visual styling for the editor module, including 
   -fx-background-color:
       linear-gradient(to bottom, rgba(255,255,255,0.04), rgba(255,255,255,0.01)),
       linear-gradient(to bottom, #1d1d1d 0%, #161616 100%);
+}
+
+.vns-timeline-outline-list {
+  -fx-background-color: transparent;
+  -fx-control-inner-background: transparent;
+  -fx-padding: 8;
+}
+
+.vns-timeline-outline-list .virtual-flow,
+.vns-timeline-outline-list .corner,
+.vns-timeline-outline-list .viewport {
+  -fx-background-color: transparent;
+}
+
+.vns-timeline-outline-placeholder {
+  -fx-text-fill: #7d7d7d;
+  -fx-font-size: 11px;
+  -fx-font-weight: 700;
+}
+
+.vns-timeline-outline-row {
+  -fx-background-color:
+      linear-gradient(to bottom, rgba(255,255,255,0.03), rgba(255,255,255,0.0)),
+      linear-gradient(to bottom, #1a1a1a 0%, #131313 100%);
+  -fx-background-radius: 10;
+  -fx-border-color: #2f2f2f;
+  -fx-border-radius: 10;
+  -fx-border-width: 1;
+  -fx-padding: 8 10;
+}
+
+.vns-timeline-outline-list-cell:hover .vns-timeline-outline-row {
+  -fx-border-color: #474747;
+}
+
+.vns-timeline-outline-location {
+  -fx-text-fill: #d6d6d6;
+  -fx-font-weight: 700;
+  -fx-font-size: 11px;
+}
+
+.vns-timeline-outline-duration {
+  -fx-text-fill: #8fa3b8;
+  -fx-font-size: 11px;
 }
 
 .vns-diagnostics-cell:selected .vns-diagnostics-row {

@@ -89,8 +89,10 @@ import com.jvn.editor.ui.StoryboardOverlayView;
 import com.jvn.editor.ui.TilemapEditorView;
 import com.jvn.editor.ui.TrashmanView;
 import com.jvn.editor.ui.VersionControlView;
+import com.jvn.editor.ui.VnsCodeEditor;
 import com.jvn.editor.ui.VnsDiagnosticsView;
 import com.jvn.editor.ui.VnsFlowMapView;
+import com.jvn.editor.ui.VnsTimelineOutlineView;
 import com.jvn.editor.ui.VnsScriptAnalyzer;
 import com.jvn.editor.ui.WhatsNewCatalog;
 import com.jvn.editor.ui.WhatsNewDialog;
@@ -199,6 +201,7 @@ public class EditorApp extends Application {
   private StoryTimelineView timelineView;
   private VnsDiagnosticsView vnsDiagnosticsView;
   private VnsFlowMapView vnsFlowMapView;
+  private VnsTimelineOutlineView vnsTimelineOutlineView;
   private AssetBrowserView assetBrowserView;
   private VersionControlView versionControlView;
   private LayoutEditorLauncherView layoutEditorLauncherView;
@@ -240,6 +243,7 @@ public class EditorApp extends Application {
   private Tab tabInspector;
   private Tab tabVnsDiagnostics;
   private Tab tabVnsFlowMap;
+  private Tab tabVnsTimelineOutline;
   private Tab tabAssetBrowser;
   private Tab tabVersionControl;
   private Tab tabLayoutLauncher;
@@ -2138,6 +2142,9 @@ public class EditorApp extends Application {
     MenuItem miWindowFlowMap = new MenuItem("Label Flow Map");
     miWindowFlowMap.setOnAction(e ->
         launchPanelAsWindow("Label Flow Map", ensureVnsFlowMapView(), 700, 600, EditorSidebarPanel.LABEL_FLOW));
+    MenuItem miWindowTimelineOutline = new MenuItem("Timeline Outline");
+    miWindowTimelineOutline.setOnAction(e ->
+        launchPanelAsWindow("Timeline Outline", ensureVnsTimelineOutlineView(), 500, 600, EditorSidebarPanel.TIMELINE_OUTLINE));
     MenuItem miWindowAssets = new MenuItem("Asset Browser");
     miWindowAssets.setOnAction(e ->
         launchPanelAsWindow("Asset Browser", ensureAssetBrowserView(), 700, 600, EditorSidebarPanel.ASSETS));
@@ -2186,6 +2193,7 @@ public class EditorApp extends Application {
         miWindowTimelineTool,
         miWindowDiagnostics,
         miWindowFlowMap,
+        miWindowTimelineOutline,
         miWindowAssets,
         miWindowVersionControlTool,
         new SeparatorMenuItem(),
@@ -2874,6 +2882,17 @@ public class EditorApp extends Application {
     File f = ft.getFile();
     if (f == null) { doSaveAs(stage); return; }
     ft.saveTo(f);
+    notifyVersionControlOfFileChange();
+  }
+
+  /**
+   * Nudges Git-status displays to refresh after a file save: the Version Control panel's
+   * changed-files list, and the status bar's "Clean"/"N changes" segment, both of which
+   * otherwise only refresh on a timer or when the project is reloaded.
+   */
+  private void notifyVersionControlOfFileChange() {
+    if (versionControlView != null) versionControlView.refreshStatus();
+    if (statusBar != null) statusBar.refreshGitState();
   }
 
   private void saveAllOpenTabs() {
@@ -2902,6 +2921,7 @@ public class EditorApp extends Application {
 
     refreshTabDirtyIndicators();
     refreshMainCommandUi.run();
+    if (savedFileTabs > 0) notifyVersionControlOfFileChange();
 
     if (status != null) {
       if (savedFileTabs == 0 && failedFileTabs == 0 && studiosSaved) {
@@ -2926,6 +2946,7 @@ public class EditorApp extends Application {
       File f = fc.showSaveDialog(stage);
       if (f == null) return;
       ft.saveTo(f);
+      notifyVersionControlOfFileChange();
       openFile(f);
       if (currentTab != null && filesTabs != null) closeAndDisposeTab(currentTab);
     } catch (Exception ex) {
@@ -3765,6 +3786,7 @@ public class EditorApp extends Application {
       case INSPECTOR -> AeroIcon.Kind.INSPECTOR;
       case VNS_DIAGNOSTICS -> AeroIcon.Kind.DIAGNOSTICS;
       case LABEL_FLOW -> AeroIcon.Kind.LABEL_FLOW;
+      case TIMELINE_OUTLINE -> AeroIcon.Kind.TIMELINE_OUTLINE;
       case ASSETS -> AeroIcon.Kind.ASSETS;
       case LAYOUT_LAUNCHER -> AeroIcon.Kind.LAYOUT;
       case STORYBOARD_OVERLAY -> AeroIcon.Kind.STORYBOARD;
@@ -4141,7 +4163,9 @@ public class EditorApp extends Application {
     if (projectRoot != null) editor.setProjectRoot(projectRoot);
     editor.setCodeEditorFontSize(editorPreferences.getCodeEditorFontSize());
     editor.setVnsAuthoringPreferences(
-        editorPreferences.isVnsWordWrapByDefault(), editorPreferences.isVnsMinimapVisible());
+        editorPreferences.isVnsWordWrapByDefault(),
+        editorPreferences.isVnsMinimapVisible(),
+        editorPreferences.getLargeTimelineBlockActionThreshold());
     editor.setStoryboardOverlay(storyboardOverlayState);
     editor.setOnStoryboardOverlayAdjusted(this::setStoryboardOverlayState);
     editor.setOnSelected(ent -> {
@@ -4341,9 +4365,11 @@ public class EditorApp extends Application {
     if (filesTabs == null) return;
     boolean wordWrapEnabled = editorPreferences.isVnsWordWrapByDefault();
     boolean minimapVisible = editorPreferences.isVnsMinimapVisible();
+    int largeTimelineBlockActionThreshold = editorPreferences.getLargeTimelineBlockActionThreshold();
     for (Tab tab : filesTabs.getTabs()) {
       if (tab.getContent() instanceof FileEditorTab fileEditorTab) {
-        fileEditorTab.setVnsAuthoringPreferences(wordWrapEnabled, minimapVisible);
+        fileEditorTab.setVnsAuthoringPreferences(
+            wordWrapEnabled, minimapVisible, largeTimelineBlockActionThreshold);
       }
     }
   }
@@ -4469,6 +4495,7 @@ public class EditorApp extends Application {
       case INSPECTOR -> tabInspector;
       case VNS_DIAGNOSTICS -> tabVnsDiagnostics;
       case LABEL_FLOW -> tabVnsFlowMap;
+      case TIMELINE_OUTLINE -> tabVnsTimelineOutline;
       case ASSETS -> tabAssetBrowser;
       case LAYOUT_LAUNCHER -> tabLayoutLauncher;
       case STORYBOARD_OVERLAY -> tabStoryboardOverlay;
@@ -4492,6 +4519,7 @@ public class EditorApp extends Application {
       case INSPECTOR -> ensureInspectorTab(targetPane);
       case VNS_DIAGNOSTICS -> ensureVnsDiagnosticsTab(targetPane);
       case LABEL_FLOW -> ensureVnsFlowMapTab(targetPane);
+      case TIMELINE_OUTLINE -> ensureVnsTimelineOutlineTab(targetPane);
       case ASSETS -> ensureAssetBrowserTab(targetPane);
       case LAYOUT_LAUNCHER -> ensureLayoutLauncherTab(targetPane);
       case STORYBOARD_OVERLAY -> ensureStoryboardOverlayTab(targetPane);
@@ -4556,6 +4584,15 @@ public class EditorApp extends Application {
     return vnsFlowMapView;
   }
 
+  private VnsTimelineOutlineView ensureVnsTimelineOutlineView() {
+    if (vnsTimelineOutlineView != null) return vnsTimelineOutlineView;
+    vnsTimelineOutlineView = new VnsTimelineOutlineView();
+    vnsTimelineOutlineView.setOnOpenLine(this::jumpToActiveVnsLine);
+    FileEditorTab ft = getActiveFileTab();
+    refreshVnsToolPanels(ft, ft != null ? ft.getCurrentTextSnapshot() : null);
+    return vnsTimelineOutlineView;
+  }
+
   private PuppeteerLauncherPanel ensurePuppeteerLauncherPanel() {
     if (puppeteerLauncherPanel != null) return puppeteerLauncherPanel;
     puppeteerLauncherPanel = new PuppeteerLauncherPanel();
@@ -4598,6 +4635,10 @@ public class EditorApp extends Application {
       File target = new File(projectRoot, relativePath);
       if (!target.exists()) return;
       if (isEditableFile(target)) openFile(target);
+    });
+    versionControlView.setOnWorkingTreeChanged(() -> {
+      if (projView != null) projView.refresh();
+      if (statusBar != null) statusBar.refreshGitState();
     });
     return versionControlView;
   }
@@ -5113,10 +5154,11 @@ public class EditorApp extends Application {
   }
 
   private void refreshVnsToolPanels(FileEditorTab fileTab, String currentText) {
-    if (vnsDiagnosticsView == null && vnsFlowMapView == null) return;
+    if (vnsDiagnosticsView == null && vnsFlowMapView == null && vnsTimelineOutlineView == null) return;
     if (fileTab == null) {
       if (vnsDiagnosticsView != null) vnsDiagnosticsView.clear();
       if (vnsFlowMapView != null) vnsFlowMapView.clear();
+      if (vnsTimelineOutlineView != null) vnsTimelineOutlineView.clear();
       return;
     }
 
@@ -5124,6 +5166,7 @@ public class EditorApp extends Application {
     String source = currentText != null ? currentText : fileTab.getCurrentTextSnapshot();
     if (fileTab.getKind() != FileEditorTab.Kind.VNS) {
       if (vnsFlowMapView != null) vnsFlowMapView.clear();
+      if (vnsTimelineOutlineView != null) vnsTimelineOutlineView.clear();
       if (vnsDiagnosticsView != null) {
         vnsDiagnosticsView.setDiagnostics(
             scriptFile,
@@ -5140,6 +5183,10 @@ public class EditorApp extends Application {
     VnsScriptAnalyzer.Analysis analysis = VnsScriptAnalyzer.analyze(source, analysisRoot, scriptFile);
     if (vnsDiagnosticsView != null) vnsDiagnosticsView.setAnalysis(scriptFile, analysis);
     if (vnsFlowMapView != null) vnsFlowMapView.setAnalysis(scriptFile, analysis);
+    if (vnsTimelineOutlineView != null) {
+      VnsCodeEditor vnsEditor = fileTab.getVnsEditor();
+      if (vnsEditor != null) vnsTimelineOutlineView.scheduleRefresh(scriptFile, vnsEditor);
+    }
   }
 
   private List<VnsDiagnosticsView.Diagnostic> diagnosticsFor(FileEditorTab fileTab, String source) {
@@ -5736,6 +5783,23 @@ public class EditorApp extends Application {
     return attachSidebarPanelTab(tabVnsFlowMap, EditorSidebarPanel.LABEL_FLOW, targetPane);
   }
 
+  private Tab ensureVnsTimelineOutlineTab(TabPane targetPane) {
+    closePanelWindow(EditorSidebarPanel.TIMELINE_OUTLINE, true);
+    VnsTimelineOutlineView outline = ensureVnsTimelineOutlineView();
+    if (targetPane == null || outline == null) return null;
+    if (tabVnsTimelineOutline == null) {
+      tabVnsTimelineOutline = new Tab("Timeline Outline", outline);
+      tabVnsTimelineOutline.setClosable(true);
+      tabVnsTimelineOutline.setOnClosed(e -> {
+        tabVnsTimelineOutline = null;
+        releaseSidebarPanelIfUnused(EditorSidebarPanel.TIMELINE_OUTLINE);
+      });
+    } else if (tabVnsTimelineOutline.getContent() != outline) {
+      tabVnsTimelineOutline.setContent(outline);
+    }
+    return attachSidebarPanelTab(tabVnsTimelineOutline, EditorSidebarPanel.TIMELINE_OUTLINE, targetPane);
+  }
+
   private Tab ensureAssetBrowserTab(TabPane targetPane) {
     closePanelWindow(EditorSidebarPanel.ASSETS, true);
     AssetBrowserView assets = ensureAssetBrowserView();
@@ -5763,6 +5827,13 @@ public class EditorApp extends Application {
       tabVersionControl.setOnClosed(e -> {
         tabVersionControl = null;
         releaseSidebarPanelIfUnused(EditorSidebarPanel.VERSION_CONTROL);
+      });
+      tabVersionControl.selectedProperty().addListener((obs, wasSelected, isSelected) -> {
+        if (isSelected) {
+          vcs.showGuidePopupIfActive();
+        } else {
+          vcs.hideGuidePopup();
+        }
       });
     } else if (tabVersionControl.getContent() != vcs) {
       tabVersionControl.setContent(vcs);
@@ -6464,7 +6535,7 @@ public class EditorApp extends Application {
   private void detachFromSidebarTab(javafx.scene.Parent content) {
     Tab[] allTabs = {
         tabProject, tabTimeline, tabInspector, tabVnsDiagnostics,
-        tabVnsFlowMap, tabAssetBrowser, tabVersionControl, tabLayoutLauncher,
+        tabVnsFlowMap, tabVnsTimelineOutline, tabAssetBrowser, tabVersionControl, tabLayoutLauncher,
         tabLayeredImageVisualizer, tabImageAttributesTool, tabImageTintTool,
         tabPuppeteerLauncher, tabScriptEditorLauncher,
         tabEditorSettings
@@ -6498,6 +6569,7 @@ public class EditorApp extends Application {
     else if (tab == tabInspector) tabInspector = null;
     else if (tab == tabVnsDiagnostics) tabVnsDiagnostics = null;
     else if (tab == tabVnsFlowMap) tabVnsFlowMap = null;
+    else if (tab == tabVnsTimelineOutline) tabVnsTimelineOutline = null;
     else if (tab == tabAssetBrowser) tabAssetBrowser = null;
     else if (tab == tabVersionControl) tabVersionControl = null;
     else if (tab == tabLayoutLauncher) tabLayoutLauncher = null;
@@ -6573,6 +6645,7 @@ public class EditorApp extends Application {
       case INSPECTOR -> inspectorView != null;
       case VNS_DIAGNOSTICS -> vnsDiagnosticsView != null;
       case LABEL_FLOW -> vnsFlowMapView != null;
+      case TIMELINE_OUTLINE -> vnsTimelineOutlineView != null;
       case ASSETS -> assetBrowserView != null;
       case LAYOUT_LAUNCHER -> layoutEditorLauncherView != null;
       case STORYBOARD_OVERLAY -> storyboardOverlayView != null;
@@ -6616,6 +6689,7 @@ public class EditorApp extends Application {
       }
       case VNS_DIAGNOSTICS -> vnsDiagnosticsView = null;
       case LABEL_FLOW -> vnsFlowMapView = null;
+      case TIMELINE_OUTLINE -> vnsTimelineOutlineView = null;
       case ASSETS -> {
         if (assetBrowserView != null) {
           assetBrowserView.setProjectRoot(null);
@@ -6778,6 +6852,15 @@ public class EditorApp extends Application {
       if (t != null) pane.getSelectionModel().select(t);
     }, () -> launchPanelAsWindow("Label Flow Map", ensureVnsFlowMapView(), 700, 600, EditorSidebarPanel.LABEL_FLOW), () -> {
       rememberPanelPlacement(EditorSidebarPanel.LABEL_FLOW, EditorPanelPlacement.HIDDEN);
+      applyDefaultSidebarPreferences();
+    });
+
+    addChooserActionRow(pane, actions, EditorSidebarPanel.TIMELINE_OUTLINE, targetPlacement, "Timeline Outline", null, () -> {
+      rememberPanelPlacement(EditorSidebarPanel.TIMELINE_OUTLINE, targetPlacement);
+      Tab t = ensureVnsTimelineOutlineTab(pane);
+      if (t != null) pane.getSelectionModel().select(t);
+    }, () -> launchPanelAsWindow("Timeline Outline", ensureVnsTimelineOutlineView(), 500, 600, EditorSidebarPanel.TIMELINE_OUTLINE), () -> {
+      rememberPanelPlacement(EditorSidebarPanel.TIMELINE_OUTLINE, EditorPanelPlacement.HIDDEN);
       applyDefaultSidebarPreferences();
     });
 

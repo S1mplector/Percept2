@@ -330,6 +330,8 @@ state.updateTimelineRunners(deltaMs);
 // Finished runners are auto-removed
 ```
 
+`VnScene.update(deltaMs)` calls `state.updateTimelineRunners(deltaMs)` unconditionally, before touching node/dialogue state. This means a non-blocking timeline (`wait=false`, see [VNS Inline Timeline](../../timeline/overview/timeline-scripting.md#option-c-vns-inline-timeline)) keeps ticking every frame even while the current node is an interactive `DIALOGUE` node awaiting player input — dialogue display and timeline playback are scheduled independently. Blocking timelines (the default) instead register a `beginInteropBlock` condition that holds the command loop at the `EXTERNAL` node until the runner finishes.
+
 ---
 
 ## Interop Flow

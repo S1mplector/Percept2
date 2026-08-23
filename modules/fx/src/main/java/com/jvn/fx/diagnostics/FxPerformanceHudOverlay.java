@@ -51,7 +51,9 @@ public final class FxPerformanceHudOverlay {
         String.format("Heap: %d MB", heapMb),
         "Graphics: " + GraphicsPipeline.statusText(),
         String.format("Cache hit: %s", Double.isNaN(hitRate) ? "n/a" : String.format("%.0f%%", hitRate * 100)),
-        String.format("Timelines: %d", timelines)
+        String.format("Timelines: %d", timelines),
+        String.format("Draws: %d (char: %d)", hud.getTotalDrawCalls(), hud.getCharacterLayerDrawCalls()),
+        String.format("Relights: %d", hud.getStageLightingRecomposites())
     };
 
     double boxW = 300.0;

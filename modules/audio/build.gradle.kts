@@ -56,6 +56,8 @@ dependencies {
 
   errorprone("com.google.errorprone:error_prone_core:2.28.0")
   errorprone("com.uber.nullaway:nullaway:0.11.0")
+
+  testImplementation(testFixtures(project(":fx")))
 }
 
 tasks.withType<JavaCompile>().configureEach {

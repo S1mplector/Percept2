@@ -781,7 +781,7 @@ public class VnState {
     DetachedCharacterSlot detached = detachedCharacters.get(key);
     if (detached == null || detached.getSlot() == null) return false;
     CharacterSlot slot = detached.getSlot();
-    beginExpressionTransition(stateKey(slot), slot.getExpression(), resolvedExpression, transitionDurationMs, easingType);
+    beginExpressionTransition(stateKey(slot), slot.getCharacterId(), slot.getExpression(), resolvedExpression, transitionDurationMs, easingType);
     detachedCharacters.put(key, new DetachedCharacterSlot(
         detached.getBasePosition(),
         new CharacterSlot(slot.getCharacterId(), resolvedExpression, slot.getLayerOrder(), slot.getDisplaySlot()),
@@ -948,11 +948,12 @@ public class VnState {
     String previousExpression = normalizeExpression(slot.getExpression(), "neutral");
     String nextExpression = normalizeExpression(resolvedExpression, previousExpression);
     visibleCharacters.put(position, new CharacterSlot(slot.getCharacterId(), nextExpression, layerOrder, slot.getDisplaySlot()));
-    beginExpressionTransition(stateKey(slot), previousExpression, nextExpression, transitionDurationMs, easingType);
+    beginExpressionTransition(stateKey(slot), slot.getCharacterId(), previousExpression, nextExpression, transitionDurationMs, easingType);
   }
 
   private void beginExpressionTransition(
       String stateKey,
+      String characterId,
       String previousExpression,
       String nextExpression,
       long transitionDurationMs,
@@ -965,7 +966,19 @@ public class VnState {
       expressionTransitions.remove(id);
       return;
     }
-    expressionTransitions.put(id, new ExpressionTransition(from, to, transitionDurationMs, easingType));
+    LayeredCharacterResolver.ExpressionLayerDiff layerDiff = computeExpressionLayerDiff(characterId, from, to);
+    expressionTransitions.put(id, new ExpressionTransition(from, to, transitionDurationMs, easingType, layerDiff));
+  }
+
+  private LayeredCharacterResolver.ExpressionLayerDiff computeExpressionLayerDiff(
+      String characterId, String fromExpression, String toExpression) {
+    if (scenario == null || characterId == null || characterId.isBlank()) return null;
+    VnCharacter character = scenario.getCharacter(characterId);
+    if (character == null) return null;
+    List<String> fromLayerIds = character.getExpressionLayerIds(fromExpression);
+    List<String> toLayerIds = character.getExpressionLayerIds(toExpression);
+    if (fromLayerIds.isEmpty() || toLayerIds.isEmpty()) return null;
+    return LayeredCharacterResolver.diffExpressionLayers(fromLayerIds, toLayerIds);
   }
 
   private boolean hasTimelineDisplacementAwayFromSlot(String characterId) {
@@ -1612,17 +1625,26 @@ public class VnState {
     private final String toExpression;
     private final long durationMs;
     private final Easing.Type easingType;
+    private final LayeredCharacterResolver.ExpressionLayerDiff layerDiff;
     private long elapsedMs = 0L;
 
     private ExpressionTransition(String fromExpression, String toExpression, long durationMs, Easing.Type easingType) {
+      this(fromExpression, toExpression, durationMs, easingType, null);
+    }
+
+    private ExpressionTransition(String fromExpression, String toExpression, long durationMs, Easing.Type easingType,
+        LayeredCharacterResolver.ExpressionLayerDiff layerDiff) {
       this.fromExpression = fromExpression == null || fromExpression.isBlank() ? "neutral" : fromExpression.trim();
       this.toExpression = toExpression == null || toExpression.isBlank() ? "neutral" : toExpression.trim();
       this.durationMs = Math.max(1L, durationMs);
       this.easingType = easingType;
+      this.layerDiff = layerDiff;
     }
 
     public String getFromExpression() { return fromExpression; }
     public String getToExpression() { return toExpression; }
+    /** Per-layer diff between the from/to expressions, or {@code null} when the character has no layer data. */
+    public LayeredCharacterResolver.ExpressionLayerDiff getLayerDiff() { return layerDiff; }
     public boolean isFinished() { return elapsedMs >= durationMs; }
 
     public double getProgress() {

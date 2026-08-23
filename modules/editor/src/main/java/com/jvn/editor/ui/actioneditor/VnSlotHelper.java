@@ -135,8 +135,29 @@ public class VnSlotHelper {
      */
     public static void insertDialogueMarker(AnimationProject project, String markerId,
                                              double timeMs) {
+        insertDialogueMarker(project, markerId, "", "", timeMs);
+    }
+
+    /**
+     * Insert a dialogue marker event cue at the given time, carrying a
+     * speaker name and text preview for display on the timeline. This
+     * marker is authoring metadata only; it exports as comments and has
+     * no effect on runtime playback.
+     *
+     * @param project  the current animation project
+     * @param markerId the marker identifier
+     * @param speaker  speaker name for the preview label (may be blank)
+     * @param text     text preview for the preview label (may be blank)
+     * @param timeMs   the insertion time
+     */
+    public static void insertDialogueMarker(AnimationProject project, String markerId,
+                                             String speaker, String text, double timeMs) {
         Map<String, String> payload = new LinkedHashMap<>();
-        payload.put("id", markerId);
+        if (markerId != null && !markerId.isBlank()) {
+            payload.put("id", markerId);
+        }
+        payload.put("speaker", speaker != null ? speaker : "");
+        payload.put("text", text != null ? text : "");
         project.addEditorEventCue(new EditorEventCue(timeMs, "dialogue_marker", payload));
     }
 }

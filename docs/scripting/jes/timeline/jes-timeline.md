@@ -643,7 +643,7 @@ Built-in call handlers:
 - `attack` — apply damage between entities
 - `setLabelText` — update a Label2D's text
 - `removeEntity` — remove an entity from the scene
-- `resetBalls` / `resetToSpawn` — reset all entities to spawn positions
+- `resetBalls` — reset all entities to spawn positions
 
 ---
 

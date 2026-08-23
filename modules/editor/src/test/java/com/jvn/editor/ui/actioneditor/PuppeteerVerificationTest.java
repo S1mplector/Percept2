@@ -70,6 +70,47 @@ class PuppeteerVerificationTest {
     }
 
     @Test
+    void diagnoseWarnsWhenRotatingEntityHasNoOrbitAnchor() {
+        AnimationProject project = new AnimationProject();
+        EntityTrack hero = project.getOrCreateTrack("hero");
+        hero.addKeyframe(PropertyType.ROTATION, new Keyframe(0, 0));
+        hero.addKeyframe(PropertyType.ROTATION, new Keyframe(500, 90));
+
+        List<TimelineDiagnostic.Message> messages = PuppeteerVerification.diagnose(
+            project,
+            Set.of("hero"),
+            null,
+            PuppeteerVerification.Mode.EXPORT_CODE
+        );
+
+        assertTrue(messages.stream().anyMatch(message ->
+            message.severity() == TimelineDiagnostic.Severity.WARNING
+                && message.entityOrTrack().equals("hero")
+                && message.description().contains(PuppeteerVerification.ORBIT_PIVOT_RISK_MARKER)));
+    }
+
+    @Test
+    void diagnoseDoesNotWarnWhenOrbitAnchorAndSnapshotAreValid() {
+        AnimationProject project = new AnimationProject();
+        EntityTrack hero = project.getOrCreateTrack("hero");
+        hero.addKeyframe(PropertyType.ROTATION, new Keyframe(0, 0));
+        hero.addKeyframe(PropertyType.ROTATION, new Keyframe(500, 90));
+        project.setOrbitAnchor("hero", 120.0, 130.0);
+        project.setSceneEntitySnapshots(List.of(new AnimationProject.SceneEntitySnapshot(
+            "hero", "entity", "", 100.0, 100.0, 64.0, 64.0, 0.5, 0.5, 0.0, true, 1.0)));
+
+        List<TimelineDiagnostic.Message> messages = PuppeteerVerification.diagnose(
+            project,
+            Set.of("hero"),
+            null,
+            PuppeteerVerification.Mode.EXPORT_CODE
+        );
+
+        assertFalse(messages.stream().anyMatch(message ->
+            message.description().contains(PuppeteerVerification.ORBIT_PIVOT_RISK_MARKER)));
+    }
+
+    @Test
     void runtimeRegistrationFlagsMissingAudioFile() {
         AnimationProject project = new AnimationProject();
         project.addAudioCue(new AudioCue(100, "assets/audio/missing.wav", "sound"));

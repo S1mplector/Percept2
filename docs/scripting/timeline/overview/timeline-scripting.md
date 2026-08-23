@@ -183,7 +183,21 @@ timeline {
 hero: I have arrived.
 ```
 
-**Important:** Inline timelines run asynchronously — VNS advances immediately. Use `[wait N]` after the block if you need to synchronize dialogue with the animation.
+**Important:** Inline timelines block by default — VNS waits for the timeline to finish before advancing to the next line. To start a timeline without blocking the script, add a non-blocking modifier after the closing `}`:
+
+```vns
+timeline wait=false {
+  move "hero" { x: 640 dur: 600 easing: ease_out_back }
+}
+hero: I'm already moving while I say this.
+```
+
+Accepted modifiers (case-insensitive, space-separated after `}`):
+
+- **Blocking** (default for inline blocks): `wait`, `sync`, `block`, `await`, or `wait=true`
+- **Non-blocking**: `async`, `nowait`, `no_wait`, `fire`, `fire_and_forget`, or `wait=false`
+
+The same modifiers apply to `[call jes_timeline name ...]` / `[jes_timeline name ...]`, except named timeline calls default to **non-blocking** unless a blocking modifier is given.
 
 ### Option D: Registered Timeline from Java
 
