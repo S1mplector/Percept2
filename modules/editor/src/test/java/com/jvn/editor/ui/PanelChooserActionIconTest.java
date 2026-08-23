@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import com.jvn.fx.testkit.FxToolkit;
 import com.jvn.fx.testkit.FxToolkitExtension;
 import javafx.scene.Scene;
+import javafx.scene.control.Button;
 import javafx.scene.image.WritableImage;
 import javafx.scene.layout.StackPane;
 import org.junit.jupiter.api.Test;
@@ -27,6 +28,22 @@ class PanelChooserActionIconTest {
         return root.snapshot(null, new WritableImage(28, 28));
       });
       assertTrue(nonTransparentPixels(image) > 90, kind + " should render detailed vector artwork");
+    }
+  }
+
+  @Test
+  void panelActionsUseTheSameTransparentAeroButtonTreatmentAsHelp() throws Exception {
+    for (PanelChooserActionIcon.Kind kind : PanelChooserActionIcon.Kind.values()) {
+      Button button = FxToolkit.runFx(() -> {
+        Button result = new Button();
+        result.setGraphic(PanelChooserActionIcon.of(kind));
+        StackPane root = new StackPane(result);
+        new Scene(root, 32, 32);
+        root.applyCss();
+        root.layout();
+        return result;
+      });
+      assertTrue(button.getStyleClass().contains("aero-icon-button"));
     }
   }
 

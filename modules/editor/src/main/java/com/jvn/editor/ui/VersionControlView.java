@@ -65,18 +65,6 @@ import javafx.util.Duration;
 public class VersionControlView extends BorderPane {
   private static final long REMOTE_CHECK_INTERVAL_MS = 120_000L;
   private static final DateTimeFormatter CHECK_TIME_FORMAT = DateTimeFormatter.ofPattern("HH:mm:ss");
-  private static final String ICON_REFRESH = "#8ecaff";
-  private static final String ICON_ONLINE = "#69d7ff";
-  private static final String ICON_PULL = "#f2c86b";
-  private static final String ICON_PUSH = "#79df93";
-  private static final String ICON_COMMIT = "#8bb8ff";
-  private static final String ICON_SHELF = "#c29cff";
-  private static final String ICON_RESTORE = "#ffcf7a";
-  private static final String ICON_STAGE = "#80e08d";
-  private static final String ICON_UNSTAGE = "#f0b673";
-  private static final String ICON_DISCARD = "#ff7f9f";
-  private static final String ICON_DIFF = "#8ecaff";
-  private static final String ICON_BRANCH = "#b7a7ff";
   private static final double GUIDE_POPUP_WIDTH = 320.0;
 
   private final GitVcsService vcs = new GitVcsService();
@@ -106,11 +94,11 @@ public class VersionControlView extends BorderPane {
   private final Button btnRemoveGitHubToken = new Button("Remove");
   private final Popup guidePopup = new Popup();
   private final VBox guidePopupRoot = new VBox(0);
-  private final Label guideArrowLabel = new Label("", CssIcon.arrowUp("#8ecaff"));
+  private final Label guideArrowLabel = new Label("", VersionControlIcon.of(VersionControlIcon.Kind.GUIDE_UP, 16));
   private final VBox guideCard = new VBox(4);
   private final Label guideTitleLabel = new Label();
   private final Label guideBodyLabel = new Label();
-  private final Button guideCloseButton = new Button("", CssIcon.clearX("#cbd5df"));
+  private final Button guideCloseButton = new Button("", VersionControlIcon.of(VersionControlIcon.Kind.CLOSE, 16));
   private final BorderPane contentPane = new BorderPane();
   private final StackPane contentStack = new StackPane();
   private final StackPane centerViewStack = new StackPane();
@@ -119,7 +107,9 @@ public class VersionControlView extends BorderPane {
   private final ProgressIndicator initializingSpinner = new ProgressIndicator();
   private final Label initializingTitleLabel = new Label("Initializing version control");
   private final Label initializingBodyLabel = new Label("Reading project status and preparing Git controls.");
-  private final Label initTitleLabel = new Label("Repository Not Initialized", CssIcon.warning("#f2c86b"));
+  private final Label initTitleLabel = new Label(
+      "Repository Not Initialized",
+      VersionControlIcon.of(VersionControlIcon.Kind.WARNING, 18));
   private final Label initHintLabel = new Label("Repository is not initialized for this project.");
   private final VBox initBox = new VBox(6);
 
@@ -129,61 +119,69 @@ public class VersionControlView extends BorderPane {
 
   private final Button btnRefresh = actionButton(
       "Refresh",
-      CssIcon.refresh(ICON_REFRESH),
+      VersionControlIcon.of(VersionControlIcon.Kind.REFRESH),
       "Refresh the project status and check whether the online repository has new work.",
       "vcs-action-button-neutral");
   private final Button btnInitialize = new Button("Initialize");
   private final Button btnFetch = actionButton(
       "Check Online",
-      CssIcon.download(ICON_ONLINE),
+      VersionControlIcon.of(VersionControlIcon.Kind.CHECK_ONLINE),
       "Contact the remote repository and check for work you do not have yet.",
       "vcs-action-button-accent");
   private final Button btnPull = actionButton(
       "Get Updates",
-      CssIcon.arrowDown(ICON_PULL),
+      VersionControlIcon.of(VersionControlIcon.Kind.PULL),
       "Download incoming commits and replay your local work on top.",
       "vcs-action-button-warning");
   private final Button btnPush = actionButton(
       "Send Online",
-      CssIcon.arrowUp(ICON_PUSH),
+      VersionControlIcon.of(VersionControlIcon.Kind.PUSH),
       "Upload your saved snapshots to the remote repository.",
       "vcs-action-button-success");
   private final Button btnForcePull = actionButton(
       "Force Pull",
-      CssIcon.arrowDown(ICON_DISCARD),
+      VersionControlIcon.of(VersionControlIcon.Kind.FORCE_PULL),
       "Discard local commits and changes and make this branch match the remote exactly.",
       "vcs-action-button-danger");
   private final Button btnForcePush = actionButton(
       "Force Push",
-      CssIcon.arrowUp(ICON_DISCARD),
+      VersionControlIcon.of(VersionControlIcon.Kind.FORCE_PUSH),
       "Overwrite the remote branch with your local history (force-with-lease).",
       "vcs-action-button-danger");
   private final Button btnCommit = actionButton(
       "Save Snapshot",
-      CssIcon.save(ICON_COMMIT),
+      VersionControlIcon.of(VersionControlIcon.Kind.SNAPSHOT),
       "Save all current project changes into a local version snapshot.",
       "vcs-action-button-success");
   private final Button btnStash = actionButton(
       "Shelve",
-      CssIcon.folder(ICON_SHELF),
+      VersionControlIcon.of(VersionControlIcon.Kind.SHELVE),
       "Temporarily put current changes aside without saving a snapshot.",
       "vcs-action-button-neutral");
   private final Button btnStashPop = actionButton(
       "Restore Shelf",
-      CssIcon.popOut(ICON_RESTORE),
+      VersionControlIcon.of(VersionControlIcon.Kind.RESTORE_SHELF),
       "Bring back the latest shelved changes.",
       "vcs-action-button-neutral");
-  private final Button btnStageSelected = iconButton(CssIcon.plusBold(ICON_STAGE), "Mark the selected file(s) for the next Git commit.");
-  private final Button btnUnstageSelected = iconButton(CssIcon.minus(ICON_UNSTAGE), "Remove the selected file(s) from the staged Git area.");
-  private final Button btnDiscardSelected = iconButton(CssIcon.delete(ICON_DISCARD), "Permanently discard the selected file change(s).");
-  private final Button btnDiffSelected = iconButton(CssIcon.search(ICON_DIFF), "Show selected file diff(s) in the activity log.");
+  private final Button btnStageSelected = iconButton(
+      VersionControlIcon.of(VersionControlIcon.Kind.STAGE),
+      "Mark the selected file(s) for the next Git commit.");
+  private final Button btnUnstageSelected = iconButton(
+      VersionControlIcon.of(VersionControlIcon.Kind.UNSTAGE),
+      "Remove the selected file(s) from the staged Git area.");
+  private final Button btnDiscardSelected = iconButton(
+      VersionControlIcon.of(VersionControlIcon.Kind.DISCARD),
+      "Permanently discard the selected file change(s).");
+  private final Button btnDiffSelected = iconButton(
+      VersionControlIcon.of(VersionControlIcon.Kind.DIFF),
+      "Show selected file diff(s) in the activity log.");
   private final ToggleButton btnChangesView = new ToggleButton("Changes");
   private final ToggleButton btnGraphView = new ToggleButton("Graph");
   private final ToggleGroup viewModeGroup = new ToggleGroup();
   private final ComboBox<String> cbBranch = new ComboBox<>();
   private final Button btnNewBranch = actionButton(
       "New Branch",
-      CssIcon.branchPlus(ICON_BRANCH),
+      VersionControlIcon.of(VersionControlIcon.Kind.NEW_BRANCH),
       "Create a branch with the typed name and switch to it.",
       "vcs-action-button-neutral");
 
@@ -331,7 +329,7 @@ public class VersionControlView extends BorderPane {
     });
     btnInitialize.setOnAction(e -> initializeRepository());
     btnInitialize.getStyleClass().addAll("vcs-action-button", "vcs-action-button-success");
-    btnInitialize.setGraphic(CssIcon.plusBold(ICON_STAGE));
+    btnInitialize.setGraphic(VersionControlIcon.of(VersionControlIcon.Kind.INITIALIZE));
     btnInitialize.setContentDisplay(ContentDisplay.LEFT);
     btnInitialize.setTooltip(new Tooltip("Create Git tracking for this project so snapshots and sync are available."));
     btnFetch.setOnAction(e -> runFetch());
@@ -392,7 +390,9 @@ public class VersionControlView extends BorderPane {
     initBox.getChildren().addAll(initTitleLabel, initHintLabel, initOptionsRow, initActionRow);
 
     // Setup guide banner - shown when repo exists but no remote configured
-    Label setupTitle = new Label("Setup Required", CssIcon.settings("#8ecaff"));
+    Label setupTitle = new Label(
+        "Setup Required",
+        VersionControlIcon.of(VersionControlIcon.Kind.SETUP, 18));
     setupTitle.getStyleClass().addAll("vcs-banner-title", "vcs-banner-title-info");
     Label setupDesc = new Label("Your project needs a remote repository to push, pull, and collaborate.");
     setupDesc.getStyleClass().add("vcs-banner-copy");
@@ -451,7 +451,7 @@ public class VersionControlView extends BorderPane {
     fileActionRow.setAlignment(Pos.CENTER_LEFT);
 
     // Header section: one compact status line instead of a stack of separate labels
-    Label branchIcon = new Label("", CssIcon.branchPlus(ICON_BRANCH));
+    Label branchIcon = new Label("", VersionControlIcon.of(VersionControlIcon.Kind.BRANCH, 16));
     HBox branchChip = new HBox(4, branchIcon, branchLabel);
     branchChip.setAlignment(Pos.CENTER_LEFT);
     branchChip.getStyleClass().add("vcs-status-chip");
