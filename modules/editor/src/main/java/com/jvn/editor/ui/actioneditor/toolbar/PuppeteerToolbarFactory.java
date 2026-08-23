@@ -1,6 +1,7 @@
 package com.jvn.editor.ui.actioneditor.toolbar;
 
 import com.jvn.editor.ui.actioneditor.ActionEditorDialogOverlay;
+import com.jvn.editor.ui.RefreshIcon;
 import com.jvn.editor.ui.actioneditor.AnimatedToolbarPane;
 import com.jvn.editor.ui.actioneditor.CollapsibleToolbarCluster;
 import com.jvn.editor.ui.actioneditor.PuppeteerWindow;
@@ -39,6 +40,7 @@ public final class PuppeteerToolbarFactory {
     MenuItem miVerifyRuntime = new MenuItem("Verify Runtime Registration...");
     miVerifyRuntime.setOnAction(e -> w.showRuntimeVerificationReport());
     MenuItem miRefreshCode = new MenuItem("Refresh Generated Code");
+    miRefreshCode.setGraphic(RefreshIcon.of(16));
     miRefreshCode.setOnAction(e -> w.requestRefreshGeneratedCode());
     MenuItem miStagePreview = new MenuItem("Stage Code Preview");
     miStagePreview.setOnAction(e -> w.stagePreviewFromCode());

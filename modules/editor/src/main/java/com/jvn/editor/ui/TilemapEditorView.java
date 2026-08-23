@@ -87,6 +87,7 @@ public class TilemapEditorView extends BorderPane {
     });
 
     Button reloadButton = new Button("Reload");
+    reloadButton.setGraphic(RefreshIcon.compact());
     reloadButton.setOnAction(e -> reloadFromJes());
 
     Button saveButton = new Button("Save Layer");

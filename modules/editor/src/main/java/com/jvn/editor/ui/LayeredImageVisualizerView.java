@@ -326,7 +326,7 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
     setBox.setOnAction(e -> onSetSelectionChanged());
 
     refreshCatalogButton = iconButton(
-        LayeredVisualizerIcon.of(LayeredVisualizerIcon.Kind.REFRESH_SET),
+        RefreshIcon.of(20),
         "Refresh set scan",
         this::onCatalogRefreshRequested);
     updateRefreshButtonUi(false);
@@ -903,7 +903,7 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
       refreshCatalogButton.setTooltip(new Tooltip("Cancel set scan"));
     } else {
       refreshCatalogButton.setGraphic(
-          LayeredVisualizerIcon.of(LayeredVisualizerIcon.Kind.REFRESH_SET));
+          RefreshIcon.of(20));
       refreshCatalogButton.setTooltip(new Tooltip("Refresh set scan"));
     }
   }

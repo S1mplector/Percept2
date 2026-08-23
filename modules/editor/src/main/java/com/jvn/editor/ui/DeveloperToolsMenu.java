@@ -62,6 +62,7 @@ public final class DeveloperToolsMenu {
     });
 
     MenuItem miRefreshLogs = new MenuItem("Refresh Logs Panel");
+    miRefreshLogs.setGraphic(RefreshIcon.of(16));
     miRefreshLogs.setOnAction(e -> {
       if (refreshLogs != null) refreshLogs.run();
     });

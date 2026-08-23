@@ -426,6 +426,7 @@ public class GameBuildPublisherView extends BorderPane {
     cleanOutputButton = button("Clean Artifacts", ButtonTone.DANGER, false);
     cleanOutputButton.setOnAction(e -> cleanBuildArtifacts());
     refreshArtifactsButton = button("Refresh Artifacts", ButtonTone.SECONDARY, false);
+    refreshArtifactsButton.setGraphic(RefreshIcon.compact());
     refreshArtifactsButton.setOnAction(e -> refreshArtifactInventory());
 
     FlowPane optionsRow = new FlowPane(12, 8, offlineModeCheck, refreshRuntimeCheck);

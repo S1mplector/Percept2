@@ -78,6 +78,7 @@ import com.jvn.editor.ui.NewProjectWizard;
 import com.jvn.editor.ui.PanelChooserActionIcon;
 import com.jvn.editor.ui.ProjectExplorerView;
 import com.jvn.editor.ui.ProjectViewportSpec;
+import com.jvn.editor.ui.RefreshIcon;
 import com.jvn.editor.ui.PuppeteerLauncherPanel;
 import com.jvn.editor.ui.RunConsoleView;
 import com.jvn.editor.ui.ScriptEditorLauncherView;
@@ -1595,6 +1596,7 @@ public class EditorApp extends Application {
       });
     });
     MenuItem miReload = new MenuItem("Reload from Disk");
+    miReload.setGraphic(RefreshIcon.of(16));
     miReload.setOnAction(e -> doReload());
     MenuItem miEditorSettings = new MenuItem("Editor Settings");
     miEditorSettings.setOnAction(e -> selectEditorSettingsTab());
@@ -1819,6 +1821,7 @@ public class EditorApp extends Application {
 	    MenuItem miTextSaveAll = new MenuItem("Save All Open Tabs");
 	    miTextSaveAll.setOnAction(e -> saveAllOpenTabs());
 	    MenuItem miTextReload = new MenuItem("Reload Active File from Disk");
+	    miTextReload.setGraphic(RefreshIcon.of(16));
 	    miTextReload.setOnAction(e -> doReload());
 	    MenuItem miTextClose = new MenuItem("Close Active Tab");
 	    miTextClose.setOnAction(e -> closeActiveTab());
@@ -1950,6 +1953,7 @@ public class EditorApp extends Application {
 	    MenuItem miDiagnosticsVersionControl = new MenuItem("Version Control Status");
 	    miDiagnosticsVersionControl.setOnAction(e -> selectVersionControlTab());
 	    MenuItem miDiagnosticsRefreshVcs = new MenuItem("Refresh Version Control Status");
+	    miDiagnosticsRefreshVcs.setGraphic(RefreshIcon.of(16));
 	    miDiagnosticsRefreshVcs.setOnAction(e -> {
 	      if (versionControlView != null) versionControlView.refreshStatus();
 	      selectVersionControlTab();
@@ -2089,6 +2093,7 @@ public class EditorApp extends Application {
     miOpenVcs.setOnAction(e -> selectVersionControlTab());
     miOpenVcs.setAccelerator(new KeyCodeCombination(KeyCode.G, KeyCombination.SHORTCUT_DOWN, KeyCombination.SHIFT_DOWN));
     MenuItem miRefreshVcs = new MenuItem("Refresh Status");
+    miRefreshVcs.setGraphic(RefreshIcon.of(16));
     miRefreshVcs.setOnAction(e -> {
       if (versionControlView != null) versionControlView.refreshStatus();
       selectVersionControlTab();

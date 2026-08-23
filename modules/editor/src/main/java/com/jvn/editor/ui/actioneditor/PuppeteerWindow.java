@@ -37,6 +37,7 @@ import com.jvn.editor.ui.EditorTheme;
 import com.jvn.editor.ui.LayeredCharacterProjectCatalog;
 import com.jvn.editor.ui.ProjectViewportSpec;
 import com.jvn.editor.ui.PuppeteerLauncherPanel;
+import com.jvn.editor.ui.RefreshIcon;
 import com.jvn.editor.ui.SidebarToolHelp;
 import com.jvn.scripting.jes.runtime.JesScene2D;
 
@@ -2039,6 +2040,7 @@ public class PuppeteerWindow extends Stage {
         MenuItem miVerifyRuntime = new MenuItem("Verify Runtime Registration...");
         miVerifyRuntime.setOnAction(e -> showRuntimeVerificationReport());
         MenuItem miRefreshCode = new MenuItem("Refresh Generated Code");
+        miRefreshCode.setGraphic(RefreshIcon.of(16));
         miRefreshCode.setOnAction(e -> requestRefreshGeneratedCode());
         MenuItem miStagePreview = new MenuItem("Stage Code Preview");
         miStagePreview.setOnAction(e -> stagePreviewFromCode());
@@ -2862,6 +2864,7 @@ public class PuppeteerWindow extends Stage {
             refreshSidebarTabs();
         }, "Toggle visibility of the VNS code preview pane");
         Button btnRefreshCode = buildSidebarActionButton("Refresh Code", this::refreshExportPreview, "Regenerate the VNS code from the current timeline");
+        btnRefreshCode.setGraphic(RefreshIcon.compact());
 
         javafx.scene.control.CheckBox cbExportNested = new javafx.scene.control.CheckBox("Export Nested Groups");
         cbExportNested.setStyle("-fx-text-fill: #a0aabf; -fx-font-family: \"Inter\", sans-serif; -fx-font-size: 11px;");

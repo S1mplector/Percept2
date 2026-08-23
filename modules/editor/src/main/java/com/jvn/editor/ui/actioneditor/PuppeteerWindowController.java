@@ -15,6 +15,7 @@ import java.util.Objects;
 import com.jvn.core.animation.TimelineData;
 import com.jvn.core.animation.TimelineRegistry;
 import com.jvn.editor.ui.EditorTheme;
+import com.jvn.editor.ui.RefreshIcon;
 import com.jvn.editor.ui.actioneditor.TimelinePanel;
 
 import javafx.geometry.Insets;
@@ -343,6 +344,7 @@ public final class PuppeteerWindowController {
         MenuItem miVerifyRuntime = new MenuItem("Verify Runtime Registration...");
         miVerifyRuntime.setOnAction(e -> showRuntimeVerificationReport());
         MenuItem miRefreshCode = new MenuItem("Refresh Generated Code");
+        miRefreshCode.setGraphic(RefreshIcon.of(16));
         miRefreshCode.setOnAction(e -> view.requestRefreshGeneratedCode());
         MenuItem miStagePreview = new MenuItem("Stage Code Preview");
         miStagePreview.setOnAction(e -> view.stagePreviewFromCode());

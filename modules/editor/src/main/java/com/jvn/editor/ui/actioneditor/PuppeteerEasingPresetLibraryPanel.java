@@ -12,6 +12,7 @@ import java.util.function.Supplier;
 import com.jvn.core.animation.Easing;
 import com.jvn.core.animation.EasingSpec;
 import com.jvn.editor.ui.EditorPathExplorer;
+import com.jvn.editor.ui.RefreshIcon;
 
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
@@ -131,6 +132,7 @@ final class PuppeteerEasingPresetLibraryPanel extends VBox {
         styleButton(btnRename, BUTTON_STYLE);
         styleButton(btnDelete, DANGER_BUTTON_STYLE);
         styleButton(btnReload, BUTTON_STYLE);
+        btnReload.setGraphic(RefreshIcon.compact());
         styleButton(btnReveal, BUTTON_STYLE);
         styleButton(btnImport, BUTTON_STYLE);
         styleButton(btnExport, BUTTON_STYLE);

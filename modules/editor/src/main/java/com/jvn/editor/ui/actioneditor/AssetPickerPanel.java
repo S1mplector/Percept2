@@ -1,6 +1,7 @@
 package com.jvn.editor.ui.actioneditor;
 
 import com.jvn.core.vn.LayeredCharacterResolver;
+import com.jvn.editor.ui.RefreshIcon;
 import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -208,6 +209,7 @@ public class AssetPickerPanel extends VBox {
         referenceFilterBox.valueProperty().addListener((obs, old, val) -> applyFilter());
 
         Button btnRefresh = new Button("Refresh");
+        btnRefresh.setGraphic(RefreshIcon.compact());
         btnRefresh.setStyle(STYLE_BTN);
         btnRefresh.setTooltip(new Tooltip("Rescan project for images"));
         btnRefresh.setOnAction(e -> scanProject());

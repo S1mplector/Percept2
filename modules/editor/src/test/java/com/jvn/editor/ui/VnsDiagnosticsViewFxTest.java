@@ -69,15 +69,21 @@ class VnsDiagnosticsViewFxTest {
       assertTrue(view.lookup(".vns-diagnostics-action-row") != null);
 
       Set<DiagnosticsToolbarIcon.Kind> toolbarKinds = new HashSet<>();
+      java.util.concurrent.atomic.AtomicBoolean hasStandardRefresh =
+          new java.util.concurrent.atomic.AtomicBoolean();
       view.lookupAll(".vns-diagnostics-action-button").stream()
           .filter(Button.class::isInstance)
           .map(Button.class::cast)
           .forEach(button -> {
-            assertTrue(button.getGraphic() instanceof DiagnosticsToolbarIcon);
-            toolbarKinds.add(((DiagnosticsToolbarIcon) button.getGraphic()).kind());
+            if (button.getGraphic() instanceof RefreshIcon) {
+              hasStandardRefresh.set(true);
+            } else {
+              assertTrue(button.getGraphic() instanceof DiagnosticsToolbarIcon);
+              toolbarKinds.add(((DiagnosticsToolbarIcon) button.getGraphic()).kind());
+            }
           });
+      assertTrue(hasStandardRefresh.get());
       assertEquals(Set.of(
-          DiagnosticsToolbarIcon.Kind.RESCAN,
           DiagnosticsToolbarIcon.Kind.OPEN,
           DiagnosticsToolbarIcon.Kind.PREVIOUS,
           DiagnosticsToolbarIcon.Kind.NEXT,

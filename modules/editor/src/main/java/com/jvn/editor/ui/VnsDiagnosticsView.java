@@ -160,6 +160,7 @@ public class VnsDiagnosticsView extends BorderPane {
     openSelectedButton.setOnAction(e -> openSelectedRow());
     copyDiagnosticsButton.setOnAction(e -> copyVisibleDiagnostics());
     clearFilterButton.setOnAction(e -> clearFilters());
+    refreshButton.setGraphic(RefreshIcon.of(20));
     refreshButton.setTooltip(new Tooltip("Run diagnostics again for the active editor"));
     refreshButton.setOnAction(e -> {
       if (onRefresh != null) onRefresh.run();

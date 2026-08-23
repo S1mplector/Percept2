@@ -23,7 +23,6 @@ import javafx.scene.shape.StrokeLineJoin;
 /** Dimensional Windows 7-style artwork for every icon role in Version Control. */
 public final class VersionControlIcon extends Pane {
   public enum Kind {
-    REFRESH,
     CHECK_ONLINE,
     PULL,
     PUSH,
@@ -51,7 +50,7 @@ public final class VersionControlIcon extends Pane {
   private final Color glow;
 
   private VersionControlIcon(Kind requestedKind, double requestedSize) {
-    kind = requestedKind == null ? Kind.REFRESH : requestedKind;
+    kind = requestedKind == null ? Kind.CHECK_ONLINE : requestedKind;
     iconSize = Math.max(14, Math.min(28, requestedSize));
     glow = glowFor(kind);
 
@@ -120,7 +119,6 @@ public final class VersionControlIcon extends Pane {
 
   private static Group artworkFor(Kind kind) {
     return switch (kind) {
-      case REFRESH -> refreshArtwork();
       case CHECK_ONLINE -> checkOnlineArtwork();
       case PULL -> transferArtwork(false, false);
       case PUSH -> transferArtwork(true, false);
@@ -141,20 +139,6 @@ public final class VersionControlIcon extends Pane {
       case GUIDE_UP -> guideUpArtwork();
       case CLOSE -> closeArtwork();
     };
-  }
-
-  private static Group refreshArtwork() {
-    Circle plate = glassOrb(12, 12, 9.1, "#d9f5ff", "#54bce9", "#176a9c", "#0c385c");
-    SVGPath shadow = stroked(
-        "M18.4 9.2 A7 7 0 0 0 6.2 7.2 M6.2 7.2 H10 M6.2 7.2 V3.5 "
-            + "M5.6 14.8 A7 7 0 0 0 17.8 16.8 M17.8 16.8 H14 M17.8 16.8 V20.5",
-        Color.rgb(0, 35, 61, 0.82), 3.2);
-    shadow.setTranslateY(0.55);
-    SVGPath arrows = stroked(
-        "M18.4 8.8 A7 7 0 0 0 6.2 6.8 M6.2 6.8 H10 M6.2 6.8 V3.1 "
-            + "M5.6 14.4 A7 7 0 0 0 17.8 16.4 M17.8 16.4 H14 M17.8 16.4 V20.1",
-        Color.web("#f6fdff"), 1.8);
-    return art(plate, shadow, arrows, orbShine());
   }
 
   private static Group checkOnlineArtwork() {
@@ -448,7 +432,7 @@ public final class VersionControlIcon extends Pane {
 
   private static Color glowFor(Kind kind) {
     return switch (kind) {
-      case REFRESH, CHECK_ONLINE, DIFF, SETUP, GUIDE_UP -> Color.web("#63c9f2");
+      case CHECK_ONLINE, DIFF, SETUP, GUIDE_UP -> Color.web("#63c9f2");
       case PUSH, SNAPSHOT, STAGE, NEW_BRANCH, INITIALIZE -> Color.web("#68d66f");
       case PULL, RESTORE_SHELF, UNSTAGE, WARNING -> Color.web("#efbb55");
       case FORCE_PULL, FORCE_PUSH, DISCARD, CLOSE -> Color.web("#e65d77");

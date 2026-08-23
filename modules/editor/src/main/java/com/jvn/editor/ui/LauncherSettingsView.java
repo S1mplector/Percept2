@@ -65,6 +65,7 @@ public class LauncherSettingsView extends BorderPane {
     ToolBar toolbar = new ToolBar();
     toolbar.getStyleClass().add("editor-settings-toolbar");
     Button reloadButton = new Button("Reload");
+    reloadButton.setGraphic(RefreshIcon.compact());
     reloadButton.setOnAction(e -> reload());
     reloadButton.getStyleClass().add("editor-settings-button");
     reloadButton.setTooltip(new Tooltip("Reload launcher settings from disk"));

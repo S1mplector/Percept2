@@ -136,7 +136,7 @@ public final class AeroIcon extends StackPane {
       case SETTINGS -> settingsGlyph(color, size);
       case RUN -> sized(CssIcon.play(color), size);
       case BUILD -> sized(CssIcon.download(color), size);
-      case REFRESH -> sized(CssIcon.refresh(color), size);
+      case REFRESH -> RefreshIcon.of(size);
       case ENTRY_SCRIPT -> sized(CssIcon.speech(color), size);
       case VNS_RUN_LABEL, VNS_RUN_CURSOR, VNS_RUN_ENTRY, VNS_SYMBOLS, VNS_SNIPPET, VNS_FIND,
           VNS_COMMANDS, VNS_WORD_WRAP, VNS_DIFF, VNS_DIAGNOSTICS, VNS_PREVIEW ->
@@ -147,7 +147,7 @@ public final class AeroIcon extends StackPane {
       case WHATS_NEW -> sized(CssIcon.sparkles(color), size);
       case NO_PROJECT -> noProjectGlyph(size);
     };
-    if (kind != Kind.HELP && kind != Kind.NO_PROJECT && !isVnsCommand(kind)) {
+    if (kind != Kind.HELP && kind != Kind.NO_PROJECT && kind != Kind.REFRESH && !isVnsCommand(kind)) {
       glyph = decorate(kind, glyph, size, palette);
     }
     DropShadow depth = new DropShadow(Math.max(2, size * 0.14), 0, Math.max(1, size * 0.08),

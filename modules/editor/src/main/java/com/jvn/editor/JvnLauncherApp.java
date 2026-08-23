@@ -26,6 +26,7 @@ import com.jvn.editor.ui.GameBuildPublisherView;
 import com.jvn.editor.ui.JvnStatusBar;
 import com.jvn.editor.ui.LauncherSettingsView;
 import com.jvn.editor.ui.NewProjectWizard;
+import com.jvn.editor.ui.RefreshIcon;
 import com.jvn.editor.ui.RunConsoleView;
 import com.jvn.editor.ui.StartupSplashOverlay;
 import com.jvn.editor.ui.ShutdownSplashOverlay;
@@ -404,6 +405,7 @@ public class JvnLauncherApp extends Application {
 
     Menu menuEdit = new Menu("Edit");
     MenuItem miRefresh = new MenuItem("Refresh Projects");
+    miRefresh.setGraphic(RefreshIcon.of(16));
     miRefresh.setAccelerator(new KeyCodeCombination(KeyCode.F5));
     miRefresh.setOnAction(e -> refreshWelcomeProjects());
     MenuItem miSettings = new MenuItem("Settings...");
@@ -446,6 +448,7 @@ public class JvnLauncherApp extends Application {
     miThemeLight.setOnAction(e -> setTheme(EditorTheme.Theme.LIGHT));
     menuTheme.getItems().addAll(miThemeDark, miThemeLight);
     MenuItem miViewRefresh = new MenuItem("Refresh Projects");
+    miViewRefresh.setGraphic(RefreshIcon.of(16));
     miViewRefresh.setOnAction(e -> refreshWelcomeProjects());
     menuView.getItems().addAll(menuTheme, new SeparatorMenuItem(), miViewRefresh);
     menuView.setOnShowing(e -> syncTheme.run());
