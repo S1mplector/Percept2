@@ -433,18 +433,18 @@ public class StoryTimelineView extends BorderPane {
     setCenter(rootSplit);
 
     // Toolbar
-    Button bAddArc = iconButton("Add Arc", CssIcon.plus(), e -> addArc());
+    Button bAddArc = iconButton("Add Arc", SidebarToolIcon.plus(), e -> addArc());
     bAddArc.getStyleClass().add("timeline-primary-button");
-    Button bAddLink = iconButton("Add Link", CssIcon.link(), e -> addLink());
+    Button bAddLink = iconButton("Add Link", SidebarToolIcon.link(), e -> addLink());
     bAddLink.getStyleClass().add("timeline-primary-button");
-    Button bEdit = iconButton("Edit Selected", CssIcon.edit(), e -> editSelected());
-    Button bOpen = iconButton("Open", CssIcon.folder(), e -> openArc());
-    Button bDelete = iconButton("Delete Selected", CssIcon.delete(), e -> deleteSelected());
-    Button bCopyGoto = iconButton("Copy Goto", CssIcon.copy(), e -> copyGoto());
-    Button bRefresh = iconButton("Refresh", CssIcon.refresh(), e -> syncFromDisk(true));
-    Button bAuto = iconButton("Auto Layout", CssIcon.auto(), e -> { graph.autoLayout(); onGraphChanged(); });
-    Button bFit = iconButton("Fit", CssIcon.rectSelect(), e -> zoomToFit());
-    Button bValidate = iconButton("Validate", CssIcon.check(), e -> validate());
+    Button bEdit = iconButton("Edit Selected", SidebarToolIcon.edit(), e -> editSelected());
+    Button bOpen = iconButton("Open", SidebarToolIcon.folder(), e -> openArc());
+    Button bDelete = iconButton("Delete Selected", SidebarToolIcon.delete(), e -> deleteSelected());
+    Button bCopyGoto = iconButton("Copy Goto", SidebarToolIcon.copy(), e -> copyGoto());
+    Button bRefresh = iconButton("Refresh", SidebarToolIcon.refresh(), e -> syncFromDisk(true));
+    Button bAuto = iconButton("Auto Layout", SidebarToolIcon.auto(), e -> { graph.autoLayout(); onGraphChanged(); });
+    Button bFit = iconButton("Fit", SidebarToolIcon.rectSelect(), e -> zoomToFit());
+    Button bValidate = iconButton("Validate", SidebarToolIcon.check(), e -> validate());
     TextField tfSearch = new TextField();
     tfSearch.setPromptText("Find arc...");
     tfSearch.setTooltip(new Tooltip("Find and highlight story arcs by name"));

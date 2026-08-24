@@ -265,7 +265,7 @@ button then opens it in the editor."""));
 
     btnLaunch = createActionButton(
         "Launch @ Cursor",
-        CssIcon.nearMe("#f0f0f0"),
+        SidebarToolIcon.nearMe("#f0f0f0"),
         "-fx-background-color: #3a3a3a; -fx-text-fill: #f0f0f0; -fx-font-weight: bold;",
         "Launch Puppeteer with scene snapshot from the current cursor line");
     btnLaunch.setOnAction(e -> {
@@ -276,7 +276,7 @@ button then opens it in the editor."""));
 
     btnLaunchLabelStart = createActionButton(
         "Launch @ Label Start",
-        CssIcon.label("#e4e4e4"),
+        SidebarToolIcon.label("#e4e4e4"),
         "-fx-background-color: #2e2e2e; -fx-text-fill: #e4e4e4; -fx-font-weight: bold;",
         "Launch Puppeteer from the active label start line");
     btnLaunchLabelStart.setOnAction(e -> {
@@ -287,7 +287,7 @@ button then opens it in the editor."""));
 
     btnLaunchSceneStart = createActionButton(
         "Launch @ Scene Start",
-        CssIcon.movie("#e4e4e4"),
+        SidebarToolIcon.movie("#e4e4e4"),
         "-fx-background-color: #2f2f2f; -fx-text-fill: #e4e4e4; -fx-font-weight: bold;",
         "Launch Puppeteer from the most recent background change in the active label");
     btnLaunchSceneStart.setOnAction(e -> {
@@ -298,7 +298,7 @@ button then opens it in the editor."""));
 
     btnOpenTimeline = createActionButton(
         "Open Timeline",
-        CssIcon.timeline("#e0e0e0"),
+        SidebarToolIcon.timeline("#e0e0e0"),
         "-fx-background-color: #2d2d2d; -fx-text-fill: #e0e0e0;",
         "Open the related timeline file or inline block");
     btnOpenTimeline.setOnAction(e -> {
@@ -313,7 +313,7 @@ button then opens it in the editor."""));
 
     btnNewBlankTimeline = createActionButton(
         "New Animation",
-        CssIcon.plus("#e0e0e0"),
+        SidebarToolIcon.plus("#e0e0e0"),
         "-fx-background-color: #2d2d2d; -fx-text-fill: #e0e0e0;",
         "Create a new blank timeline in Puppeteer");
     btnNewBlankTimeline.setOnAction(e -> {
@@ -324,7 +324,7 @@ button then opens it in the editor."""));
 
     btnOpenIssue = createActionButton(
         "Jump To Issue",
-        CssIcon.warning("#dfdfdf"),
+        SidebarToolIcon.warning("#dfdfdf"),
         "-fx-background-color: #303030; -fx-text-fill: #dfdfdf;",
         "Jump to the first launcher issue in the active VNS source");
     btnOpenIssue.setOnAction(e -> {
@@ -679,7 +679,7 @@ button then opens it in the editor."""));
     titleRow.getChildren().add(spacer);
 
     Button copyButton = createCardActionButton(
-        CssIcon.copy("#d5d5d5"),
+        SidebarToolIcon.copy("#d5d5d5"),
         "Copy timeline link to clipboard");
     copyButton.setDisable(!importable);
     copyButton.setOnAction(e -> {
@@ -691,7 +691,7 @@ button then opens it in the editor."""));
     });
 
     Button openButton = createCardActionButton(
-        CssIcon.timeline("#d5d5d5"),
+        SidebarToolIcon.timeline("#d5d5d5"),
         "Open timeline");
     openButton.setDisable(!importable);
     openButton.setOnAction(e -> {
@@ -701,12 +701,12 @@ button then opens it in the editor."""));
     });
 
     Button renameButton = createCardActionButton(
-        CssIcon.edit("#d5d5d5"),
+        SidebarToolIcon.edit("#d5d5d5"),
         "Rename timeline");
     renameButton.setOnAction(e -> renameRegisteredAnimation(animation));
 
     Button deleteButton = createCardActionButton(
-        CssIcon.delete("#d5d5d5"),
+        SidebarToolIcon.delete("#d5d5d5"),
         "Delete timeline");
     deleteButton.setOnAction(e -> deleteRegisteredAnimation(animation));
 

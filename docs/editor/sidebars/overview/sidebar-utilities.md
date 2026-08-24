@@ -28,6 +28,23 @@ If you only need a quick answer:
 - Need menu navigation guidance: [Menu Actions And Navigation](../../../scripting/ui/layout/structure/menu-actions.md)
 - Need documentation lookup: [Documentation Index](../../../INDEX.md)
 
+## Shared Utility Icon Chart
+
+![Windows 7-style sidebar utility icon contact sheet](../../../assets/images/sidebars/sidebar-utility-icons/sidebar_utility_icon_contact_sheet.png)
+
+The shared chart covers all 44 production roles supplied by `SidebarToolIcon`, including the
+New Panel memory and dock states. Twenty-six high-frequency commands use bespoke Windows 7 shell
+objects with glass navigation orbs, chrome hardware, beveled storage and document forms, and
+semantic enamel. Every role keeps a transparent button surface and the same hover-glow behavior
+as Help, Refresh, Add Here, Pop Out, and the Version Control commands.
+
+Regenerate the chart with:
+
+```bash
+JVN_SIDEBAR_ICON_CONTACT_SHEET="$PWD/docs/assets/images/sidebars/sidebar-utility-icons/sidebar_utility_icon_contact_sheet.png" \
+  ./gradlew :editor:test --tests com.jvn.editor.ui.SidebarToolIconTest
+```
+
 ## Read This Next
 
 - New to the editor overall: [Editor Guide](../../core/editor.md)

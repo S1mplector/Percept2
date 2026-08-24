@@ -260,7 +260,7 @@ dialogue line or @imgattr command. Clicking Copy puts it on the clipboard."""));
 
     shortformBox.setPromptText("Shortform");
 
-    Button refreshButton = iconButton(CssIcon.refresh("#7ec8e3"), "Rescan image tags", this::refreshCatalog);
+    Button refreshButton = iconButton(SidebarToolIcon.refresh("#7ec8e3"), "Rescan image tags", this::refreshCatalog);
 
     HBox tagFilterRow = new HBox(8, new Label("Filter"), tagFilterField, refreshButton);
     tagFilterRow.setAlignment(Pos.CENTER_LEFT);
@@ -274,13 +274,13 @@ dialogue line or @imgattr command. Clicking Copy puts it on the clipboard."""));
     exportTagRow.setAlignment(Pos.CENTER_LEFT);
     HBox.setHgrow(exportTagField, Priority.ALWAYS);
 
-    Button loadProfileButton = iconButton(CssIcon.download("#8ab4f8"), "Load selected profile", this::loadSelectedProfile);
-    Button deleteProfileButton = iconButton(CssIcon.clearX("#f38ba8"), "Delete selected profile", this::deleteSelectedProfile);
+    Button loadProfileButton = iconButton(SidebarToolIcon.download("#8ab4f8"), "Load selected profile", this::loadSelectedProfile);
+    Button deleteProfileButton = iconButton(SidebarToolIcon.clearX("#f38ba8"), "Delete selected profile", this::deleteSelectedProfile);
     HBox profileLoadRow = new HBox(6, new Label("Profile"), profileBox, loadProfileButton, deleteProfileButton);
     profileLoadRow.setAlignment(Pos.CENTER_LEFT);
     HBox.setHgrow(profileBox, Priority.ALWAYS);
 
-    Button saveProfileButton = iconButton(CssIcon.save("#9ed67a"), "Save profile", this::saveProfile);
+    Button saveProfileButton = iconButton(SidebarToolIcon.save("#9ed67a"), "Save profile", this::saveProfile);
     HBox profileSaveRow = new HBox(6, new Label("Name"), profileNameField, saveProfileButton);
     profileSaveRow.setAlignment(Pos.CENTER_LEFT);
     HBox.setHgrow(profileNameField, Priority.ALWAYS);
@@ -311,17 +311,17 @@ dialogue line or @imgattr command. Clicking Copy puts it on the clipboard."""));
     });
     installPreviewInteractions();
 
-    Button resetViewButton = iconButton(CssIcon.expand("#8ab4f8"), "Reset pan + zoom", this::resetView);
-    fullscreenButton = iconButton(CssIcon.expand("#f5c46b"), "Fullscreen this panel in the current editor window", this::requestFullscreenToggle);
+    Button resetViewButton = iconButton(SidebarToolIcon.expand("#8ab4f8"), "Reset pan + zoom", this::resetView);
+    fullscreenButton = iconButton(SidebarToolIcon.expand("#f5c46b"), "Fullscreen this panel in the current editor window", this::requestFullscreenToggle);
     updateFullscreenButtonUi();
 
-    Button swapPrevButton = iconButton(CssIcon.undo("#d7b2ff"), "Swap marked groups to previous option", () -> cycleMarkedGroups(-1));
-    Button swapNextButton = iconButton(CssIcon.redo("#8ab4f8"), "Swap marked groups to next option", () -> cycleMarkedGroups(1));
-    Button randomizeButton = iconButton(CssIcon.sort("#f5b971"), "Randomize attributes", this::randomizeSelection);
-    Button clearButton = iconButton(CssIcon.clearX("#f38ba8"), "Clear all attributes", this::clearSelection);
-    Button defaultButton = iconButton(CssIcon.home("#9ed67a"), "Restore defaults", this::restoreDefaults);
+    Button swapPrevButton = iconButton(SidebarToolIcon.undo("#d7b2ff"), "Swap marked groups to previous option", () -> cycleMarkedGroups(-1));
+    Button swapNextButton = iconButton(SidebarToolIcon.redo("#8ab4f8"), "Swap marked groups to next option", () -> cycleMarkedGroups(1));
+    Button randomizeButton = iconButton(SidebarToolIcon.sort("#f5b971"), "Randomize attributes", this::randomizeSelection);
+    Button clearButton = iconButton(SidebarToolIcon.clearX("#f38ba8"), "Clear all attributes", this::clearSelection);
+    Button defaultButton = iconButton(SidebarToolIcon.home("#9ed67a"), "Restore defaults", this::restoreDefaults);
 
-    Button copyExportButton = iconButton(CssIcon.copy("#9ad19c"), "Copy export string", this::copyExport);
+    Button copyExportButton = iconButton(SidebarToolIcon.copy("#9ad19c"), "Copy export string", this::copyExport);
 
     HBox exportRow = new HBox(8,
         resetViewButton,
@@ -342,8 +342,8 @@ dialogue line or @imgattr command. Clicking Copy puts it on the clipboard."""));
     expressionRow.setAlignment(Pos.CENTER_LEFT);
     HBox.setHgrow(expressionField, Priority.ALWAYS);
 
-    Button markAllButton = iconButton(CssIcon.check("#9ed67a"), "Mark all groups for swapping", () -> setAllSwapGroups(true));
-    Button unmarkAllButton = iconButton(CssIcon.clearX("#f5b971"), "Unmark all swap groups", () -> setAllSwapGroups(false));
+    Button markAllButton = iconButton(SidebarToolIcon.check("#9ed67a"), "Mark all groups for swapping", () -> setAllSwapGroups(true));
+    Button unmarkAllButton = iconButton(SidebarToolIcon.clearX("#f5b971"), "Unmark all swap groups", () -> setAllSwapGroups(false));
     HBox attributesTools = new HBox(8, markAllButton, unmarkAllButton);
     attributesTools.setAlignment(Pos.CENTER_LEFT);
 
@@ -358,14 +358,14 @@ dialogue line or @imgattr command. Clicking Copy puts it on the clipboard."""));
     HBox.setHgrow(attributeFilterField, Priority.ALWAYS);
     attributesRoot.setPadding(new Insets(8));
 
-    Button applyTypedButton = iconButton(CssIcon.check("#9ed67a"), "Apply typed attributes", () -> applyTypedAttributes(true));
+    Button applyTypedButton = iconButton(SidebarToolIcon.check("#9ed67a"), "Apply typed attributes", () -> applyTypedAttributes(true));
     HBox typedHeader = new HBox(8, typedRealtime, applyTypedButton);
     typedHeader.setAlignment(Pos.CENTER_LEFT);
     VBox typedRoot = new VBox(8, new Label("Type attributes to preview"), typedAttributesField, typedHeader);
     typedRoot.setPadding(new Insets(8));
 
-    Button applyShortformButton = iconButton(CssIcon.check("#9ed67a"), "Apply selected shortform", this::applySelectedShortform);
-    Button copyShortformButton = iconButton(CssIcon.copy("#d6b4ff"), "Copy selected shortform expression", this::copySelectedShortform);
+    Button applyShortformButton = iconButton(SidebarToolIcon.check("#9ed67a"), "Apply selected shortform", this::applySelectedShortform);
+    Button copyShortformButton = iconButton(SidebarToolIcon.copy("#d6b4ff"), "Copy selected shortform expression", this::copySelectedShortform);
     HBox shortformRow = new HBox(8, shortformBox, applyShortformButton, copyShortformButton);
     shortformRow.setAlignment(Pos.CENTER_LEFT);
     HBox.setHgrow(shortformBox, Priority.ALWAYS);
@@ -385,9 +385,9 @@ dialogue line or @imgattr command. Clicking Copy puts it on the clipboard."""));
     tabs.getTabs().addAll(attributesTab, typedTab, shortformsTab);
     tabs.setTabClosingPolicy(TabPane.TabClosingPolicy.UNAVAILABLE);
 
-    Button exportPngButton = iconButton(CssIcon.download("#8ab4f8"), "Export composited image as PNG file", this::exportCompositePng);
-    Button exportSetupBtn = iconButton(CssIcon.save("#9ed67a"), "Export setup to .attrsetup file", this::exportSetupToFile);
-    Button importSetupBtn = iconButton(CssIcon.folder("#f5c46b"), "Import setup from .attrsetup file", this::importSetupFromFile);
+    Button exportPngButton = iconButton(SidebarToolIcon.download("#8ab4f8"), "Export composited image as PNG file", this::exportCompositePng);
+    Button exportSetupBtn = iconButton(SidebarToolIcon.save("#9ed67a"), "Export setup to .attrsetup file", this::exportSetupToFile);
+    Button importSetupBtn = iconButton(SidebarToolIcon.folder("#f5c46b"), "Import setup from .attrsetup file", this::importSetupFromFile);
     HBox fileRow = new HBox(8, exportPngButton, exportSetupBtn, importSetupBtn);
     fileRow.setAlignment(Pos.CENTER_LEFT);
 
@@ -594,9 +594,9 @@ dialogue line or @imgattr command. Clicking Copy puts it on the clipboard."""));
         if (!applyingState) persistCurrentTagState();
       });
 
-      Button prevButton = iconButton(CssIcon.undo("#d7b2ff"), "Previous option", () -> cycleCombo(combo, -1));
-      Button nextButton = iconButton(CssIcon.redo("#8ab4f8"), "Next option", () -> cycleCombo(combo, 1));
-      Button openButton = iconButton(CssIcon.folder("#7ec8e3"), "Open selected image in OS viewer", () -> openSelectedImage(combo.getValue()));
+      Button prevButton = iconButton(SidebarToolIcon.undo("#d7b2ff"), "Previous option", () -> cycleCombo(combo, -1));
+      Button nextButton = iconButton(SidebarToolIcon.redo("#8ab4f8"), "Next option", () -> cycleCombo(combo, 1));
+      Button openButton = iconButton(SidebarToolIcon.folder("#7ec8e3"), "Open selected image in OS viewer", () -> openSelectedImage(combo.getValue()));
 
       combo.valueProperty().addListener((o, ov, nv) -> {
         if (applyingState) {
@@ -1225,10 +1225,10 @@ dialogue line or @imgattr command. Clicking Copy puts it on the clipboard."""));
   private void updateFullscreenButtonUi() {
     if (fullscreenButton == null) return;
     if (fullscreenActive) {
-      fullscreenButton.setGraphic(CssIcon.clearX("#f38ba8"));
+      fullscreenButton.setGraphic(SidebarToolIcon.clearX("#f38ba8"));
       fullscreenButton.setTooltip(new Tooltip("Exit panel fullscreen"));
     } else {
-      fullscreenButton.setGraphic(CssIcon.expand("#f5c46b"));
+      fullscreenButton.setGraphic(SidebarToolIcon.expand("#f5c46b"));
       fullscreenButton.setTooltip(new Tooltip("Fullscreen this panel in the current editor window"));
     }
   }

@@ -83,6 +83,7 @@ import com.jvn.editor.ui.PuppeteerLauncherPanel;
 import com.jvn.editor.ui.RunConsoleView;
 import com.jvn.editor.ui.ScriptEditorLauncherView;
 import com.jvn.editor.ui.SettingsEditorView;
+import com.jvn.editor.ui.SidebarToolIcon;
 import com.jvn.editor.ui.StartupSplashOverlay;
 import com.jvn.editor.ui.ShutdownSplashOverlay;
 import com.jvn.editor.ui.StoryTimelineView;
@@ -6136,7 +6137,7 @@ public class EditorApp extends Application {
     placementBadge.setAlignment(Pos.CENTER);
     Tooltip placementTooltip = new Tooltip();
     placementBadge.setTooltip(placementTooltip);
-    Region memoryIcon = CssIcon.memory("#9a9a9a");
+    Region memoryIcon = SidebarToolIcon.of(SidebarToolIcon.Kind.MEMORY, "#9a9a9a", 18);
     memoryIcon.getStyleClass().add("panel-chooser-memory-icon");
     Label memoryIndicator = new Label("●");
     memoryIndicator.getStyleClass().add("panel-chooser-memory-indicator");
@@ -6191,7 +6192,7 @@ public class EditorApp extends Application {
       placementBadge.setVisible(true);
       updateChooserPlacementBadge(placementBadge, placement, attached, placementTooltip);
       if (launchBlocked) {
-        dockBtn.setGraphic(CssIcon.warning("#f5a34a"));
+        dockBtn.setGraphic(SidebarToolIcon.warning("#f5a34a"));
         dockBtn.setTooltip(maintenanceTooltip);
         dockBtn.setDisable(true);
         popOutBtn.setTooltip(maintenanceTooltip);
@@ -6209,11 +6210,11 @@ public class EditorApp extends Application {
         dockBtn.setTooltip(new Tooltip(
             "Add to " + (targetPlacement == EditorPanelPlacement.RIGHT ? "right" : "left") + " sidebar"));
       } else if (placement != targetPlacement) {
-        dockBtn.setGraphic(CssIcon.dock("#d6dbe5"));
+        dockBtn.setGraphic(SidebarToolIcon.dock("#d6dbe5"));
         dockBtn.setTooltip(new Tooltip(
             "Move to " + (targetPlacement == EditorPanelPlacement.RIGHT ? "right" : "left") + " sidebar"));
       } else {
-        dockBtn.setGraphic(CssIcon.dock("#d6dbe5"));
+        dockBtn.setGraphic(SidebarToolIcon.dock("#d6dbe5"));
         dockBtn.setTooltip(new Tooltip("Select panel"));
       }
     };

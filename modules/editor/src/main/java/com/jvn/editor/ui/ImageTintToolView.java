@@ -408,7 +408,7 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
     exportInfoLabel.setStyle("-fx-font-size: 10px; -fx-text-fill: #9a9a9a;");
     exportInfoLabel.setWrapText(true);
 
-    refreshCatalogButton = iconButton(CssIcon.refresh("#7ec8e3"), "Rescan project images", this::onCatalogRefreshRequested);
+    refreshCatalogButton = iconButton(SidebarToolIcon.refresh("#7ec8e3"), "Rescan project images", this::onCatalogRefreshRequested);
     updateRefreshButtonUi(false);
 
     // ── Compact sidebar rows ──
@@ -421,7 +421,7 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
     HBox.setHgrow(assetScopeBox, Priority.ALWAYS);
 
     Button characterPickerButton = assetTagPickerButton(
-        CssIcon.person("#d8c48a"),
+        SidebarToolIcon.person("#d8c48a"),
         "Choose character asset or charpreset",
         characterTagBox);
     HBox charRow = new HBox(4, characterPickerButton, characterTagBox);
@@ -429,20 +429,20 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
     HBox.setHgrow(characterTagBox, Priority.ALWAYS);
 
     Button backgroundPickerButton = assetTagPickerButton(
-        CssIcon.landscape("#f5c46b"),
+        SidebarToolIcon.landscape("#f5c46b"),
         "Choose background image",
         backgroundTagBox);
     HBox bgRow = new HBox(4, backgroundPickerButton, backgroundTagBox);
     bgRow.setAlignment(Pos.CENTER_LEFT);
     HBox.setHgrow(backgroundTagBox, Priority.ALWAYS);
 
-    Button loadSetupButton = iconButton(CssIcon.download("#8ab4f8"), "Load selected setup", this::loadSelectedSetup);
-    Button deleteSetupButton = iconButton(CssIcon.clearX("#f38ba8"), "Delete selected setup", this::deleteSelectedSetup);
+    Button loadSetupButton = iconButton(SidebarToolIcon.download("#8ab4f8"), "Load selected setup", this::loadSelectedSetup);
+    Button deleteSetupButton = iconButton(SidebarToolIcon.clearX("#f38ba8"), "Delete selected setup", this::deleteSelectedSetup);
     HBox setupLoadRow = new HBox(4, new Label("Setup"), setupBox, loadSetupButton, deleteSetupButton);
     setupLoadRow.setAlignment(Pos.CENTER_LEFT);
     HBox.setHgrow(setupBox, Priority.ALWAYS);
 
-    Button saveSetupButton = iconButton(CssIcon.save("#9ed67a"), "Save current setup", this::saveCurrentSetup);
+    Button saveSetupButton = iconButton(SidebarToolIcon.save("#9ed67a"), "Save current setup", this::saveCurrentSetup);
     HBox setupSaveRow = new HBox(4, new Label("Save"), setupNameField, saveSetupButton);
     setupSaveRow.setAlignment(Pos.CENTER_LEFT);
     HBox.setHgrow(setupNameField, Priority.ALWAYS);
@@ -473,23 +473,23 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
     installPreviewInteractions();
 
     // ── Action buttons ──
-    Button resetViewButton = iconButton(CssIcon.expand("#8ab4f8"), "Reset position and zoom", this::resetView);
-    Button resetTintButton = iconButton(CssIcon.palette("#f5b971"), "Reset global grade controls", this::resetTintControls);
-    fullscreenButton = iconButton(CssIcon.expand("#f5c46b"), "Fullscreen", this::requestFullscreenToggle);
+    Button resetViewButton = iconButton(SidebarToolIcon.expand("#8ab4f8"), "Reset position and zoom", this::resetView);
+    Button resetTintButton = iconButton(SidebarToolIcon.palette("#f5b971"), "Reset global grade controls", this::resetTintControls);
+    fullscreenButton = iconButton(SidebarToolIcon.expand("#f5c46b"), "Fullscreen", this::requestFullscreenToggle);
     updateFullscreenButtonUi();
-    Button chooseExportFolderButton = iconButton(CssIcon.folder("#f5c46b"), "Choose export folder", this::chooseExportDirectory);
-    Button revealExportFolderButton = iconButton(CssIcon.link("#9cc7ff"), "Reveal export folder in JVN Path Explorer", this::revealExportDirectory);
-    exportPrimaryButton = actionButton("Export Profile", CssIcon.download("#8ab4f8"), "Quick export the selected format to the configured folder", this::quickExportSelectedFormat);
-    exportPrimaryAsButton = actionButton("Export Profile As", CssIcon.save("#8ab4f8"), "Choose a destination for the selected format", this::exportSelectedFormatAs);
-    Button exportPngButton = actionButton("PNG", CssIcon.download("#8ab4f8"), "Quick export the graded PNG to the configured folder", this::quickExportTintedPng);
-    Button exportPngAsButton = actionButton("PNG As", CssIcon.save("#8ab4f8"), "Choose a PNG destination", this::exportTintedPngAs);
-    Button exportSetupBtn = actionButton("Setup", CssIcon.save("#9ed67a"), "Quick export .tintsetup to the configured folder", this::quickExportSetupToFile);
-    Button exportSetupAsButton = actionButton("Setup As", CssIcon.download("#9ed67a"), "Choose a .tintsetup destination", this::exportSetupToFileAs);
-    Button exportStageBtn = actionButton("Stage", CssIcon.save("#d2c6ff"), "Quick export runtime-ready .stagepreset to the configured folder", this::quickExportStagePresetToFile);
-    Button exportStageAsButton = actionButton("Stage As", CssIcon.download("#d2c6ff"), "Choose a .stagepreset destination", this::exportStagePresetToFileAs);
-    Button importSetupBtn = actionButton("Import", CssIcon.folder("#f5c46b"), "Import setup from .tintsetup file", this::importSetupFromFile);
-    Button exportBundleButton = actionButton("PNG + Setup + Stage", CssIcon.download("#d8c48a"), "Quick export PNG, editor setup, and runtime stage preset to the configured folder", this::quickExportBundle);
-    Button copyExportButton = actionButton("Copy", CssIcon.copy("#9ad19c"), "Copy selected export format", this::copySelectedExport);
+    Button chooseExportFolderButton = iconButton(SidebarToolIcon.folder("#f5c46b"), "Choose export folder", this::chooseExportDirectory);
+    Button revealExportFolderButton = iconButton(SidebarToolIcon.link("#9cc7ff"), "Reveal export folder in JVN Path Explorer", this::revealExportDirectory);
+    exportPrimaryButton = actionButton("Export Profile", SidebarToolIcon.download("#8ab4f8"), "Quick export the selected format to the configured folder", this::quickExportSelectedFormat);
+    exportPrimaryAsButton = actionButton("Export Profile As", SidebarToolIcon.save("#8ab4f8"), "Choose a destination for the selected format", this::exportSelectedFormatAs);
+    Button exportPngButton = actionButton("PNG", SidebarToolIcon.download("#8ab4f8"), "Quick export the graded PNG to the configured folder", this::quickExportTintedPng);
+    Button exportPngAsButton = actionButton("PNG As", SidebarToolIcon.save("#8ab4f8"), "Choose a PNG destination", this::exportTintedPngAs);
+    Button exportSetupBtn = actionButton("Setup", SidebarToolIcon.save("#9ed67a"), "Quick export .tintsetup to the configured folder", this::quickExportSetupToFile);
+    Button exportSetupAsButton = actionButton("Setup As", SidebarToolIcon.download("#9ed67a"), "Choose a .tintsetup destination", this::exportSetupToFileAs);
+    Button exportStageBtn = actionButton("Stage", SidebarToolIcon.save("#d2c6ff"), "Quick export runtime-ready .stagepreset to the configured folder", this::quickExportStagePresetToFile);
+    Button exportStageAsButton = actionButton("Stage As", SidebarToolIcon.download("#d2c6ff"), "Choose a .stagepreset destination", this::exportStagePresetToFileAs);
+    Button importSetupBtn = actionButton("Import", SidebarToolIcon.folder("#f5c46b"), "Import setup from .tintsetup file", this::importSetupFromFile);
+    Button exportBundleButton = actionButton("PNG + Setup + Stage", SidebarToolIcon.download("#d8c48a"), "Quick export PNG, editor setup, and runtime stage preset to the configured folder", this::quickExportBundle);
+    Button copyExportButton = actionButton("Copy", SidebarToolIcon.copy("#9ad19c"), "Copy selected export format", this::copySelectedExport);
     HBox actionRow = new HBox(4, resetViewButton, resetTintButton, fullscreenButton);
     actionRow.setAlignment(Pos.CENTER_LEFT);
     HBox exportModeRow = new HBox(4, new Label("Mode"), exportFormatBox);
@@ -560,7 +560,7 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
     // ── Zone area selector section ──
     buildZoneSection();
 
-    sidebarHideButton = iconButton(CssIcon.arrowRight("#d0d0d0"), "Hide controls sidebar", () -> setSidebarCollapsed(true, true));
+    sidebarHideButton = iconButton(SidebarToolIcon.arrowRight("#d0d0d0"), "Hide controls sidebar", () -> setSidebarCollapsed(true, true));
     sidebarHideButton.getStyleClass().add("image-tool-sidebar-toggle");
     Region sidebarHeaderSpacer = new Region();
     HBox.setHgrow(sidebarHeaderSpacer, Priority.ALWAYS);
@@ -611,7 +611,7 @@ sets the key light direction."""), sidebarHeaderSpacer, sidebarHideButton);
     sidebarScroll.setPrefWidth(280);
     sidebarScroll.setMinWidth(0);
 
-    sidebarShowButton = iconButton(CssIcon.arrowLeft("#d0d0d0"), "Show controls sidebar", () -> setSidebarCollapsed(false, true));
+    sidebarShowButton = iconButton(SidebarToolIcon.arrowLeft("#d0d0d0"), "Show controls sidebar", () -> setSidebarCollapsed(false, true));
     sidebarShowButton.getStyleClass().addAll("image-tool-sidebar-toggle", "image-tool-sidebar-overlay-toggle");
     sidebarShowButton.setManaged(false);
     sidebarShowButton.setVisible(false);
@@ -846,17 +846,17 @@ sets the key light direction."""), sidebarHeaderSpacer, sidebarHideButton);
     lightLockedCheck.setFocusTraversable(false);
     lightSoloCheck.setFocusTraversable(false);
 
-    lightPolyDrawToggleButton = iconButton(CssIcon.polygon("#f5c46b"), "Draw a polygonal scene light on the preview", this::toggleLightPolyDrawMode);
-    lightFreehandDrawToggleButton = iconButton(CssIcon.freehand("#9ad4ff"), "Sketch a freehand polygonal scene light on the preview", this::toggleLightFreehandDrawMode);
-    Button addLightButton = iconButton(CssIcon.plus("#f6cc7a"), "Add a scene light at center", this::addDefaultLight);
-    Button duplicateLightButton = iconButton(CssIcon.copy("#d0d0d0"), "Duplicate selected light", this::duplicateSelectedLight);
-    Button removeLightButton = iconButton(CssIcon.minus("#f38ba8"), "Remove selected light", this::removeSelectedLight);
-    Button clearLightsButton = iconButton(CssIcon.clearX("#f5b971"), "Remove all scene lights", this::clearAllLights);
-    Button moveLightUpButton = iconButton(CssIcon.arrowUp("#d0d0d0"), "Move light up in stack", this::moveLightUp);
-    Button moveLightDownButton = iconButton(CssIcon.arrowDown("#d0d0d0"), "Move light down in stack", this::moveLightDown);
-    Button resetLightVectorButton = iconButton(CssIcon.undo("#cfd8e6"), "Reset selected light source vector", this::resetSelectedLightSource);
-    Button mirrorLightButton = iconButton(CssIcon.arrowLeft("#d7c3ff"), "Mirror selected light across the scene", this::mirrorSelectedLight);
-    Button normalizeRigButton = iconButton(CssIcon.check("#9ed67a"), "Normalize light intensities in the rig", this::normalizeRigIntensity);
+    lightPolyDrawToggleButton = iconButton(SidebarToolIcon.polygon("#f5c46b"), "Draw a polygonal scene light on the preview", this::toggleLightPolyDrawMode);
+    lightFreehandDrawToggleButton = iconButton(SidebarToolIcon.freehand("#9ad4ff"), "Sketch a freehand polygonal scene light on the preview", this::toggleLightFreehandDrawMode);
+    Button addLightButton = iconButton(SidebarToolIcon.plus("#f6cc7a"), "Add a scene light at center", this::addDefaultLight);
+    Button duplicateLightButton = iconButton(SidebarToolIcon.copy("#d0d0d0"), "Duplicate selected light", this::duplicateSelectedLight);
+    Button removeLightButton = iconButton(SidebarToolIcon.minus("#f38ba8"), "Remove selected light", this::removeSelectedLight);
+    Button clearLightsButton = iconButton(SidebarToolIcon.clearX("#f5b971"), "Remove all scene lights", this::clearAllLights);
+    Button moveLightUpButton = iconButton(SidebarToolIcon.arrowUp("#d0d0d0"), "Move light up in stack", this::moveLightUp);
+    Button moveLightDownButton = iconButton(SidebarToolIcon.arrowDown("#d0d0d0"), "Move light down in stack", this::moveLightDown);
+    Button resetLightVectorButton = iconButton(SidebarToolIcon.undo("#cfd8e6"), "Reset selected light source vector", this::resetSelectedLightSource);
+    Button mirrorLightButton = iconButton(SidebarToolIcon.arrowLeft("#d7c3ff"), "Mirror selected light across the scene", this::mirrorSelectedLight);
+    Button normalizeRigButton = iconButton(SidebarToolIcon.check("#9ed67a"), "Normalize light intensities in the rig", this::normalizeRigIntensity);
     HBox lightActions = new HBox(
         6,
         lightPolyDrawToggleButton,
@@ -1082,10 +1082,10 @@ sets the key light direction."""), sidebarHeaderSpacer, sidebarHideButton);
   private void updateRefreshButtonUi(boolean scanning) {
     if (refreshCatalogButton == null) return;
     if (scanning) {
-      refreshCatalogButton.setGraphic(CssIcon.clearX("#f38ba8"));
+      refreshCatalogButton.setGraphic(SidebarToolIcon.clearX("#f38ba8"));
       refreshCatalogButton.setTooltip(new Tooltip("Cancel image scan"));
     } else {
-      refreshCatalogButton.setGraphic(CssIcon.refresh("#7ec8e3"));
+      refreshCatalogButton.setGraphic(SidebarToolIcon.refresh("#7ec8e3"));
       refreshCatalogButton.setTooltip(new Tooltip("Rescan project images"));
     }
   }
@@ -1768,10 +1768,10 @@ sets the key light direction."""), sidebarHeaderSpacer, sidebarHideButton);
   private void updateFullscreenButtonUi() {
     if (fullscreenButton == null) return;
     if (fullscreenActive) {
-      fullscreenButton.setGraphic(CssIcon.clearX("#f38ba8"));
+      fullscreenButton.setGraphic(SidebarToolIcon.clearX("#f38ba8"));
       fullscreenButton.setTooltip(new Tooltip("Exit panel fullscreen"));
     } else {
-      fullscreenButton.setGraphic(CssIcon.expand("#f5c46b"));
+      fullscreenButton.setGraphic(SidebarToolIcon.expand("#f5c46b"));
       fullscreenButton.setTooltip(new Tooltip("Fullscreen this panel in the current editor window"));
     }
   }
@@ -3570,15 +3570,15 @@ sets the key light direction."""), sidebarHeaderSpacer, sidebarHideButton);
   }
 
   private javafx.scene.layout.Region exportQuickGraphic(String format) {
-    if (DEFAULT_EXPORT_SETUP.equals(format)) return CssIcon.save("#9ed67a");
-    if (DEFAULT_EXPORT_STAGE_PRESET.equals(format)) return CssIcon.save("#d2c6ff");
-    return CssIcon.copy("#9ad19c");
+    if (DEFAULT_EXPORT_SETUP.equals(format)) return SidebarToolIcon.save("#9ed67a");
+    if (DEFAULT_EXPORT_STAGE_PRESET.equals(format)) return SidebarToolIcon.save("#d2c6ff");
+    return SidebarToolIcon.copy("#9ad19c");
   }
 
   private javafx.scene.layout.Region exportAsGraphic(String format) {
-    if (DEFAULT_EXPORT_SETUP.equals(format)) return CssIcon.download("#9ed67a");
-    if (DEFAULT_EXPORT_STAGE_PRESET.equals(format)) return CssIcon.download("#d2c6ff");
-    return CssIcon.save("#8ab4f8");
+    if (DEFAULT_EXPORT_SETUP.equals(format)) return SidebarToolIcon.download("#9ed67a");
+    if (DEFAULT_EXPORT_STAGE_PRESET.equals(format)) return SidebarToolIcon.download("#d2c6ff");
+    return SidebarToolIcon.save("#8ab4f8");
   }
 
   private File configuredExportDirectory() {
@@ -4777,7 +4777,7 @@ sets the key light direction."""), sidebarHeaderSpacer, sidebarHideButton);
       }
 
       private void updateVisibilityButton(boolean visible) {
-        visibilityButton.setGraphic(visible ? CssIcon.visibility("#d0d0d0") : CssIcon.visibilityOff("#6b7280"));
+        visibilityButton.setGraphic(visible ? SidebarToolIcon.visibility("#d0d0d0") : SidebarToolIcon.visibilityOff("#6b7280"));
         visibilityButton.setTooltip(new Tooltip(visible ? "Hide bounds overlay" : "Show bounds overlay"));
       }
 
@@ -4806,15 +4806,15 @@ sets the key light direction."""), sidebarHeaderSpacer, sidebarHideButton);
       selectZone(idx);
     });
 
-    zoneDrawToggleButton = iconButton(CssIcon.rectSelect("#d0d0d0"), "Drag on preview to draw a rectangular zone", this::toggleZoneDrawMode);
-    polyDrawToggleButton = iconButton(CssIcon.polygon("#c49cf8"), "Click on preview to place polygon vertices; click near first point or double-click to close", this::togglePolyDrawMode);
-    freehandDrawToggleButton = iconButton(CssIcon.freehand("#7dd3fc"), "Hold and draw to create a smoothed freehand zone", this::toggleFreehandDrawMode);
+    zoneDrawToggleButton = iconButton(SidebarToolIcon.rectSelect("#d0d0d0"), "Drag on preview to draw a rectangular zone", this::toggleZoneDrawMode);
+    polyDrawToggleButton = iconButton(SidebarToolIcon.polygon("#c49cf8"), "Click on preview to place polygon vertices; click near first point or double-click to close", this::togglePolyDrawMode);
+    freehandDrawToggleButton = iconButton(SidebarToolIcon.freehand("#7dd3fc"), "Hold and draw to create a smoothed freehand zone", this::toggleFreehandDrawMode);
 
-    Button addZoneButton = iconButton(CssIcon.plus("#9ed67a"), "Add zone at center", this::addDefaultZone);
-    Button removeZoneButton = iconButton(CssIcon.minus("#f38ba8"), "Remove selected zone", this::removeSelectedZone);
-    Button clearZonesButton = iconButton(CssIcon.clearX("#f5b971"), "Remove all zones", this::clearAllZones);
-    Button moveUpButton = iconButton(CssIcon.arrowUp("#d0d0d0"), "Move zone up in order", this::moveZoneUp);
-    Button moveDownButton = iconButton(CssIcon.arrowDown("#d0d0d0"), "Move zone down in order", this::moveZoneDown);
+    Button addZoneButton = iconButton(SidebarToolIcon.plus("#9ed67a"), "Add zone at center", this::addDefaultZone);
+    Button removeZoneButton = iconButton(SidebarToolIcon.minus("#f38ba8"), "Remove selected zone", this::removeSelectedZone);
+    Button clearZonesButton = iconButton(SidebarToolIcon.clearX("#f5b971"), "Remove all zones", this::clearAllZones);
+    Button moveUpButton = iconButton(SidebarToolIcon.arrowUp("#d0d0d0"), "Move zone up in order", this::moveZoneUp);
+    Button moveDownButton = iconButton(SidebarToolIcon.arrowDown("#d0d0d0"), "Move zone down in order", this::moveZoneDown);
 
     HBox zoneActions = new HBox(6, zoneDrawToggleButton, polyDrawToggleButton, freehandDrawToggleButton, addZoneButton, removeZoneButton, clearZonesButton, moveUpButton, moveDownButton);
     zoneActions.setAlignment(Pos.CENTER_LEFT);
@@ -4908,11 +4908,11 @@ sets the key light direction."""), sidebarHeaderSpacer, sidebarHideButton);
       selectOccluder(nv == null ? -1 : nv.intValue());
     });
 
-    occluderPolyDrawToggleButton = iconButton(CssIcon.polygon("#a6b7ff"), "Draw a polygonal shadow blocker on the preview", this::toggleOccluderPolyDrawMode);
-    occluderFreehandDrawToggleButton = iconButton(CssIcon.freehand("#b6d8ff"), "Sketch a freehand shadow blocker on the preview", this::toggleOccluderFreehandDrawMode);
-    Button addOccluderButton = iconButton(CssIcon.plus("#9ed67a"), "Add a default occluder", this::addDefaultOccluder);
-    Button removeOccluderButton = iconButton(CssIcon.minus("#f38ba8"), "Remove selected occluder", this::removeSelectedOccluder);
-    Button clearOccludersButton = iconButton(CssIcon.clearX("#f5b971"), "Remove all occluders", this::clearAllOccluders);
+    occluderPolyDrawToggleButton = iconButton(SidebarToolIcon.polygon("#a6b7ff"), "Draw a polygonal shadow blocker on the preview", this::toggleOccluderPolyDrawMode);
+    occluderFreehandDrawToggleButton = iconButton(SidebarToolIcon.freehand("#b6d8ff"), "Sketch a freehand shadow blocker on the preview", this::toggleOccluderFreehandDrawMode);
+    Button addOccluderButton = iconButton(SidebarToolIcon.plus("#9ed67a"), "Add a default occluder", this::addDefaultOccluder);
+    Button removeOccluderButton = iconButton(SidebarToolIcon.minus("#f38ba8"), "Remove selected occluder", this::removeSelectedOccluder);
+    Button clearOccludersButton = iconButton(SidebarToolIcon.clearX("#f5b971"), "Remove all occluders", this::clearAllOccluders);
     HBox actions = new HBox(6, occluderPolyDrawToggleButton, occluderFreehandDrawToggleButton, addOccluderButton, removeOccluderButton, clearOccludersButton);
     actions.setAlignment(Pos.CENTER_LEFT);
 
@@ -4961,7 +4961,7 @@ sets the key light direction."""), sidebarHeaderSpacer, sidebarHideButton);
     resetDrawButtons();
     if (zoneDrawMode) {
       zoneDrawToggleButton.setStyle("-fx-background-color: #d4a017; -fx-padding: 4;");
-      zoneDrawToggleButton.setGraphic(CssIcon.rectSelect("#1a1a2e"));
+      zoneDrawToggleButton.setGraphic(SidebarToolIcon.rectSelect("#1a1a2e"));
       status("Rect draw mode ON — drag on preview to create a rectangular zone.");
     } else {
       status("Draw mode OFF.");
@@ -4978,7 +4978,7 @@ sets the key light direction."""), sidebarHeaderSpacer, sidebarHideButton);
     resetDrawButtons();
     if (polyDrawMode) {
       polyDrawToggleButton.setStyle("-fx-background-color: #d4a017; -fx-padding: 4;");
-      polyDrawToggleButton.setGraphic(CssIcon.polygon("#1a1a2e"));
+      polyDrawToggleButton.setGraphic(SidebarToolIcon.polygon("#1a1a2e"));
       status("Polygon draw mode ON — click to place vertices, click first point or double-click to close.");
     } else {
       status("Draw mode OFF.");
@@ -4996,7 +4996,7 @@ sets the key light direction."""), sidebarHeaderSpacer, sidebarHideButton);
     resetDrawButtons();
     if (freehandDrawMode) {
       freehandDrawToggleButton.setStyle("-fx-background-color: #d4a017; -fx-padding: 4;");
-      freehandDrawToggleButton.setGraphic(CssIcon.freehand("#1a1a2e"));
+      freehandDrawToggleButton.setGraphic(SidebarToolIcon.freehand("#1a1a2e"));
       status("Freehand draw mode ON — hold and draw a zone boundary, then release to auto-smooth.");
     } else {
       status("Draw mode OFF.");
@@ -5013,7 +5013,7 @@ sets the key light direction."""), sidebarHeaderSpacer, sidebarHideButton);
     resetDrawButtons();
     if (lightPolyDrawMode) {
       lightPolyDrawToggleButton.setStyle("-fx-background-color: #d4a017; -fx-padding: 4;");
-      lightPolyDrawToggleButton.setGraphic(CssIcon.polygon("#1a1a2e"));
+      lightPolyDrawToggleButton.setGraphic(SidebarToolIcon.polygon("#1a1a2e"));
       status("Polygon light mode ON — click to place vertices for the selected scene light.");
     } else {
       status("Draw mode OFF.");
@@ -5031,7 +5031,7 @@ sets the key light direction."""), sidebarHeaderSpacer, sidebarHideButton);
     resetDrawButtons();
     if (lightFreehandDrawMode) {
       lightFreehandDrawToggleButton.setStyle("-fx-background-color: #d4a017; -fx-padding: 4;");
-      lightFreehandDrawToggleButton.setGraphic(CssIcon.freehand("#1a1a2e"));
+      lightFreehandDrawToggleButton.setGraphic(SidebarToolIcon.freehand("#1a1a2e"));
       status("Freehand light mode ON — draw a scene-light boundary, then release to smooth it.");
     } else {
       status("Draw mode OFF.");
@@ -5048,7 +5048,7 @@ sets the key light direction."""), sidebarHeaderSpacer, sidebarHideButton);
     resetDrawButtons();
     if (occluderPolyDrawMode) {
       occluderPolyDrawToggleButton.setStyle("-fx-background-color: #d4a017; -fx-padding: 4;");
-      occluderPolyDrawToggleButton.setGraphic(CssIcon.polygon("#1a1a2e"));
+      occluderPolyDrawToggleButton.setGraphic(SidebarToolIcon.polygon("#1a1a2e"));
       status("Occluder polygon mode ON — click to place blocker vertices.");
     } else {
       status("Draw mode OFF.");
@@ -5066,7 +5066,7 @@ sets the key light direction."""), sidebarHeaderSpacer, sidebarHideButton);
     resetDrawButtons();
     if (occluderFreehandDrawMode) {
       occluderFreehandDrawToggleButton.setStyle("-fx-background-color: #d4a017; -fx-padding: 4;");
-      occluderFreehandDrawToggleButton.setGraphic(CssIcon.freehand("#1a1a2e"));
+      occluderFreehandDrawToggleButton.setGraphic(SidebarToolIcon.freehand("#1a1a2e"));
       status("Occluder freehand mode ON — draw a blocker and release to smooth it.");
     } else {
       status("Draw mode OFF.");
@@ -5076,26 +5076,26 @@ sets the key light direction."""), sidebarHeaderSpacer, sidebarHideButton);
 
   private void resetDrawButtons() {
     zoneDrawToggleButton.setStyle("-fx-background-color: #2a2a2a; -fx-padding: 4;");
-    zoneDrawToggleButton.setGraphic(CssIcon.rectSelect("#d0d0d0"));
+    zoneDrawToggleButton.setGraphic(SidebarToolIcon.rectSelect("#d0d0d0"));
     polyDrawToggleButton.setStyle("-fx-background-color: #2a2a2a; -fx-padding: 4;");
-    polyDrawToggleButton.setGraphic(CssIcon.polygon("#c49cf8"));
+    polyDrawToggleButton.setGraphic(SidebarToolIcon.polygon("#c49cf8"));
     freehandDrawToggleButton.setStyle("-fx-background-color: #2a2a2a; -fx-padding: 4;");
-    freehandDrawToggleButton.setGraphic(CssIcon.freehand("#7dd3fc"));
+    freehandDrawToggleButton.setGraphic(SidebarToolIcon.freehand("#7dd3fc"));
     if (lightPolyDrawToggleButton != null) {
       lightPolyDrawToggleButton.setStyle("-fx-background-color: #2a2a2a; -fx-padding: 4;");
-      lightPolyDrawToggleButton.setGraphic(CssIcon.polygon("#f5c46b"));
+      lightPolyDrawToggleButton.setGraphic(SidebarToolIcon.polygon("#f5c46b"));
     }
     if (lightFreehandDrawToggleButton != null) {
       lightFreehandDrawToggleButton.setStyle("-fx-background-color: #2a2a2a; -fx-padding: 4;");
-      lightFreehandDrawToggleButton.setGraphic(CssIcon.freehand("#9ad4ff"));
+      lightFreehandDrawToggleButton.setGraphic(SidebarToolIcon.freehand("#9ad4ff"));
     }
     if (occluderPolyDrawToggleButton != null) {
       occluderPolyDrawToggleButton.setStyle("-fx-background-color: #2a2a2a; -fx-padding: 4;");
-      occluderPolyDrawToggleButton.setGraphic(CssIcon.polygon("#a6b7ff"));
+      occluderPolyDrawToggleButton.setGraphic(SidebarToolIcon.polygon("#a6b7ff"));
     }
     if (occluderFreehandDrawToggleButton != null) {
       occluderFreehandDrawToggleButton.setStyle("-fx-background-color: #2a2a2a; -fx-padding: 4;");
-      occluderFreehandDrawToggleButton.setGraphic(CssIcon.freehand("#b6d8ff"));
+      occluderFreehandDrawToggleButton.setGraphic(SidebarToolIcon.freehand("#b6d8ff"));
     }
   }
 

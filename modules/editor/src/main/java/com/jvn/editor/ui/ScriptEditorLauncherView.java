@@ -162,7 +162,7 @@ public class ScriptEditorLauncherView extends BorderPane {
     HBox.setHgrow(titleSpacer, Priority.ALWAYS);
     HBox titleRow = new HBox(
         8,
-        CssIcon.list("#d0d0d0"),
+        SidebarToolIcon.list("#d0d0d0"),
         titleLabel,
         SidebarToolHelp.button(this, "Text Editor", """
             The Text Editor panel browses and manages all text-based project \
@@ -194,15 +194,15 @@ Explorer without relying on operating-system desktop integration."""),
     HBox.setHgrow(metaRow.getChildren().get(0), Priority.NEVER);
     HBox.setHgrow(metaRow.getChildren().get(1), Priority.ALWAYS);
 
-    styleActionButton(openInEditorButton, CssIcon.list("#e0e0e0"), "Open the selected text file in the main editor", true)
+    styleActionButton(openInEditorButton, SidebarToolIcon.list("#e0e0e0"), "Open the selected text file in the main editor", true)
         .getStyleClass().add("script-editor-action-button-compact");
-    styleActionButton(openWindowButton, CssIcon.popOut("#d0d0d0"), "Open the standalone tabbed text window", false)
+    styleActionButton(openWindowButton, SidebarToolIcon.popOut("#d0d0d0"), "Open the standalone tabbed text window", false)
         .getStyleClass().add("script-editor-action-button-compact");
-    styleActionButton(newScriptButton, CssIcon.plus("#96bf7c"), "Create a new project text file", false)
+    styleActionButton(newScriptButton, SidebarToolIcon.plus("#96bf7c"), "Create a new project text file", false)
         .getStyleClass().add("script-editor-action-button-compact");
-    styleActionButton(refreshButton, CssIcon.refresh("#d0d0d0"), "Refresh the text workspace", false)
+    styleActionButton(refreshButton, SidebarToolIcon.refresh("#d0d0d0"), "Refresh the text workspace", false)
         .getStyleClass().add("script-editor-action-button-compact");
-    styleActionButton(revealButton, CssIcon.folder("#d0d0d0"), "Reveal the current workspace in JVN Path Explorer", false)
+    styleActionButton(revealButton, SidebarToolIcon.folder("#d0d0d0"), "Reveal the current workspace in JVN Path Explorer", false)
         .getStyleClass().add("script-editor-action-button-compact");
 
     FlowPane actionsBar = new FlowPane();
@@ -264,7 +264,7 @@ Explorer without relying on operating-system desktop integration."""),
     explorerHint.setWrapText(true);
     explorerHint.getStyleClass().add("script-editor-hint");
 
-    VBox searchResultsCard = new VBox(6, paneHeader("Search Results", "Matches across the workspace", CssIcon.search("#d0d0d0")), searchResults);
+    VBox searchResultsCard = new VBox(6, paneHeader("Search Results", "Matches across the workspace", SidebarToolIcon.search("#d0d0d0")), searchResults);
     searchResultsCard.setPadding(new Insets(6));
     searchResultsCard.getStyleClass().add("script-editor-card");
     searchResultsCard.setVisible(false);
@@ -272,7 +272,7 @@ Explorer without relying on operating-system desktop integration."""),
 
     VBox explorerBox = new VBox(
         8,
-        paneHeader("Workspace Explorer", "Project scripts and folders", CssIcon.folder("#d0d0d0")),
+        paneHeader("Workspace Explorer", "Project scripts and folders", SidebarToolIcon.folder("#d0d0d0")),
         explorerTree,
         explorerHint,
         searchResultsCard);
@@ -295,7 +295,7 @@ Explorer without relying on operating-system desktop integration."""),
     VBox includedByCard = new VBox(6, sectionLabel("Included By"), includedByList);
     includedByCard.setPadding(new Insets(8));
     includedByCard.getStyleClass().add("script-editor-card");
-    VBox inspectorBox = new VBox(10, paneHeader("Inspector", "Outline, includes, and references", CssIcon.list("#d0d0d0")), selectionTitle, selectionPath, selectionMeta,
+    VBox inspectorBox = new VBox(10, paneHeader("Inspector", "Outline, includes, and references", SidebarToolIcon.list("#d0d0d0")), selectionTitle, selectionPath, selectionMeta,
         outlineCard, includesCard, includedByCard);
     inspectorBox.setPadding(new Insets(8));
     inspectorBox.getStyleClass().addAll("script-editor-launcher-pane", "script-editor-card");
@@ -369,25 +369,25 @@ Explorer without relying on operating-system desktop integration."""),
       ContextMenu ctx = new ContextMenu();
 
       if (node.file() != null) {
-        MenuItem open = menuItem("Open in Editor", CssIcon.list("#d0d0d0"), this::openSelectedInEditor);
-        MenuItem openWindow = menuItem("Open in Text Window", CssIcon.popOut("#d0d0d0"), () -> launchEditorWindow(node.file()));
+        MenuItem open = menuItem("Open in Editor", SidebarToolIcon.list("#d0d0d0"), this::openSelectedInEditor);
+        MenuItem openWindow = menuItem("Open in Text Window", SidebarToolIcon.popOut("#d0d0d0"), () -> launchEditorWindow(node.file()));
         ctx.getItems().addAll(open, openWindow, new SeparatorMenuItem());
 
-        MenuItem rename = menuItem("Rename…", CssIcon.freehand("#c8c8c8"), this::renameSelectedScript);
-        MenuItem duplicate = menuItem("Duplicate", CssIcon.copy("#c8c8c8"), this::duplicateSelectedScript);
-        MenuItem delete = menuItem("Delete…", CssIcon.clearX("#f06a6a"), this::deleteSelectedScript);
+        MenuItem rename = menuItem("Rename…", SidebarToolIcon.freehand("#c8c8c8"), this::renameSelectedScript);
+        MenuItem duplicate = menuItem("Duplicate", SidebarToolIcon.copy("#c8c8c8"), this::duplicateSelectedScript);
+        MenuItem delete = menuItem("Delete…", SidebarToolIcon.clearX("#f06a6a"), this::deleteSelectedScript);
         ctx.getItems().addAll(rename, duplicate, delete, new SeparatorMenuItem());
 
-        MenuItem copyPath = menuItem("Copy Absolute Path", CssIcon.copy("#c8c8c8"),
+        MenuItem copyPath = menuItem("Copy Absolute Path", SidebarToolIcon.copy("#c8c8c8"),
             () -> copyToClipboard(node.file().getAbsolutePath()));
-        MenuItem copyRelPath = menuItem("Copy Relative Path", CssIcon.link("#c8c8c8"), () -> {
+        MenuItem copyRelPath = menuItem("Copy Relative Path", SidebarToolIcon.link("#c8c8c8"), () -> {
           if (node.entry != null) copyToClipboard(node.entry.projectRelativePath());
         });
-        MenuItem reveal = menuItem("Reveal in JVN Path Explorer", CssIcon.folder("#d0d0d0"), () -> revealFile(node.file()));
+        MenuItem reveal = menuItem("Reveal in JVN Path Explorer", SidebarToolIcon.folder("#d0d0d0"), () -> revealFile(node.file()));
         ctx.getItems().addAll(copyPath, copyRelPath, reveal);
       } else if (node.directory) {
-        MenuItem newScript = menuItem("New File Here…", CssIcon.plus("#8bcf98"), () -> createNewScriptInFolder(node));
-        MenuItem reveal = menuItem("Reveal in JVN Path Explorer", CssIcon.folder("#d0d0d0"), () -> {
+        MenuItem newScript = menuItem("New File Here…", SidebarToolIcon.plus("#8bcf98"), () -> createNewScriptInFolder(node));
+        MenuItem reveal = menuItem("Reveal in JVN Path Explorer", SidebarToolIcon.folder("#d0d0d0"), () -> {
           File dir = resolveNodeDirectory(node);
           if (dir != null && dir.exists()) revealFile(dir);
         });
@@ -959,7 +959,7 @@ Explorer without relying on operating-system desktop integration."""),
       });
 
       BorderPane filePane = new BorderPane(fileTree);
-      filePane.setTop(paneHeader("Files", "Project text workspace", CssIcon.folder("#d0d0d0")));
+      filePane.setTop(paneHeader("Files", "Project text workspace", SidebarToolIcon.folder("#d0d0d0")));
       filePane.getStyleClass().addAll("script-editor-window-sidebar", "script-editor-card");
 
       HBox menuShell = buildStandaloneMenuShell(fileTree, contentRoot, launchRoot, editorTabs, windowStatus, filePane);

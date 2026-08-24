@@ -173,13 +173,13 @@ public class TrashmanView extends BorderPane {
         """));
     titleRow.setAlignment(Pos.CENTER_LEFT);
 
-    Button refreshButton = actionButton("Refresh", CssIcon.refresh("#d0d0d0"), "Refresh heap telemetry.");
+    Button refreshButton = actionButton("Refresh", SidebarToolIcon.refresh("#d0d0d0"), "Refresh heap telemetry.");
     refreshButton.setOnAction(e -> refreshStatus(true));
-    Button gcButton = actionButton("Run GC", CssIcon.delete("#d0d0d0"), "Request one JVM garbage collection pass.");
+    Button gcButton = actionButton("Run GC", SidebarToolIcon.delete("#d0d0d0"), "Request one JVM garbage collection pass.");
     gcButton.setOnAction(e -> runGc(false, false));
-    Button sweepButton = actionButton("Sweep", CssIcon.sparkles("#f0b673"), "Run the configured multi-pass sweep.");
+    Button sweepButton = actionButton("Sweep", SidebarToolIcon.sparkles("#f0b673"), "Run the configured multi-pass sweep.");
     sweepButton.setOnAction(e -> runGc(true, jcmdCheck.isSelected()));
-    Button copyButton = actionButton("Copy Report", CssIcon.copy("#d0d0d0"), "Copy the current Trashman report.");
+    Button copyButton = actionButton("Copy Report", SidebarToolIcon.copy("#d0d0d0"), "Copy the current Trashman report.");
     copyButton.setOnAction(e -> copyText(reportText(latestSnapshot)));
 
     FlowPane actions = new FlowPane(6, 6, refreshButton, gcButton, sweepButton, copyButton);

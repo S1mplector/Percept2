@@ -125,7 +125,7 @@ the authoritative rendering and navigation check."""));
 
     Button refreshButton = new Button("Refresh");
     refreshButton.getStyleClass().add("layout-launcher-button");
-    refreshButton.setGraphic(CssIcon.refresh());
+    refreshButton.setGraphic(SidebarToolIcon.refresh());
     refreshButton.setTooltip(new Tooltip("Rescan project layout and menu files"));
     refreshButton.setOnAction(e -> refreshStatus());
 
@@ -217,10 +217,10 @@ the authoritative rendering and navigation check."""));
     }
 
     // Group by type with section headers (CSS icons)
-    renderSection(visible, ItemType.DIALOGUE_LAYOUT, CssIcon.speech(),  "Dialogue Layout");
-    renderSection(visible, ItemType.MENU_SCREEN,     CssIcon.list(),    "Menu Screens");
-    renderSection(visible, ItemType.MENU_LAYOUT,     CssIcon.grid(),    "Menu Layouts");
-    renderSection(visible, ItemType.MENU_STYLE,      CssIcon.palette(), "Menu Styles");
+    renderSection(visible, ItemType.DIALOGUE_LAYOUT, SidebarToolIcon.speech(),  "Dialogue Layout");
+    renderSection(visible, ItemType.MENU_SCREEN,     SidebarToolIcon.list(),    "Menu Screens");
+    renderSection(visible, ItemType.MENU_LAYOUT,     SidebarToolIcon.grid(),    "Menu Layouts");
+    renderSection(visible, ItemType.MENU_STYLE,      SidebarToolIcon.palette(), "Menu Styles");
 
     // Always show Create New buttons when in blank mode or when project has menu dirs
     if (projectRoot != null && projectRoot.isDirectory()) {
@@ -234,7 +234,7 @@ the authoritative rendering and navigation check."""));
         .collect(Collectors.toList());
     if (group.isEmpty()) return;
 
-    HBox header = CssIcon.iconLabel(icon, sectionTitle + "  (" + group.size() + ")", "");
+    HBox header = SidebarToolIcon.iconLabel(icon, sectionTitle + "  (" + group.size() + ")", "");
     header.getStyleClass().add("layout-launcher-section-header");
     if (header.getChildren().size() > 1 && header.getChildren().get(1) instanceof Label) {
       ((Label) header.getChildren().get(1)).getStyleClass().add("layout-launcher-section-title");
@@ -267,7 +267,7 @@ the authoritative rendering and navigation check."""));
 
     Button cloneButton = new Button("Clone");
     cloneButton.getStyleClass().addAll("layout-launcher-button", "layout-launcher-button-pill");
-    cloneButton.setGraphic(CssIcon.plus());
+    cloneButton.setGraphic(SidebarToolIcon.plus());
     cloneButton.setTooltip(new Tooltip("Create a copy of this layout item"));
     cloneButton.setOnAction(e -> cloneItem(item));
 
@@ -848,7 +848,7 @@ the authoritative rendering and navigation check."""));
 
     Button saveRegistry = new Button("Save Registry");
     saveRegistry.getStyleClass().add("layout-launcher-button");
-    saveRegistry.setGraphic(CssIcon.save());
+    saveRegistry.setGraphic(SidebarToolIcon.save());
     saveRegistry.setTooltip(new Tooltip("Save menu registry changes"));
     saveRegistry.setOnAction(e -> {
       if (projectRoot == null) return;
@@ -876,7 +876,7 @@ the authoritative rendering and navigation check."""));
 
     Button openRegistryFile = new Button("Open File");
     openRegistryFile.getStyleClass().add("layout-launcher-button");
-    openRegistryFile.setGraphic(CssIcon.expand());
+    openRegistryFile.setGraphic(SidebarToolIcon.expand());
     openRegistryFile.setTooltip(new Tooltip("Open the menu registry file"));
     openRegistryFile.setOnAction(e -> {
       if (projectRoot == null || onOpenFile == null) return;
@@ -1034,7 +1034,7 @@ the authoritative rendering and navigation check."""));
     panel.getStyleClass().add("layout-launcher-create-panel");
     panel.setPadding(new Insets(8, 0, 4, 0));
 
-    HBox header = CssIcon.iconLabel(CssIcon.plus(), "Create New File", "");
+    HBox header = SidebarToolIcon.iconLabel(SidebarToolIcon.plus(), "Create New File", "");
     header.getStyleClass().add("layout-launcher-section-header");
     if (header.getChildren().size() > 1 && header.getChildren().get(1) instanceof Label) {
       ((Label) header.getChildren().get(1)).getStyleClass().add("layout-launcher-section-title");
@@ -1043,21 +1043,21 @@ the authoritative rendering and navigation check."""));
 
     Button newScreen = new Button("New Menu Screen");
     newScreen.getStyleClass().add("layout-launcher-button");
-    newScreen.setGraphic(CssIcon.list());
+    newScreen.setGraphic(SidebarToolIcon.list());
     newScreen.setMaxWidth(Double.MAX_VALUE);
     newScreen.setTooltip(new Tooltip("Create a new menu screen file"));
     newScreen.setOnAction(e -> promptCreateFile("Menu Screen", "config/menu/menus", ".menu", ItemType.MENU_SCREEN));
 
     Button newLayout = new Button("New Menu Layout");
     newLayout.getStyleClass().add("layout-launcher-button");
-    newLayout.setGraphic(CssIcon.grid());
+    newLayout.setGraphic(SidebarToolIcon.grid());
     newLayout.setMaxWidth(Double.MAX_VALUE);
     newLayout.setTooltip(new Tooltip("Create a new menu layout file"));
     newLayout.setOnAction(e -> promptCreateFile("Menu Layout", "config/menu/layouts", ".layout", ItemType.MENU_LAYOUT));
 
     Button newStyle = new Button("New Menu Style");
     newStyle.getStyleClass().add("layout-launcher-button");
-    newStyle.setGraphic(CssIcon.palette());
+    newStyle.setGraphic(SidebarToolIcon.palette());
     newStyle.setMaxWidth(Double.MAX_VALUE);
     newStyle.setTooltip(new Tooltip("Create a new menu style file"));
     newStyle.setOnAction(e -> promptCreateFile("Menu Style", "config/menu/styles", ".style", ItemType.MENU_STYLE));

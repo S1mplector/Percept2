@@ -49,7 +49,7 @@ public class AssetBrowserView extends BorderPane {
   private final Button copyPathButton = new Button("Copy Path");
   private final Button openButton = new Button("Open");
   private final Button useAssetButton = new Button("Use Asset");
-  private final Button refreshButton = new Button("Refresh", CssIcon.refresh());
+  private final Button refreshButton = new Button("Refresh", SidebarToolIcon.refresh());
 
   private final List<AssetItem> allItems = new ArrayList<>();
   private File projectRoot;

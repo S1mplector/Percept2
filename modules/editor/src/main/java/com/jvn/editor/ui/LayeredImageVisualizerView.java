@@ -459,8 +459,8 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
     HBox.setHgrow(characterIdField, Priority.ALWAYS);
     HBox.setHgrow(expressionField, Priority.ALWAYS);
 
-    Button copyShowAttrsButton = iconButton(CssIcon.copy("#9ad19c"), "Copy: show <tag> <attributes>", () -> copyTagAttributes(true, true));
-    Button copyAttrsOnlyButton = iconButton(CssIcon.copy("#d6b4ff"), "Copy: <attributes> only", () -> copyTagAttributes(false, false));
+    Button copyShowAttrsButton = iconButton(SidebarToolIcon.copy("#9ad19c"), "Copy: show <tag> <attributes>", () -> copyTagAttributes(true, true));
+    Button copyAttrsOnlyButton = iconButton(SidebarToolIcon.copy("#d6b4ff"), "Copy: <attributes> only", () -> copyTagAttributes(false, false));
     HBox attrCopyRow = new HBox(4, new Label("Attrs"), copyShowAttrsButton, copyAttrsOnlyButton);
     attrCopyRow.setAlignment(Pos.CENTER_LEFT);
 
@@ -476,9 +476,9 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
     snippetFormatBox.getSelectionModel().select(SNIPPET_COMBINED);
     HBox.setHgrow(snippetFormatBox, Priority.ALWAYS);
 
-    Button copySnippetButton = iconButton(CssIcon.copy("#9ad19c"), "Copy selected snippet format", this::copySnippet);
-    Button copyRecipeButton = iconButton(CssIcon.copy("#d6b4ff"), "Copy detailed layer recipe comments", this::copyLayerRecipe);
-    Button exportCharpresetBtn = iconButton(CssIcon.copy("#c6a0f6"), "Copy @charpreset snippet to clipboard", this::copyCharpresetSnippet);
+    Button copySnippetButton = iconButton(SidebarToolIcon.copy("#9ad19c"), "Copy selected snippet format", this::copySnippet);
+    Button copyRecipeButton = iconButton(SidebarToolIcon.copy("#d6b4ff"), "Copy detailed layer recipe comments", this::copyLayerRecipe);
+    Button exportCharpresetBtn = iconButton(SidebarToolIcon.copy("#c6a0f6"), "Copy @charpreset snippet to clipboard", this::copyCharpresetSnippet);
 
     HBox snippetRow = new HBox(4, new Label("Snippet"), snippetFormatBox, copySnippetButton, copyRecipeButton, exportCharpresetBtn);
     snippetRow.setAlignment(Pos.CENTER_LEFT);
@@ -678,16 +678,16 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
     HBox groupsLabelRow = new HBox(4, groupsLabel, groupsOrderHelp);
     groupsLabelRow.setAlignment(Pos.CENTER_LEFT);
 
-    Button activeAllButton = iconButton(CssIcon.check("#9ed67a"), "Mark all groups active for randomization", () -> setAllGroupsActive(true));
-    Button activeNoneButton = iconButton(CssIcon.minus("#f0b673"), "Mark all groups inactive for randomization", () -> setAllGroupsActive(false));
-    Button swapAllButton = iconButton(CssIcon.check("#8ab4f8"), "Mark all groups for swap", () -> setAllSwapGroups(true));
-    Button swapNoneButton = iconButton(CssIcon.minus("#8ab4f8"), "Clear swap marks", () -> setAllSwapGroups(false));
-    Button collapseAllButton = new Button("", CssIcon.arrowRight("#888888"));
+    Button activeAllButton = iconButton(SidebarToolIcon.check("#9ed67a"), "Mark all groups active for randomization", () -> setAllGroupsActive(true));
+    Button activeNoneButton = iconButton(SidebarToolIcon.minus("#f0b673"), "Mark all groups inactive for randomization", () -> setAllGroupsActive(false));
+    Button swapAllButton = iconButton(SidebarToolIcon.check("#8ab4f8"), "Mark all groups for swap", () -> setAllSwapGroups(true));
+    Button swapNoneButton = iconButton(SidebarToolIcon.minus("#8ab4f8"), "Clear swap marks", () -> setAllSwapGroups(false));
+    Button collapseAllButton = new Button("", SidebarToolIcon.arrowRight("#888888"));
     collapseAllButton.setStyle("-fx-background-color: #2a2a2a; -fx-text-fill: #888; -fx-font-size: 9px; -fx-padding: 2 6; -fx-background-radius: 3;");
     collapseAllButton.setTooltip(new Tooltip("Collapse all groups"));
     collapseAllButton.setFocusTraversable(false);
     collapseAllButton.setOnAction(e -> setAllGroupsCollapsed(true));
-    Button expandAllButton = new Button("", CssIcon.arrowDown("#888888"));
+    Button expandAllButton = new Button("", SidebarToolIcon.arrowDown("#888888"));
     expandAllButton.setStyle("-fx-background-color: #2a2a2a; -fx-text-fill: #888; -fx-font-size: 9px; -fx-padding: 2 6; -fx-background-radius: 3;");
     expandAllButton.setTooltip(new Tooltip("Expand all groups"));
     expandAllButton.setFocusTraversable(false);
@@ -722,7 +722,7 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
     typedRealtime.selectedProperty().addListener((o, ov, nv) -> {
       if (!applyingState) persistCurrentSetState();
     });
-    Button applyTypedButton = iconButton(CssIcon.check("#9ed67a"), "Apply typed attributes", () -> applyTypedAttributes(true));
+    Button applyTypedButton = iconButton(SidebarToolIcon.check("#9ed67a"), "Apply typed attributes", () -> applyTypedAttributes(true));
     HBox typedHeader = new HBox(4, typedRealtime, applyTypedButton);
     typedHeader.setAlignment(Pos.CENTER_LEFT);
     VBox typedRoot = new VBox(4, new Label("Type attributes to preview"), typedAttributesField, typedHeader);
@@ -743,8 +743,8 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
             value -> value == null ? null : value,
             (value, query) -> matchesSearchableText(value, query)));
     HBox.setHgrow(shortformBox, Priority.ALWAYS);
-    Button applyShortformButton = iconButton(CssIcon.check("#9ed67a"), "Apply selected shortform", this::applySelectedShortform);
-    Button copyShortformButton = iconButton(CssIcon.copy("#d6b4ff"), "Copy selected shortform expression", this::copySelectedShortform);
+    Button applyShortformButton = iconButton(SidebarToolIcon.check("#9ed67a"), "Apply selected shortform", this::applySelectedShortform);
+    Button copyShortformButton = iconButton(SidebarToolIcon.copy("#d6b4ff"), "Copy selected shortform expression", this::copySelectedShortform);
     HBox shortformRow = new HBox(4, shortformBox, applyShortformButton, copyShortformButton);
     shortformRow.setAlignment(Pos.CENTER_LEFT);
     VBox shortformsRoot = new VBox(4, new Label("Format: name = attribute expression"), shortformsArea, shortformRow);
@@ -763,8 +763,8 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
     galleryPane.setStyle("-fx-background-color: #161616;");
     galleryStatusLabel.setStyle("-fx-font-size: 10px; -fx-text-fill: #9a9a9a;");
     galleryStatusLabel.setWrapText(true);
-    Button generateGalleryButton = iconButton(CssIcon.sort("#8ab4f8"), "Generate all charpreset combinations", this::generateGallery);
-    Button clearGalleryButton = iconButton(CssIcon.clearX("#f38ba8"), "Clear gallery", this::clearGallery);
+    Button generateGalleryButton = iconButton(SidebarToolIcon.sort("#8ab4f8"), "Generate all charpreset combinations", this::generateGallery);
+    Button clearGalleryButton = iconButton(SidebarToolIcon.clearX("#f38ba8"), "Clear gallery", this::clearGallery);
     HBox galleryToolRow = new HBox(4, new Label("Gallery"), generateGalleryButton, clearGalleryButton, galleryStatusLabel);
     galleryToolRow.setAlignment(Pos.CENTER_LEFT);
     VBox galleryRoot = new VBox(4, galleryToolRow, galleryPane);
@@ -1557,15 +1557,15 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
         persistCurrentSetState();
       });
 
-      Button prevButton = iconButton(CssIcon.arrowLeft("#8ab4f8"), "Cycle this group backward", () -> cycleGroupSelection(combo, -1));
+      Button prevButton = iconButton(SidebarToolIcon.arrowLeft("#8ab4f8"), "Cycle this group backward", () -> cycleGroupSelection(combo, -1));
 
-      Button nextButton = iconButton(CssIcon.arrowRight("#8ab4f8"), "Cycle this group forward", () -> cycleGroupSelection(combo, 1));
+      Button nextButton = iconButton(SidebarToolIcon.arrowRight("#8ab4f8"), "Cycle this group forward", () -> cycleGroupSelection(combo, 1));
 
-      Button openButton = iconButton(CssIcon.folder("#7ec8e3"), "Open selected image in OS viewer", () -> openSelectedImage(combo.getValue()));
+      Button openButton = iconButton(SidebarToolIcon.folder("#7ec8e3"), "Open selected image in OS viewer", () -> openSelectedImage(combo.getValue()));
 
-      Button upButton = iconButton(CssIcon.arrowUp("#b0b8c8"), "Move this group up in render order", () -> moveGroupInOrder(groupName, -1));
+      Button upButton = iconButton(SidebarToolIcon.arrowUp("#b0b8c8"), "Move this group up in render order", () -> moveGroupInOrder(groupName, -1));
 
-      Button downButton = iconButton(CssIcon.arrowDown("#b0b8c8"), "Move this group down in render order", () -> moveGroupInOrder(groupName, 1));
+      Button downButton = iconButton(SidebarToolIcon.arrowDown("#b0b8c8"), "Move this group down in render order", () -> moveGroupInOrder(groupName, 1));
 
       boolean isBgGroup = isLikelyBackgroundGroupName(groupName);
       String labelColor = isBgGroup ? "-fx-text-fill: #f0b673;" : "-fx-text-fill: #d0d0d0;";
@@ -1595,7 +1595,7 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
         persistCurrentSetState();
       });
 
-      Button collapseBtn = new Button("", CssIcon.arrowDown("#888888"));
+      Button collapseBtn = new Button("", SidebarToolIcon.arrowDown("#888888"));
       collapseBtn.setStyle("-fx-background-color: transparent; -fx-text-fill: #888; -fx-font-size: 9px; -fx-padding: 2 4;");
       collapseBtn.setFocusTraversable(false);
       collapseBtn.setMinSize(22, 22);
@@ -1637,15 +1637,15 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
         tilesPane.setManaged(!visible);
         tilesPane.setVisible(!visible);
         collapseBtn.setGraphic(!visible
-            ? CssIcon.arrowDown("#888888")
-            : CssIcon.arrowRight("#888888"));
+            ? SidebarToolIcon.arrowDown("#888888")
+            : SidebarToolIcon.arrowRight("#888888"));
       });
 
       // Auto-collapse groups with many options so the panel doesn't overflow
       if (options.size() > 6) {
         tilesPane.setManaged(false);
         tilesPane.setVisible(false);
-        collapseBtn.setGraphic(CssIcon.arrowRight("#888888"));
+        collapseBtn.setGraphic(SidebarToolIcon.arrowRight("#888888"));
       }
 
       combo.setManaged(false);
@@ -1712,7 +1712,7 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
       iv.setSmooth(true);
       imgContainer.getChildren().add(iv);
     } else {
-      Label missing = new Label("", CssIcon.help("#77838d"));
+      Label missing = new Label("", SidebarToolIcon.help("#77838d"));
       imgContainer.getChildren().add(missing);
     }
     String displayName = (option == null || option.isNone()) ? "(none)"
@@ -1806,7 +1806,7 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
       Button btn = groupCollapseBtns.get(name);
       if (btn != null) {
         btn.setText("");
-        btn.setGraphic(collapsed ? CssIcon.arrowRight("#aeb8c2") : CssIcon.arrowDown("#aeb8c2"));
+        btn.setGraphic(collapsed ? SidebarToolIcon.arrowRight("#aeb8c2") : SidebarToolIcon.arrowDown("#aeb8c2"));
       }
     });
   }
@@ -1856,16 +1856,16 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
           selLabel.setStyle("-fx-font-size: 9px; -fx-text-fill: #666; -fx-padding: 0 4 0 0;");
           selLabel.setMaxWidth(80);
 
-          Label handle = new Label("", CssIcon.list("#4f5963"));
+          Label handle = new Label("", SidebarToolIcon.list("#4f5963"));
           handle.setStyle("-fx-text-fill: #3a3a3a; -fx-font-size: 12px; -fx-padding: 0 4 0 2; -fx-cursor: open-hand;");
 
-          Button upBtn = new Button("", CssIcon.arrowUp("#7f8994"));
+          Button upBtn = new Button("", SidebarToolIcon.arrowUp("#7f8994"));
           upBtn.setStyle("-fx-background-color: transparent; -fx-text-fill: #666; -fx-font-size: 10px; -fx-padding: 1 3;");
           upBtn.setFocusTraversable(false);
           upBtn.setDisable(listIdx == 0);
           upBtn.setOnAction(e -> moveGroupInOrder(groupName, -1));
 
-          Button downBtn = new Button("", CssIcon.arrowDown("#7f8994"));
+          Button downBtn = new Button("", SidebarToolIcon.arrowDown("#7f8994"));
           downBtn.setStyle("-fx-background-color: transparent; -fx-text-fill: #666; -fx-font-size: 10px; -fx-padding: 1 3;");
           downBtn.setFocusTraversable(false);
           downBtn.setDisable(listIdx == totalGroups - 1);
@@ -1926,13 +1926,13 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
 
     Label topAnchor = new Label(
         "top of list  =  drawn first  =  behind everything (background)",
-        CssIcon.arrowUp("#7dbb8a"));
+        SidebarToolIcon.arrowUp("#7dbb8a"));
     topAnchor.setStyle("-fx-font-size: 9px; -fx-text-fill: #3a5a3a; -fx-padding: 2 4 1 4; "
         + "-fx-background-color: #1a2a1a; -fx-border-color: #2a4a2a; -fx-border-width: 0 0 1 0;");
 
     Label bottomAnchor = new Label(
         "bottom of list  =  drawn last  =  on top of everything (foreground)",
-        CssIcon.arrowDown("#b39ad6"));
+        SidebarToolIcon.arrowDown("#b39ad6"));
     bottomAnchor.setStyle("-fx-font-size: 9px; -fx-text-fill: #5a3a7a; -fx-padding: 1 4 2 4; "
         + "-fx-background-color: #1a1a2a; -fx-border-color: #3a2a5a; -fx-border-width: 1 0 0 0;");
 
@@ -3585,21 +3585,21 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
         layerIdField.setStyle("-fx-prompt-text-fill: #666;");
         layerIdField.textProperty().addListener((o, ov, nv) -> { opt.layerId = nv; updateSnippet.run(); });
 
-        Button upBtn = new Button("", CssIcon.arrowUp("#8f99a4"));
+        Button upBtn = new Button("", SidebarToolIcon.arrowUp("#8f99a4"));
         upBtn.setStyle("-fx-background-color: transparent; -fx-text-fill: #888; -fx-padding: 2 4;");
         upBtn.setDisable(i == 0);
         upBtn.setOnAction(ev -> {
           if (idx > 0) { Collections.swap(opts, idx, idx - 1); rebuildOpts[0].run(); updateSnippet.run(); }
         });
 
-        Button downBtn = new Button("", CssIcon.arrowDown("#8f99a4"));
+        Button downBtn = new Button("", SidebarToolIcon.arrowDown("#8f99a4"));
         downBtn.setStyle("-fx-background-color: transparent; -fx-text-fill: #888; -fx-padding: 2 4;");
         downBtn.setDisable(i == opts.size() - 1);
         downBtn.setOnAction(ev -> {
           if (idx < opts.size() - 1) { Collections.swap(opts, idx, idx + 1); rebuildOpts[0].run(); updateSnippet.run(); }
         });
 
-        Button removeBtn = new Button("", CssIcon.clearX("#f38ba8"));
+        Button removeBtn = new Button("", SidebarToolIcon.clearX("#f38ba8"));
         removeBtn.setStyle("-fx-text-fill: #f38ba8; -fx-background-color: transparent; -fx-font-size: 12px; -fx-padding: 0 4;");
         removeBtn.setOnAction(ev -> { opts.remove(idx); rebuildOpts[0].run(); updateSnippet.run(); });
 
@@ -3609,7 +3609,7 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
         optionRowsBox.getChildren().add(row);
       }
 
-      Button addOptBtn = new Button("Add Option", CssIcon.plus("#8bcf98"));
+      Button addOptBtn = new Button("Add Option", SidebarToolIcon.plus("#8bcf98"));
       addOptBtn.setStyle("-fx-font-size: 10px;");
       addOptBtn.setOnAction(ev -> { opts.add(new NewSetOption()); rebuildOpts[0].run(); updateSnippet.run(); });
       optionRowsBox.getChildren().add(addOptBtn);
@@ -3681,7 +3681,7 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
       updateSnippet.run();
     });
 
-    Button groupUpBtn = new Button("", CssIcon.arrowUp("#8f99a4"));
+    Button groupUpBtn = new Button("", SidebarToolIcon.arrowUp("#8f99a4"));
     groupUpBtn.setOnAction(e -> {
       int idx = groupListView.getSelectionModel().getSelectedIndex();
       if (idx <= 0) return;
@@ -3691,7 +3691,7 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
       updateSnippet.run();
     });
 
-    Button groupDownBtn = new Button("", CssIcon.arrowDown("#8f99a4"));
+    Button groupDownBtn = new Button("", SidebarToolIcon.arrowDown("#8f99a4"));
     groupDownBtn.setOnAction(e -> {
       int idx = groupListView.getSelectionModel().getSelectedIndex();
       if (idx < 0 || idx >= groupNames.size() - 1) return;
