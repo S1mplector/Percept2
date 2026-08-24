@@ -111,6 +111,10 @@ public class VnRenderer {
       16, STAGE_BACKGROUND_CACHE_BUDGET_BYTES, FxImageMemory::estimatedBytes);
   private final BoundedImageCache<Image> stageCharacterCache = new BoundedImageCache<>(
       64, STAGE_CHARACTER_CACHE_BUDGET_BYTES, FxImageMemory::estimatedBytes);
+  // Independently transformed layers are a live render working set, not ordinary reusable source
+  // data. Keep exactly the layers used by consecutive frames resident so two large layered
+  // characters cannot evict and synchronously reload one another through imageCache every frame.
+  private final FrameRetainedCache<Image> timelineLayerWorkingSet = new FrameRetainedCache<>();
   private final FxTextMetrics textMetrics = new FxTextMetrics();
   private Font nameFont;
   private Font dialogueFont;
@@ -278,6 +282,7 @@ public class VnRenderer {
     this.eyeFocusProfiles = null;
     imageCache.clear();
     compositeSpriteCache.clear();
+    timelineLayerWorkingSet.clear();
     backgroundImageCache.clear();
     particleBlitter.clearCache();
     particleBlitter.setProjectRoot(root);
@@ -431,7 +436,12 @@ public class VnRenderer {
 
     List<CharacterRenderEntry> orderedCharacters = orderedCharacterEntries(state);
     AudioVisualizerSettings visualizerSettings = resolveAudioVisualizerSettings();
-    renderLayeredScene(orderedCharacters, state, scenario, activeStage, width, height, visualizerSettings);
+    timelineLayerWorkingSet.beginFrame();
+    try {
+      renderLayeredScene(orderedCharacters, state, scenario, activeStage, width, height, visualizerSettings);
+    } finally {
+      timelineLayerWorkingSet.endFrame();
+    }
     renderStageLightOverlays(activeStage, width, height, VnStagePreset.LightLayer.FOREGROUND);
 
     // Render current node content. Dialogue visibility is animated so Ren'Py-
@@ -1014,7 +1024,7 @@ public class VnRenderer {
     applyGroupTransforms(characterId, state);
     for (LayerDrawPlanEntry planEntry : plan) {
       if (planEntry.alpha() <= 0.001) continue;
-      Image layerImage = loadSpriteLayerImage(planEntry.path());
+      Image layerImage = loadTimelineSpriteLayerImage(planEntry.path());
       if (layerImage == null) {
         String context = characterId + ":" + fromExpression + "->" + toExpression + ":" + planEntry.layerId();
         MissingAssetPlaceholder.report(gc, planEntry.path(), context, x, y, spriteWidth, spriteHeight);
@@ -1227,7 +1237,7 @@ public class VnRenderer {
       if (layer == null) continue;
       Image layerImage = isLoadedImage(layer.image())
           ? layer.image()
-          : loadSpriteLayerImage(layer.path());
+          : loadTimelineSpriteLayerImage(layer.path());
       if (!isLoadedImage(layerImage)) {
         MissingAssetPlaceholder.report(gc, layer.path(), "layer:" + layer.layerId(), defaultX, defaultY, spriteWidth, spriteHeight);
         continue;
@@ -1241,7 +1251,7 @@ public class VnRenderer {
         boolean drawSelected = layer.layerId().equals(eyeFocus.selectedLayerId())
             || (!selectedLayerPresent && layer.layerId().equals(eyeFocus.replacementSlotLayerId()));
         if (!drawSelected) continue;
-        Image selectedImage = loadSpriteLayerImage(eyeFocus.selectedPath());
+        Image selectedImage = loadTimelineSpriteLayerImage(eyeFocus.selectedPath());
         if (!isLoadedImage(selectedImage)) {
           MissingAssetPlaceholder.report(gc, eyeFocus.selectedPath(), "layer:" + eyeFocus.selectedLayerId(), defaultX, defaultY, spriteWidth, spriteHeight);
           continue;
@@ -1850,6 +1860,10 @@ public class VnRenderer {
       return loaded;
     }
     return null;
+  }
+
+  private Image loadTimelineSpriteLayerImage(String path) {
+    return timelineLayerWorkingSet.getOrLoad(path, this::loadSpriteLayerImage);
   }
 
   private boolean isLoadedImage(Image image) {
@@ -4373,6 +4387,7 @@ public class VnRenderer {
   public void clearCache() {
     imageCache.clear();
     compositeSpriteCache.clear();
+    timelineLayerWorkingSet.clear();
     backgroundImageCache.clear();
     stageBackgroundCache.clear();
     stageCharacterCache.clear();
@@ -4388,6 +4403,7 @@ public class VnRenderer {
     disposed = true;
     imageCache.clear();
     compositeSpriteCache.clear();
+    timelineLayerWorkingSet.clear();
     backgroundImageCache.clear();
     stageBackgroundCache.clear();
     stageCharacterCache.clear();
