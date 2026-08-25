@@ -1,41 +1,66 @@
-package com.jvn.fx.vn;
+package com.jvn.scenerender.vn;
 
 import java.util.ArrayList;
 import java.util.List;
 
 import com.jvn.core.vn.stage.VnStagePreset;
 
-import javafx.scene.image.Image;
-import javafx.scene.image.PixelReader;
-import javafx.scene.image.PixelWriter;
-import javafx.scene.image.WritableImage;
-import javafx.scene.paint.Color;
-
 final class VnStageLightingSupport {
   private VnStageLightingSupport() {}
 
-  static Image buildLitBackground(Image source, VnStagePreset stage, double width, double height) {
-    if (source == null || width <= 0 || height <= 0) return source;
+  /** Plain RGBA replacement for JavaFX {@code Color}, normalised doubles in [0,1]. */
+  record Rgba(double r, double g, double b, double a) {
+    static final Rgba WHITE = new Rgba(1.0, 1.0, 1.0, 1.0);
+    static final Rgba BLACK = new Rgba(0.0, 0.0, 0.0, 1.0);
+
+    static Rgba parse(String raw, Rgba fallback) {
+      if (raw == null || raw.isBlank()) return fallback;
+      String hex = raw.trim();
+      if (hex.startsWith("#")) hex = hex.substring(1);
+      try {
+        if (hex.length() == 6) {
+          int r = Integer.parseInt(hex.substring(0, 2), 16);
+          int g = Integer.parseInt(hex.substring(2, 4), 16);
+          int b = Integer.parseInt(hex.substring(4, 6), 16);
+          return new Rgba(r / 255.0, g / 255.0, b / 255.0, 1.0);
+        }
+        if (hex.length() == 8) {
+          int r = Integer.parseInt(hex.substring(0, 2), 16);
+          int g = Integer.parseInt(hex.substring(2, 4), 16);
+          int b = Integer.parseInt(hex.substring(4, 6), 16);
+          int a = Integer.parseInt(hex.substring(6, 8), 16);
+          return new Rgba(r / 255.0, g / 255.0, b / 255.0, a / 255.0);
+        }
+      } catch (Exception ignored) {
+        // reason: non-critical operation; falls through to named-color/fallback handling below
+      }
+      return switch (raw.trim().toLowerCase(java.util.Locale.ROOT)) {
+        case "white" -> WHITE;
+        case "black" -> BLACK;
+        default -> fallback;
+      };
+    }
+  }
+
+  static int[] buildLitBackground(int[] sourceArgb, int sourceWidth, int sourceHeight, VnStagePreset stage, double width, double height) {
+    if (sourceArgb == null || width <= 0 || height <= 0) return sourceArgb;
     int outWidth = Math.max(1, (int) Math.round(width));
     int outHeight = Math.max(1, (int) Math.round(height));
-    WritableImage out = new WritableImage(outWidth, outHeight);
-    PixelReader reader = source.getPixelReader();
-    PixelWriter writer = out.getPixelWriter();
-    if (reader == null) return source;
+    int[] out = new int[outWidth * outHeight];
 
     VnStagePreset.BackgroundGrade grade = stage == null ? VnStagePreset.BackgroundGrade.defaults() : stage.getBackgroundGrade();
-    Color tintColor = parseColor(grade.tintColor(), Color.WHITE);
-    Color overlayColor = parseColor(grade.overlayColor(), Color.BLACK);
+    Rgba tintColor = Rgba.parse(grade.tintColor(), Rgba.WHITE);
+    Rgba overlayColor = Rgba.parse(grade.overlayColor(), Rgba.BLACK);
     double tintStrength = clamp(grade.tintStrength(), 0.0, 1.0);
     double satAdjust = clamp(grade.saturation(), -1.0, 1.0);
     double conAdjust = clamp(grade.contrast(), -1.0, 1.0);
     double overlayOpacity = clamp(grade.overlayOpacity(), 0.0, 1.0);
 
-    double sourceWidth = Math.max(1.0, source.getWidth());
-    double sourceHeight = Math.max(1.0, source.getHeight());
-    double scale = Math.max(width / sourceWidth, height / sourceHeight);
-    double drawWidth = sourceWidth * scale;
-    double drawHeight = sourceHeight * scale;
+    double sourceW = Math.max(1.0, sourceWidth);
+    double sourceH = Math.max(1.0, sourceHeight);
+    double scale = Math.max(width / sourceW, height / sourceH);
+    double drawWidth = sourceW * scale;
+    double drawHeight = sourceH * scale;
     double drawX = (width - drawWidth) * 0.5;
     double drawY = (height - drawHeight) * 0.5;
     double minDimension = Math.max(1.0, Math.min(width, height));
@@ -43,12 +68,12 @@ final class VnStageLightingSupport {
     List<OccluderRuntime> occluders = prepareOccluders(stage, width, height);
 
     for (int y = 0; y < outHeight; y++) {
-      double sourceY = clamp((y - drawY) / scale, 0.0, sourceHeight - 1.0);
+      double sourceY = clamp((y - drawY) / scale, 0.0, sourceH - 1.0);
       int sy = (int) Math.round(sourceY);
       for (int x = 0; x < outWidth; x++) {
-        double sourceX = clamp((x - drawX) / scale, 0.0, sourceWidth - 1.0);
+        double sourceX = clamp((x - drawX) / scale, 0.0, sourceW - 1.0);
         int sx = (int) Math.round(sourceX);
-        int argb = reader.getArgb(sx, sy);
+        int argb = sourceArgb[sy * sourceWidth + sx];
         int a = (argb >>> 24) & 0xFF;
         double r = ((argb >>> 16) & 0xFF) / 255.0;
         double g = ((argb >>> 8) & 0xFF) / 255.0;
@@ -61,14 +86,14 @@ final class VnStageLightingSupport {
         r = (r - 0.5) * (1.0 + conAdjust) + 0.5;
         g = (g - 0.5) * (1.0 + conAdjust) + 0.5;
         b = (b - 0.5) * (1.0 + conAdjust) + 0.5;
-        r = r * (1.0 - tintStrength) + tintColor.getRed() * tintStrength;
-        g = g * (1.0 - tintStrength) + tintColor.getGreen() * tintStrength;
-        b = b * (1.0 - tintStrength) + tintColor.getBlue() * tintStrength;
+        r = r * (1.0 - tintStrength) + tintColor.r() * tintStrength;
+        g = g * (1.0 - tintStrength) + tintColor.g() * tintStrength;
+        b = b * (1.0 - tintStrength) + tintColor.b() * tintStrength;
 
         if (overlayOpacity > 1e-6) {
-          r = applyBlend(r, overlayColor.getRed(), overlayOpacity, 4);
-          g = applyBlend(g, overlayColor.getGreen(), overlayOpacity, 4);
-          b = applyBlend(b, overlayColor.getBlue(), overlayOpacity, 4);
+          r = applyBlend(r, overlayColor.r(), overlayOpacity, 4);
+          g = applyBlend(g, overlayColor.g(), overlayOpacity, 4);
+          b = applyBlend(b, overlayColor.b(), overlayOpacity, 4);
         }
 
         for (LightRuntime light : runtimeLights) {
@@ -80,26 +105,28 @@ final class VnStageLightingSupport {
           if (weight <= 0.0) continue;
           double influence = weight * light.intensity;
           double albedo = linearLuminance(r, g, b);
-          r = applySceneLightChannel(r, light.color.getRed(), influence, albedo, false);
-          g = applySceneLightChannel(g, light.color.getGreen(), influence, albedo, false);
-          b = applySceneLightChannel(b, light.color.getBlue(), influence, albedo, false);
+          r = applySceneLightChannel(r, light.color.r(), influence, albedo, false);
+          g = applySceneLightChannel(g, light.color.g(), influence, albedo, false);
+          b = applySceneLightChannel(b, light.color.b(), influence, albedo, false);
           double tintWeight = clamp(influence * 0.14, 0.0, 0.32);
-          r = applyBlend(r, light.color.getRed(), tintWeight, 4);
-          g = applyBlend(g, light.color.getGreen(), tintWeight, 4);
-          b = applyBlend(b, light.color.getBlue(), tintWeight, 4);
+          r = applyBlend(r, light.color.r(), tintWeight, 4);
+          g = applyBlend(g, light.color.g(), tintWeight, 4);
+          b = applyBlend(b, light.color.b(), tintWeight, 4);
         }
 
         int rr = (int) Math.round(clamp(r, 0.0, 1.0) * 255.0);
         int gg = (int) Math.round(clamp(g, 0.0, 1.0) * 255.0);
         int bb = (int) Math.round(clamp(b, 0.0, 1.0) * 255.0);
-        writer.setArgb(x, y, (a << 24) | (rr << 16) | (gg << 8) | bb);
+        out[y * outWidth + x] = (a << 24) | (rr << 16) | (gg << 8) | bb;
       }
     }
     return out;
   }
 
-  static Image buildLitCharacter(
-      Image source,
+  static int[] buildLitCharacter(
+      int[] sourceArgb,
+      int sourceWidth,
+      int sourceHeight,
       String spriteTag,
       double drawX,
       double drawY,
@@ -109,16 +136,13 @@ final class VnStageLightingSupport {
       double canvasHeight,
       VnStagePreset stage
   ) {
-    if (source == null || stage == null || drawWidth <= 0 || drawHeight <= 0) return source;
+    if (sourceArgb == null || stage == null || drawWidth <= 0 || drawHeight <= 0) return sourceArgb;
     int outWidth = Math.max(1, (int) Math.round(drawWidth));
     int outHeight = Math.max(1, (int) Math.round(drawHeight));
-    WritableImage out = new WritableImage(outWidth, outHeight);
-    PixelReader reader = source.getPixelReader();
-    PixelWriter writer = out.getPixelWriter();
-    if (reader == null) return source;
+    int[] out = new int[outWidth * outHeight];
 
-    double sourceWidth = Math.max(1.0, source.getWidth());
-    double sourceHeight = Math.max(1.0, source.getHeight());
+    double sourceW = Math.max(1.0, sourceWidth);
+    double sourceH = Math.max(1.0, sourceHeight);
     double minDimension = Math.max(1.0, Math.min(canvasWidth, canvasHeight));
     List<LightRuntime> runtimeLights = prepareLights(stage, canvasWidth, canvasHeight, minDimension);
     List<OccluderRuntime> occluders = prepareOccluders(stage, canvasWidth, canvasHeight);
@@ -126,20 +150,20 @@ final class VnStageLightingSupport {
     boolean subjectMatched = stage.getSubjectTag() == null
         || stage.getSubjectTag().isBlank()
         || stage.getSubjectTag().equals(spriteTag);
-    List<ResponseRuntime> responseZones = prepareResponseZones(stage, sourceWidth, sourceHeight);
+    List<ResponseRuntime> responseZones = prepareResponseZones(stage, sourceW, sourceH);
 
     for (int y = 0; y < outHeight; y++) {
-      double srcYf = clamp((y / Math.max(1.0, outHeight - 1.0)) * (sourceHeight - 1.0), 0.0, sourceHeight - 1.0);
+      double srcYf = clamp((y / Math.max(1.0, outHeight - 1.0)) * (sourceH - 1.0), 0.0, sourceH - 1.0);
       int sy = (int) Math.round(srcYf);
       double normalizedY = outHeight <= 1 ? 0.5 : (y / (double) (outHeight - 1));
       double sceneY = drawY + normalizedY * drawHeight;
       for (int x = 0; x < outWidth; x++) {
-        double srcXf = clamp((x / Math.max(1.0, outWidth - 1.0)) * (sourceWidth - 1.0), 0.0, sourceWidth - 1.0);
+        double srcXf = clamp((x / Math.max(1.0, outWidth - 1.0)) * (sourceW - 1.0), 0.0, sourceW - 1.0);
         int sx = (int) Math.round(srcXf);
-        int argb = reader.getArgb(sx, sy);
+        int argb = sourceArgb[sy * sourceWidth + sx];
         int a = (argb >>> 24) & 0xFF;
         if (a == 0) {
-          writer.setArgb(x, y, 0);
+          out[y * outWidth + x] = 0;
           continue;
         }
         double r = ((argb >>> 16) & 0xFF) / 255.0;
@@ -149,7 +173,7 @@ final class VnStageLightingSupport {
         double sceneX = drawX + normalizedX * drawWidth;
 
         ResponseInfluence response = subjectMatched
-            ? resolveResponse(normalizedX, normalizedY, responseZones, sourceWidth / Math.max(1.0, sourceHeight))
+            ? resolveResponse(normalizedX, normalizedY, responseZones, sourceW / Math.max(1.0, sourceH))
             : ResponseInfluence.defaults();
 
         for (LightRuntime light : runtimeLights) {
@@ -166,20 +190,20 @@ final class VnStageLightingSupport {
             double influence = weight * light.intensity * directional
                 * response.responseScale * response.directFactor * response.depthFactor;
             double albedo = linearLuminance(r, g, b);
-            r = applySceneLightChannel(r, light.color.getRed(), influence, albedo, false);
-            g = applySceneLightChannel(g, light.color.getGreen(), influence, albedo, false);
-            b = applySceneLightChannel(b, light.color.getBlue(), influence, albedo, false);
+            r = applySceneLightChannel(r, light.color.r(), influence, albedo, false);
+            g = applySceneLightChannel(g, light.color.g(), influence, albedo, false);
+            b = applySceneLightChannel(b, light.color.b(), influence, albedo, false);
             double tintWeight = clamp(influence * response.tintFactor, 0.0, 0.35);
-            r = applyBlend(r, light.color.getRed(), tintWeight, 4);
-            g = applyBlend(g, light.color.getGreen(), tintWeight, 4);
-            b = applyBlend(b, light.color.getBlue(), tintWeight, 4);
+            r = applyBlend(r, light.color.r(), tintWeight, 4);
+            g = applyBlend(g, light.color.g(), tintWeight, 4);
+            b = applyBlend(b, light.color.b(), tintWeight, 4);
           }
 
           double silhouetteStrength = light.silhouette * response.rimFactor;
           if (silhouetteStrength <= 1e-6) continue;
-          double edgeFactor = alphaEdgeWeight(reader, sx, sy, (int) Math.round(sourceWidth), (int) Math.round(sourceHeight));
+          double edgeFactor = alphaEdgeWeight(sourceArgb, sx, sy, sourceWidth, sourceHeight);
           if (edgeFactor <= 0.0) continue;
-          double[] edgeNormal = alphaEdgeNormal(reader, sx, sy, (int) Math.round(sourceWidth), (int) Math.round(sourceHeight));
+          double[] edgeNormal = alphaEdgeNormal(sourceArgb, sx, sy, sourceWidth, sourceHeight);
           double lightDirX = light.sourceX - sceneX;
           double lightDirY = light.sourceY - sceneY;
           double lightDirLength = Math.hypot(lightDirX, lightDirY);
@@ -194,19 +218,21 @@ final class VnStageLightingSupport {
           double rimWeight = weight * light.intensity * silhouetteStrength * edgeFactor
               * (0.28 + 0.72 * facing) * response.depthFactor;
           double albedo = linearLuminance(r, g, b);
-          r = applySceneLightChannel(r, light.color.getRed(), rimWeight, albedo, true);
-          g = applySceneLightChannel(g, light.color.getGreen(), rimWeight, albedo, true);
-          b = applySceneLightChannel(b, light.color.getBlue(), rimWeight, albedo, true);
+          r = applySceneLightChannel(r, light.color.r(), rimWeight, albedo, true);
+          g = applySceneLightChannel(g, light.color.g(), rimWeight, albedo, true);
+          b = applySceneLightChannel(b, light.color.b(), rimWeight, albedo, true);
         }
 
         int rr = (int) Math.round(clamp(r, 0.0, 1.0) * 255.0);
         int gg = (int) Math.round(clamp(g, 0.0, 1.0) * 255.0);
         int bb = (int) Math.round(clamp(b, 0.0, 1.0) * 255.0);
-        writer.setArgb(x, y, (a << 24) | (rr << 16) | (gg << 8) | bb);
+        out[y * outWidth + x] = (a << 24) | (rr << 16) | (gg << 8) | bb;
       }
     }
     return out;
   }
+
+  // --- everything below is an unchanged port: same names, same logic, Color -> Rgba ---
 
   private static List<LightRuntime> prepareLights(VnStagePreset stage, double canvasWidth, double canvasHeight, double minDimension) {
     List<LightRuntime> lights = new ArrayList<>();
@@ -229,7 +255,7 @@ final class VnStageLightingSupport {
           light.sourceY() * canvasHeight,
           light.sceneX() * canvasWidth,
           light.sceneY() * canvasHeight,
-          parseColor(light.color(), Color.web("#ffd7a8")),
+          Rgba.parse(light.color(), Rgba.parse("#ffd7a8", Rgba.WHITE)),
           clamp(light.intensity(), 0.0, 1.0),
           Math.max(12.0, light.radius() * minDimension),
           clamp(light.softness(), 0.0, 1.0),
@@ -275,28 +301,15 @@ final class VnStageLightingSupport {
         }
       }
       zones.add(new ResponseRuntime(
-          zone.boundsX(),
-          zone.boundsY(),
-          zone.boundsW(),
-          zone.boundsH(),
-          zone.rotationDeg(),
-          zone.surfaceClass(),
-          zone.depthBias(),
-          zone.responseScale(),
-          polygon
+          zone.boundsX(), zone.boundsY(), zone.boundsW(), zone.boundsH(),
+          zone.rotationDeg(), zone.surfaceClass(), zone.depthBias(), zone.responseScale(), polygon
       ));
     }
     return zones;
   }
 
-  static Color parseColor(String raw, Color fallback) {
-    try {
-      if (raw == null || raw.isBlank()) return fallback;
-      return Color.web(raw.trim());
-    } catch (Exception ignored) {
-            // reason: non-critical operation; exception swallowed to prevent crash propagation
-      return fallback;
-    }
+  static Rgba parseColor(String raw, Rgba fallback) {
+    return Rgba.parse(raw, fallback);
   }
 
   static double backgroundLightAlpha(VnStagePreset.Light light) {
@@ -462,12 +475,7 @@ final class VnStageLightingSupport {
     return Math.pow(normalized, exponent);
   }
 
-  static double sceneLightDirectionalBias(double sceneX,
-                                          double sceneY,
-                                          double targetX,
-                                          double targetY,
-                                          double sourceX,
-                                          double sourceY) {
+  static double sceneLightDirectionalBias(double sceneX, double sceneY, double targetX, double targetY, double sourceX, double sourceY) {
     double towardSourceX = sourceX - targetX;
     double towardSourceY = sourceY - targetY;
     double towardSourceLength = Math.hypot(towardSourceX, towardSourceY);
@@ -478,8 +486,7 @@ final class VnStageLightingSupport {
     double facing = clamp(
         (pixelOffsetX / pixelOffsetLength) * (towardSourceX / towardSourceLength)
             + (pixelOffsetY / pixelOffsetLength) * (towardSourceY / towardSourceLength),
-        -1.0,
-        1.0
+        -1.0, 1.0
     );
     return 0.78 + 0.22 * Math.max(0.0, facing);
   }
@@ -517,14 +524,14 @@ final class VnStageLightingSupport {
     return b * (1.0 - w) + blendedSrgb * w;
   }
 
-  static double alphaEdgeWeight(PixelReader reader, int x, int y, int width, int height) {
-    if (reader == null || width <= 0 || height <= 0) return 0.0;
-    int center = alphaAt(reader, x, y, width, height);
+  static double alphaEdgeWeight(int[] argb, int x, int y, int width, int height) {
+    if (argb == null || width <= 0 || height <= 0) return 0.0;
+    int center = alphaAt(argb, x, y, width, height);
     if (center == 0) return 0.0;
-    int left = alphaAt(reader, x - 1, y, width, height);
-    int right = alphaAt(reader, x + 1, y, width, height);
-    int up = alphaAt(reader, x, y - 1, width, height);
-    int down = alphaAt(reader, x, y + 1, width, height);
+    int left = alphaAt(argb, x - 1, y, width, height);
+    int right = alphaAt(argb, x + 1, y, width, height);
+    int up = alphaAt(argb, x, y - 1, width, height);
+    int down = alphaAt(argb, x, y + 1, width, height);
     double diff = Math.max(
         Math.max(Math.abs(center - left), Math.abs(center - right)),
         Math.max(Math.abs(center - up), Math.abs(center - down))
@@ -534,11 +541,11 @@ final class VnStageLightingSupport {
     return clamp(1.0 - neighborOpacity, 0.0, 1.0);
   }
 
-  static double[] alphaEdgeNormal(PixelReader reader, int x, int y, int width, int height) {
-    double left = alphaAt(reader, x - 1, y, width, height);
-    double right = alphaAt(reader, x + 1, y, width, height);
-    double up = alphaAt(reader, x, y - 1, width, height);
-    double down = alphaAt(reader, x, y + 1, width, height);
+  static double[] alphaEdgeNormal(int[] argb, int x, int y, int width, int height) {
+    double left = alphaAt(argb, x - 1, y, width, height);
+    double right = alphaAt(argb, x + 1, y, width, height);
+    double up = alphaAt(argb, x, y - 1, width, height);
+    double down = alphaAt(argb, x, y + 1, width, height);
     double normalX = left - right;
     double normalY = up - down;
     double length = Math.hypot(normalX, normalY);
@@ -546,10 +553,10 @@ final class VnStageLightingSupport {
     return new double[]{normalX / length, normalY / length};
   }
 
-  private static int alphaAt(PixelReader reader, int x, int y, int width, int height) {
+  private static int alphaAt(int[] argb, int x, int y, int width, int height) {
     int safeX = Math.max(0, Math.min(width - 1, x));
     int safeY = Math.max(0, Math.min(height - 1, y));
-    return (reader.getArgb(safeX, safeY) >>> 24) & 0xFF;
+    return (argb[safeY * width + safeX] >>> 24) & 0xFF;
   }
 
   private static double zoneWeight(double nx, double ny, double zx, double zy, double zw, double zh, double feather, double rotRad, double imgAspect) {
@@ -643,49 +650,20 @@ final class VnStageLightingSupport {
   }
 
   private record LightRuntime(
-      VnStagePreset.LightType type,
-      VnStagePreset.LightLayer layer,
-      double targetX,
-      double targetY,
-      double sourceX,
-      double sourceY,
-      double sceneX,
-      double sceneY,
-      Color color,
-      double intensity,
-      double radius,
-      double softness,
-      double silhouette,
-      boolean muted,
-      boolean solo,
-      List<double[]> polygon
+      VnStagePreset.LightType type, VnStagePreset.LightLayer layer,
+      double targetX, double targetY, double sourceX, double sourceY,
+      double sceneX, double sceneY, Rgba color, double intensity, double radius,
+      double softness, double silhouette, boolean muted, boolean solo, List<double[]> polygon
   ) {}
 
   private record ResponseRuntime(
-      double boundsX,
-      double boundsY,
-      double boundsW,
-      double boundsH,
-      double rotationDeg,
-      VnStagePreset.SurfaceClass surfaceClass,
-      double depthBias,
-      double responseScale,
-      List<double[]> polygon
+      double boundsX, double boundsY, double boundsW, double boundsH, double rotationDeg,
+      VnStagePreset.SurfaceClass surfaceClass, double depthBias, double responseScale, List<double[]> polygon
   ) {}
 
-  private record OccluderRuntime(
-      double opacity,
-      double softness,
-      List<double[]> polygon
-  ) {}
+  private record OccluderRuntime(double opacity, double softness, List<double[]> polygon) {}
 
-  private record ResponseInfluence(
-      double responseScale,
-      double rimFactor,
-      double tintFactor,
-      double directFactor,
-      double depthFactor
-  ) {
+  private record ResponseInfluence(double responseScale, double rimFactor, double tintFactor, double directFactor, double depthFactor) {
     static ResponseInfluence defaults() {
       return new ResponseInfluence(1.0, 1.0, 0.12, 1.0, 1.0);
     }
