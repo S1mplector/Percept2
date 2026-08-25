@@ -4,6 +4,7 @@ import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.BiConsumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.ToLongFunction;
@@ -24,13 +25,14 @@ public class BoundedImageCache<V> {
   private int maxEntries;
   private final long maxWeight;
   private final ToLongFunction<? super V> weightFunction;
+  private final BiConsumer<String, V> onEvict;
   private final LinkedHashMap<String, V> map;
   private final AtomicLong hits = new AtomicLong();
   private final AtomicLong misses = new AtomicLong();
   private long currentWeight;
 
   public BoundedImageCache(int maxEntries) {
-    this(maxEntries, Long.MAX_VALUE, ignored -> 1L);
+    this(maxEntries, Long.MAX_VALUE, ignored -> 1L, null);
   }
 
   /**
@@ -43,12 +45,28 @@ public class BoundedImageCache<V> {
       long maxWeight,
       ToLongFunction<? super V> weightFunction
   ) {
+    this(maxEntries, maxWeight, weightFunction, null);
+  }
+
+  /**
+   * Creates an LRU cache constrained by both entry count and total value weight, with an
+   * optional listener invoked exactly once for every value that leaves the map (explicit
+   * removal, budget eviction, clear, or key replacement). Pass {@code null} to preserve the
+   * previous silent-drop behavior.
+   */
+  public BoundedImageCache(
+      int maxEntries,
+      long maxWeight,
+      ToLongFunction<? super V> weightFunction,
+      BiConsumer<String, V> onEvict
+  ) {
     if (maxEntries < 1) throw new IllegalArgumentException("maxEntries must be >= 1");
     if (maxWeight < 1L) throw new IllegalArgumentException("maxWeight must be >= 1");
     if (weightFunction == null) throw new IllegalArgumentException("weightFunction cannot be null");
     this.maxEntries = maxEntries;
     this.maxWeight = maxWeight;
     this.weightFunction = weightFunction;
+    this.onEvict = onEvict;
     this.map = new LinkedHashMap<>(16, 0.75f, true);
   }
 
@@ -86,7 +104,10 @@ public class BoundedImageCache<V> {
   /** Removes and returns one entry, or {@code null} when the key is absent. */
   public synchronized V remove(String key) {
     V removed = map.remove(key);
-    if (removed != null) currentWeight = Math.max(0L, currentWeight - weightOf(removed));
+    if (removed != null) {
+      currentWeight = Math.max(0L, currentWeight - weightOf(removed));
+      fireEvict(key, removed);
+    }
     return removed;
   }
 
@@ -98,6 +119,7 @@ public class BoundedImageCache<V> {
       Map.Entry<String, V> entry = iterator.next();
       if (predicate.test(entry.getKey())) {
         currentWeight = Math.max(0L, currentWeight - weightOf(entry.getValue()));
+        fireEvict(entry.getKey(), entry.getValue());
         iterator.remove();
       }
     }
@@ -105,6 +127,11 @@ public class BoundedImageCache<V> {
 
   /** Removes all entries from the cache. */
   public synchronized void clear() {
+    if (onEvict != null) {
+      for (Map.Entry<String, V> entry : map.entrySet()) {
+        fireEvict(entry.getKey(), entry.getValue());
+      }
+    }
     map.clear();
     currentWeight = 0L;
   }
@@ -145,7 +172,10 @@ public class BoundedImageCache<V> {
   private void putInternal(String key, V value) {
     long weight = weightOf(value);
     V previous = map.remove(key);
-    if (previous != null) currentWeight = Math.max(0L, currentWeight - weightOf(previous));
+    if (previous != null) {
+      currentWeight = Math.max(0L, currentWeight - weightOf(previous));
+      fireEvict(key, previous);
+    }
     if (weight > maxWeight) return;
 
     map.put(key, value);
@@ -158,8 +188,13 @@ public class BoundedImageCache<V> {
     while ((map.size() > maxEntries || currentWeight > maxWeight) && iterator.hasNext()) {
       Map.Entry<String, V> eldest = iterator.next();
       currentWeight = Math.max(0L, currentWeight - weightOf(eldest.getValue()));
+      fireEvict(eldest.getKey(), eldest.getValue());
       iterator.remove();
     }
+  }
+
+  private void fireEvict(String key, V value) {
+    if (onEvict != null) onEvict.accept(key, value);
   }
 
   private long weightOf(V value) {

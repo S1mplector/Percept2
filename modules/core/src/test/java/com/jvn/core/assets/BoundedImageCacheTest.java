@@ -1,13 +1,17 @@
 package com.jvn.core.assets;
 
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
-
-import static org.junit.jupiter.api.Assertions.*;
+import org.junit.jupiter.api.Test;
 
 class BoundedImageCacheTest {
 
@@ -161,4 +165,67 @@ class BoundedImageCacheTest {
   }
 
   private record SimulatedRaster(long bytes) {}
+
+  @Test
+  void evictionListenerFiresOnExplicitRemove() {
+    List<String> evicted = new ArrayList<>();
+    BoundedImageCache<String> cache = new BoundedImageCache<>(
+        16, Long.MAX_VALUE, ignored -> 1L, (key, value) -> evicted.add(key + ":" + value));
+
+    cache.put("a", "alpha");
+    assertNull(cache.remove("nonexistent"));
+    assertEquals(List.of(), evicted);
+
+    cache.remove("a");
+    assertEquals(List.of("a:alpha"), evicted);
+  }
+
+  @Test
+  void evictionListenerFiresOnBudgetEviction() {
+    List<String> evicted = new ArrayList<>();
+    BoundedImageCache<String> cache = new BoundedImageCache<>(
+        1, Long.MAX_VALUE, ignored -> 1L, (key, value) -> evicted.add(key));
+
+    cache.put("a", "alpha");
+    cache.put("b", "beta"); // evicts "a" (maxEntries=1)
+
+    assertEquals(List.of("a"), evicted);
+  }
+
+  @Test
+  void evictionListenerFiresOnClearAndRemoveKeysIf() {
+    List<String> evicted = new ArrayList<>();
+    BoundedImageCache<String> cache = new BoundedImageCache<>(
+        16, Long.MAX_VALUE, ignored -> 1L, (key, value) -> evicted.add(key));
+
+    cache.put("a", "alpha");
+    cache.put("b", "beta");
+    cache.removeKeysIf(k -> k.equals("a"));
+    assertEquals(List.of("a"), evicted);
+
+    cache.clear();
+    assertEquals(List.of("a", "b"), evicted);
+  }
+
+  @Test
+  void evictionListenerFiresOnKeyReplacement() {
+    List<String> evicted = new ArrayList<>();
+    BoundedImageCache<String> cache = new BoundedImageCache<>(
+        16, Long.MAX_VALUE, ignored -> 1L, (key, value) -> evicted.add(key + ":" + value));
+
+    cache.put("a", "alpha");
+    cache.put("a", "alpha2");
+
+    assertEquals(List.of("a:alpha"), evicted);
+  }
+
+  @Test
+  void nullListenerPreservesExistingSilentDropBehavior() {
+    BoundedImageCache<String> cache = new BoundedImageCache<>(
+        1, Long.MAX_VALUE, ignored -> 1L, null);
+    cache.put("a", "alpha");
+    cache.put("b", "beta");
+    assertNull(cache.get("a"));
+    assertEquals("beta", cache.get("b"));
+  }
 }
