@@ -13,10 +13,21 @@ import org.junit.jupiter.api.Test;
 
 import com.jvn.core.assets.AssetCatalog;
 
+/**
+ * Regression coverage for Finding 1 of the whole-branch review: {@link AssetDimensionProbe} must
+ * try the same three-tier fallback the pre-migration JavaFX {@code MenuRenderer.loadImageDirect}
+ * used (asset-catalog-prefixed path, then raw classpath, then filesystem), rather than only
+ * trying {@code AssetCatalog.open} and giving up. Before the fix, a themed project's configured
+ * asset path (e.g. {@code "assets/ui/load/controls/page_track.png"}) would get the
+ * {@code game/images/} prefix unconditionally prepended and fail to resolve, silently falling
+ * back to placeholder rendering for every themed image across the menu system.
+ */
 class AssetDimensionProbeTest {
 
   @Test
   void resolvesViaAssetCatalogTier() {
+    // modules/scene-render/src/test/resources/game/images/probe/tier1.png (4x3) — resolvable
+    // through AssetCatalog.open(IMAGE, "probe/tier1.png") because AssetPaths prepends game/images/.
     Optional<double[]> dims = AssetDimensionProbe.dimensionsOf(new AssetCatalog(), "probe/tier1.png");
     assertTrue(dims.isPresent(), "expected tier 1 (AssetCatalog-prefixed path) to resolve the test fixture");
     assertEquals(4.0, dims.get()[0]);
@@ -25,6 +36,9 @@ class AssetDimensionProbeTest {
 
   @Test
   void resolvesViaRawClasspathTierWhenAssetCatalogPrefixDoesNotMatch() {
+    // modules/scene-render/src/test/resources/raw-assets/tier2.png (5x2) is NOT under game/images/,
+    // so AssetCatalog.open("raw-assets/tier2.png") resolves to game/images/raw-assets/tier2.png,
+    // which doesn't exist. Only tier 2 (raw classpath, path used as-is) can find it.
     Optional<double[]> dims = AssetDimensionProbe.dimensionsOf(new AssetCatalog(), "raw-assets/tier2.png");
     assertTrue(dims.isPresent(), "expected tier 2 (raw classpath) to resolve a path outside game/images/");
     assertEquals(5.0, dims.get()[0]);

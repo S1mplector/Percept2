@@ -43,23 +43,28 @@ public final class AssetDimensionProbe {
   public static Optional<double[]> dimensionsOf(AssetCatalog assets, String path, File projectRoot) {
     if (path == null || path.isBlank()) return Optional.empty();
 
+    // Tier 1: asset-catalog-prefixed path (e.g. game/images/<path>).
     if (assets != null) {
       Optional<double[]> viaCatalog = tryDimensions(() -> assets.open(AssetType.IMAGE, path));
       if (viaCatalog.isPresent()) return viaCatalog;
     }
 
+    // Tier 2: raw classpath resource, path used as-is.
     Optional<double[]> viaClasspath = tryDimensions(() -> {
       URL url = AssetDimensionProbe.class.getClassLoader().getResource(path);
       return url != null ? url.openStream() : null;
     });
     if (viaClasspath.isPresent()) return viaClasspath;
 
+    // Tier 3: filesystem, absolute or relative-to-CWD.
     Optional<double[]> viaFilesystem = tryDimensions(() -> {
       File f = new File(path);
       return f.exists() ? new FileInputStream(f) : null;
     });
     if (viaFilesystem.isPresent()) return viaFilesystem;
 
+    // Tier 4: filesystem, relative to the configured project root (parity with
+    // FxBlitter2D.resolveMediaUrl's projectRoot-relative fallback).
     if (projectRoot != null) {
       return tryDimensions(() -> {
         File f = new File(projectRoot, path);
