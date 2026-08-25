@@ -28,7 +28,8 @@ public class RecordingBlitter2D implements Blitter2D {
       RenderFeature.COLOR_MATRIX,
       RenderFeature.ARCS,
       RenderFeature.BLEND_MODES,
-      RenderFeature.TEXT_LAYOUT)
+      RenderFeature.TEXT_LAYOUT,
+      RenderFeature.PIXEL_ACCESS)
       .withBlendModes(
           RenderBlendMode.NORMAL,
           RenderBlendMode.ADDITIVE,
@@ -140,12 +141,14 @@ public class RecordingBlitter2D implements Blitter2D {
     private final double pixelScale;
     private final Blitter2D blitter;
     private boolean valid = true;
+    private int[] pixels;
 
     RecordingRenderTarget2D(double width, double height, double pixelScale, Blitter2D blitter) {
       this.width = width;
       this.height = height;
       this.pixelScale = pixelScale;
       this.blitter = blitter;
+      this.pixels = new int[Math.max(1, (int) Math.round(width)) * Math.max(1, (int) Math.round(height))];
     }
 
     @Override public double getWidth() { return width; }
@@ -154,5 +157,19 @@ public class RecordingBlitter2D implements Blitter2D {
     @Override public Blitter2D getBlitter() { return blitter; }
     @Override public boolean isValid() { return valid; }
     @Override public void dispose() { valid = false; }
+
+    @Override
+    public int[] readPixelsArgb() {
+      return pixels.clone();
+    }
+
+    @Override
+    public void writePixelsArgb(int[] argb) {
+      if (argb.length != pixels.length) {
+        throw new IllegalArgumentException(
+            "Expected " + pixels.length + " packed ARGB pixels but got " + argb.length);
+      }
+      this.pixels = argb.clone();
+    }
   }
 }
