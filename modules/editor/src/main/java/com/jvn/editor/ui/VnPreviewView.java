@@ -52,8 +52,9 @@ import com.jvn.core.vn.ui.VnUiActionButtonSpec;
 import com.jvn.core.vn.ui.VnUiLayoutSpec;
 import com.jvn.core.vn.ui.VnUiStyleSpec;
 import com.jvn.fx.audio.FxAudioService;
-import com.jvn.fx.menu.MenuRenderer;
-import com.jvn.fx.menu.MenuTheme;
+import com.jvn.fx.scene2d.FxBlitter2D;
+import com.jvn.scenerender.menu.MenuRenderer;
+import com.jvn.scenerender.menu.MenuTheme;
 import com.jvn.fx.phone.PhoneRenderer;
 import com.jvn.fx.vn.VnRenderer;
 
@@ -89,7 +90,8 @@ public class VnPreviewView extends StackPane {
   private final Canvas canvas = new Canvas(1200, 740);
   private final GraphicsContext gc = canvas.getGraphicsContext2D();
   private final VnRenderer renderer = new VnRenderer(gc);
-  private final MenuRenderer menuRenderer = new MenuRenderer(gc, MenuTheme.fromAssets());
+  private final FxBlitter2D blitter2D = new FxBlitter2D(gc);
+  private final MenuRenderer menuRenderer = new MenuRenderer(blitter2D, MenuTheme.fromAssets());
   private final PhoneRenderer phoneRenderer = new PhoneRenderer();
   private final Tooltip previewTooltip = new Tooltip(PREVIEW_HINT);
   private static final Pattern TIMELINE_ARC_PATTERN = Pattern.compile(

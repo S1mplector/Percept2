@@ -19,6 +19,7 @@ dependencies {
   implementation(project(":core"))
   implementation(project(":plugin-runtime"))
   implementation(project(":fx"))
+  implementation(project(":scene-render"))
   implementation(project(":audio"))
   implementation(project(":scripting"))
   implementation("org.fxmisc.richtext:richtextfx:0.11.2")

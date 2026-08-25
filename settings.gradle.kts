@@ -21,6 +21,7 @@ val jvnModules = listOf(
   "plugin-runtime",
   "plugin-example",
   "render-api",
+  "scene-render",
   "fx",
   "runtime",
   "scripting",

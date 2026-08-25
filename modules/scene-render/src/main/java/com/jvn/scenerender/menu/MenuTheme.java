@@ -1,4 +1,4 @@
-package com.jvn.fx.menu;
+package com.jvn.scenerender.menu;
 
 import com.jvn.core.assets.AssetCatalog;
 import com.jvn.core.assets.AssetType;
@@ -9,9 +9,6 @@ import com.jvn.core.menu.config.MenuProfile;
 import com.jvn.core.menu.config.MenuProfileLoader;
 import com.jvn.core.menu.config.MenuScreenSpec;
 import com.jvn.core.menu.config.MenuStyleSpec;
-import javafx.scene.paint.Color;
-import javafx.scene.text.Font;
-import javafx.scene.text.FontWeight;
 
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -24,27 +21,37 @@ import java.util.Properties;
  * legacy fallbacks for older projects.
  */
 public class MenuTheme {
+
+  /** Normalised RGBA colour (each channel in [0.0, 1.0]); replaces the old FX paint-based Color type. */
+  public record ColorSpec(double r, double g, double b, double a) {
+    static ColorSpec rgb255(int r, int g, int b) { return new ColorSpec(r / 255.0, g / 255.0, b / 255.0, 1.0); }
+    static ColorSpec rgb255(int r, int g, int b, double a) { return new ColorSpec(r / 255.0, g / 255.0, b / 255.0, a); }
+  }
+
+  /** Font description consumed directly by Blitter2D.setFont; replaces the old FX text-based Font type. */
+  public record FontSpec(String family, double size, boolean bold) {}
+
   // Colors
-  private Color backgroundColor = Color.rgb(10, 12, 18);
-  private Color titleColor = Color.WHITE;
-  private Color itemColor = Color.LIGHTGRAY;
-  private Color itemSelectedColor = Color.YELLOW;
-  private Color hintColor = Color.rgb(200, 200, 200, 0.8);
-  private Color accentColor = Color.YELLOW;
+  private ColorSpec backgroundColor = ColorSpec.rgb255(10, 12, 18);
+  private ColorSpec titleColor = new ColorSpec(1.0, 1.0, 1.0, 1.0);
+  private ColorSpec itemColor = ColorSpec.rgb255(211, 211, 211);
+  private ColorSpec itemSelectedColor = new ColorSpec(1.0, 1.0, 0.0, 1.0);
+  private ColorSpec hintColor = ColorSpec.rgb255(200, 200, 200, 0.8);
+  private ColorSpec accentColor = new ColorSpec(1.0, 1.0, 0.0, 1.0);
 
   // Fonts
   private String titleFontFamily = "Arial";
-  private FontWeight titleFontWeight = FontWeight.BOLD;
+  private boolean titleFontBold = true;
   private int titleFontSize = 32;
 
   private String itemFontFamily = "Arial";
-  private FontWeight itemFontWeight = FontWeight.NORMAL;
+  private boolean itemFontBold = false;
   private int itemFontSize = 20;
 
   private String hintFontFamily = "Arial";
-  private FontWeight hintFontWeight = FontWeight.NORMAL;
+  private boolean hintFontBold = false;
   private int hintFontSize = 14;
-  
+
   // Layout and formatting
   private double titleY = 60.0; // if <1 treat as fraction of height
   private double listYStart = 0.35; // fraction of height
@@ -73,7 +80,7 @@ public class MenuTheme {
   private boolean logoShadow = true; // draw shadow behind logo
 
   // In-game menu overlay assets
-  private Color gameplayDimColor = Color.rgb(0, 0, 0, 0.50);
+  private ColorSpec gameplayDimColor = new ColorSpec(0.0, 0.0, 0.0, 0.50);
   private String gameplayPanelImagePath = null;
   private String gameplayLogoImagePath = null;
   private double gameplayPanelScale = 1.0;
@@ -125,7 +132,7 @@ public class MenuTheme {
       out.itemPrefix = valueOr(style.itemPrefix(), out.itemPrefix);
       out.itemSelectedPrefix = valueOr(style.itemSelectedPrefix(), out.itemSelectedPrefix);
       out.itemFontFamily = valueOr(style.itemFontFamily(), out.itemFontFamily);
-      out.itemFontWeight = parseWeight(style.itemFontWeight(), out.itemFontWeight);
+      out.itemFontBold = parseBold(style.itemFontWeight(), out.itemFontBold);
       if (style.itemFontSize() != null && style.itemFontSize() > 0) out.itemFontSize = style.itemFontSize();
     }
 
@@ -158,15 +165,15 @@ public class MenuTheme {
 
     // Fonts
     titleFontFamily = p.getProperty("titleFontFamily", titleFontFamily);
-    titleFontWeight = parseWeight(p.getProperty("titleFontWeight"), titleFontWeight);
+    titleFontBold = parseBold(p.getProperty("titleFontWeight"), titleFontBold);
     titleFontSize = parseInt(p.getProperty("titleFontSize"), titleFontSize);
 
     itemFontFamily = p.getProperty("itemFontFamily", itemFontFamily);
-    itemFontWeight = parseWeight(p.getProperty("itemFontWeight"), itemFontWeight);
+    itemFontBold = parseBold(p.getProperty("itemFontWeight"), itemFontBold);
     itemFontSize = parseInt(p.getProperty("itemFontSize"), itemFontSize);
 
     hintFontFamily = p.getProperty("hintFontFamily", hintFontFamily);
-    hintFontWeight = parseWeight(p.getProperty("hintFontWeight"), hintFontWeight);
+    hintFontBold = parseBold(p.getProperty("hintFontWeight"), hintFontBold);
     hintFontSize = parseInt(p.getProperty("hintFontSize"), hintFontSize);
 
     // Layout and formatting
@@ -219,16 +226,19 @@ public class MenuTheme {
     try { return Double.parseDouble(s.trim()); } catch (Exception e) { return def; }
   }
 
-  private static FontWeight parseWeight(String s, FontWeight def) {
-    if (s == null) return def;
-    try {
-      return FontWeight.valueOf(s.trim().toUpperCase());
-    } catch (Exception e) {
-      return def;
-    }
+  /**
+   * Reduces a JavaFX-style font-weight name (e.g. "BOLD", "SEMI_BOLD", "BLACK") to the
+   * bold/non-bold distinction that Blitter2D.setFont actually exposes.
+   */
+  private static boolean parseBold(String s, boolean def) {
+    if (s == null || s.isBlank()) return def;
+    String t = s.trim().toUpperCase();
+    if ("NORMAL".equals(t) || "THIN".equals(t) || "LIGHT".equals(t) || "MEDIUM".equals(t)) return false;
+    if (t.contains("BOLD") || "BLACK".equals(t) || "EXTRA_BOLD".equals(t) || "HEAVY".equals(t)) return true;
+    return def;
   }
 
-  private static Color parseColor(String s, Color def) {
+  private static ColorSpec parseColor(String s, ColorSpec def) {
     if (s == null || s.isBlank()) return def;
     String t = s.trim();
     try {
@@ -238,13 +248,13 @@ public class MenuTheme {
           int r = Integer.parseInt(hex.substring(0,2), 16);
           int g = Integer.parseInt(hex.substring(2,4), 16);
           int b = Integer.parseInt(hex.substring(4,6), 16);
-          return Color.rgb(r, g, b);
+          return ColorSpec.rgb255(r, g, b);
         } else if (hex.length() == 8) {
           int a = Integer.parseInt(hex.substring(0,2), 16);
           int r = Integer.parseInt(hex.substring(2,4), 16);
           int g = Integer.parseInt(hex.substring(4,6), 16);
           int b = Integer.parseInt(hex.substring(6,8), 16);
-          return Color.rgb(r, g, b, a / 255.0);
+          return ColorSpec.rgb255(r, g, b, a / 255.0);
         }
       } else if (t.toLowerCase().startsWith("rgb")) {
         // rgb(r,g,b) or rgba(r,g,b,a) in 0..1 floats
@@ -258,9 +268,9 @@ public class MenuTheme {
           double a = parts.length >= 4 ? Double.parseDouble(parts[3].trim()) : 1.0;
           if (r > 1 || g > 1 || b > 1 || a > 1) {
             // interpret as 0..255 if >1
-            return Color.rgb((int)r, (int)g, (int)b, a > 1 ? (a/255.0) : a);
+            return ColorSpec.rgb255((int) r, (int) g, (int) b, a > 1 ? (a / 255.0) : a);
           }
-          return Color.color(r, g, b, a);
+          return new ColorSpec(r, g, b, a);
         }
       }
     } catch (Exception ignored) {
@@ -269,16 +279,16 @@ public class MenuTheme {
     return def;
   }
 
-  public Color getBackgroundColor() { return backgroundColor; }
-  public Color getTitleColor() { return titleColor; }
-  public Color getItemColor() { return itemColor; }
-  public Color getItemSelectedColor() { return itemSelectedColor; }
-  public Color getHintColor() { return hintColor; }
-  public Color getAccentColor() { return accentColor; }
+  public ColorSpec getBackgroundColor() { return backgroundColor; }
+  public ColorSpec getTitleColor() { return titleColor; }
+  public ColorSpec getItemColor() { return itemColor; }
+  public ColorSpec getItemSelectedColor() { return itemSelectedColor; }
+  public ColorSpec getHintColor() { return hintColor; }
+  public ColorSpec getAccentColor() { return accentColor; }
 
-  public Font getTitleFont() { return Font.font(titleFontFamily, titleFontWeight, titleFontSize); }
-  public Font getItemFont() { return Font.font(itemFontFamily, itemFontWeight, itemFontSize); }
-  public Font getHintFont() { return Font.font(hintFontFamily, hintFontWeight, hintFontSize); }
+  public FontSpec getTitleFontSpec() { return new FontSpec(titleFontFamily, titleFontSize, titleFontBold); }
+  public FontSpec getItemFontSpec() { return new FontSpec(itemFontFamily, itemFontSize, itemFontBold); }
+  public FontSpec getHintFontSpec() { return new FontSpec(hintFontFamily, hintFontSize, hintFontBold); }
 
   public double getTitleY() { return titleY; }
   public double getListYStart() { return listYStart; }
@@ -302,7 +312,7 @@ public class MenuTheme {
   public double getLogoScale() { return logoScale; }
   public double getBgmVolume() { return bgmVolume; }
   public boolean isLogoShadow() { return logoShadow; }
-  public Color getGameplayDimColor() { return gameplayDimColor; }
+  public ColorSpec getGameplayDimColor() { return gameplayDimColor; }
   public String getGameplayPanelImagePath() { return gameplayPanelImagePath; }
   public String getGameplayLogoImagePath() { return gameplayLogoImagePath; }
   public double getGameplayPanelScale() { return gameplayPanelScale; }

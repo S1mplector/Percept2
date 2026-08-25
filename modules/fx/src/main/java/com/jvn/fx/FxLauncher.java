@@ -46,8 +46,8 @@ import com.jvn.core.vn.VnScene;
 import com.jvn.core.vn.VnTimelineAccessorProvider;
 import com.jvn.core.vn.ui.VnCursorConfigLoader;
 import com.jvn.core.vn.ui.VnUiActionButtonActions;
-import com.jvn.fx.menu.MenuRenderer;
-import com.jvn.fx.menu.MenuTheme;
+import com.jvn.scenerender.menu.MenuRenderer;
+import com.jvn.scenerender.menu.MenuTheme;
 import com.jvn.fx.phone.PhoneRenderer;
 import com.jvn.fx.render.FxSceneRendererRegistry;
 import com.jvn.fx.scene2d.FxBlitter2D;
@@ -209,9 +209,10 @@ public class FxLauncher extends Application {
 
     // Initialize graphics context and resize canvas with scene
     this.gc = this.canvas.getGraphicsContext2D();
+    this.blitter2D = new FxBlitter2D(gc);
     this.vnRenderer = new VnRenderer(gc);
     MenuTheme menuTheme = MenuTheme.fromAssets();
-    this.menuRenderer = new MenuRenderer(gc, menuTheme);
+    this.menuRenderer = new MenuRenderer(blitter2D, menuTheme);
     if (engine != null && engine.scenes().peek() instanceof MainMenuScene main
         && menuTheme.getBgmPath() != null && !menuTheme.getBgmPath().isBlank()) {
       main.setTitleBgm(menuTheme.getBgmPath(), menuTheme.getBgmVolume());
@@ -224,7 +225,6 @@ public class FxLauncher extends Application {
       this.vnRenderer.setAccessibilityTheme(pendingAccessibilityTheme);
     }
     this.phoneRenderer.setProjectRoot(runtimeProjectRoot);
-    this.blitter2D = new FxBlitter2D(gc);
     this.rendererRegistry = createRendererRegistry();
     this.actionMap = loadActionBindings();
     this.hotReloadTracker = ProjectHotReloadTracker.create(runtimeProjectRoot);
@@ -1517,7 +1517,7 @@ public class FxLauncher extends Application {
       }
     } else if (currentScene instanceof LoadMenuScene load) {
       var controlHit = menuRenderer.getLoadControlHit(load, rw, rh, x, y);
-      if (controlHit != null && controlHit.type() == com.jvn.fx.menu.MenuRenderer.LoadControlType.SET_PAGE) {
+      if (controlHit != null && controlHit.type() == com.jvn.scenerender.menu.MenuRenderer.LoadControlType.SET_PAGE) {
         load.setPageFromProgress01(controlHit.pageProgress01());
       }
     }

@@ -7,6 +7,7 @@ plugins {
 dependencies {
   api(project(":core"))
   api(project(":render-api"))
+  api(project(":scene-render"))
 
   testFixturesImplementation(platform("org.junit:junit-bom:5.11.0"))
   testFixturesImplementation("org.junit.jupiter:junit-jupiter-api")
