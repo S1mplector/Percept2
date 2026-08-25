@@ -10,6 +10,7 @@ import com.jvn.core.menu.config.MenuItemSpec;
 import com.jvn.core.menu.config.MenuLayoutSpec;
 import com.jvn.core.menu.config.MenuStyleSpec;
 import com.jvn.core.scene2d.Blitter2D;
+import com.jvn.scenerender.assets.AssetDimensionProbe;
 
 /**
  * Screen-background painting (solid/frosted/gameplay-backdrop/logo/header/hints) plus the shared
