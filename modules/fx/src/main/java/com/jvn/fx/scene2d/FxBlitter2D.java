@@ -54,7 +54,8 @@ public class FxBlitter2D implements Blitter2D {
       RenderFeature.BLUR,
       RenderFeature.OFFSCREEN_RENDER_TARGETS,
       RenderFeature.ALPHA_MASKS,
-      RenderFeature.TEXT_LAYOUT)
+      RenderFeature.TEXT_LAYOUT,
+      RenderFeature.PIXEL_ACCESS)
       .withBlendModes(
           RenderBlendMode.NORMAL,
           RenderBlendMode.ADDITIVE,

@@ -4,6 +4,9 @@ import com.jvn.core.scene2d.Blitter2D;
 import com.jvn.core.scene2d.RenderTarget2D;
 import javafx.scene.SnapshotParameters;
 import javafx.scene.canvas.Canvas;
+import javafx.scene.image.PixelFormat;
+import javafx.scene.image.PixelReader;
+import javafx.scene.image.PixelWriter;
 import javafx.scene.image.WritableImage;
 import javafx.scene.paint.Color;
 
@@ -51,6 +54,39 @@ final class FxRenderTarget2D implements RenderTarget2D {
   @Override public Blitter2D getBlitter() { ensureValid(); return blitter; }
   @Override public boolean isValid() { return valid; }
   @Override public void dispose() { valid = false; cachedSnapshot = null; }
+
+  @Override
+  public int[] readPixelsArgb() {
+    ensureValid();
+    WritableImage image = snapshot();
+    int w = (int) Math.ceil(image.getWidth());
+    int h = (int) Math.ceil(image.getHeight());
+    int[] pixels = new int[w * h];
+    PixelReader reader = image.getPixelReader();
+    reader.getPixels(0, 0, w, h, PixelFormat.getIntArgbInstance(), pixels, 0, w);
+    return pixels;
+  }
+
+  @Override
+  public void writePixelsArgb(int[] argb) {
+    ensureValid();
+    int w = Math.max(1, (int) Math.ceil(canvas.getWidth()));
+    int h = Math.max(1, (int) Math.ceil(canvas.getHeight()));
+    if (argb.length != w * h) {
+      throw new IllegalArgumentException(
+          "Expected " + (w * h) + " packed ARGB pixels but got " + argb.length);
+    }
+    WritableImage image = new WritableImage(w, h);
+    PixelWriter writer = image.getPixelWriter();
+    writer.setPixels(0, 0, w, h, PixelFormat.getIntArgbInstance(), argb, 0, w);
+    canvas.getGraphicsContext2D().save();
+    canvas.getGraphicsContext2D().setTransform(1, 0, 0, 1, 0, 0);
+    canvas.getGraphicsContext2D().setImageSmoothing(false);
+    canvas.getGraphicsContext2D().clearRect(0, 0, canvas.getWidth(), canvas.getHeight());
+    canvas.getGraphicsContext2D().drawImage(image, 0, 0);
+    canvas.getGraphicsContext2D().restore();
+    markDirty();
+  }
 
   private void ensureValid() {
     if (!valid) throw new IllegalStateException("Render target has been disposed");
