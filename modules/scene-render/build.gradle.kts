@@ -8,6 +8,8 @@ dependencies {
   api(project(":core"))
   api(project(":render-api"))
 
+  implementation("org.jspecify:jspecify:1.0.0")
+
   testImplementation(platform("org.junit:junit-bom:5.11.0"))
   testImplementation("org.junit.jupiter:junit-jupiter-api")
   testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine")
