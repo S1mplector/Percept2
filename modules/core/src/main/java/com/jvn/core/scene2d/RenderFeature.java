@@ -16,5 +16,7 @@ public enum RenderFeature {
   BLUR,
   OFFSCREEN_RENDER_TARGETS,
   ALPHA_MASKS,
-  TEXT_LAYOUT
+  TEXT_LAYOUT,
+  /** Whole-buffer packed-ARGB pixel read/write on a {@link RenderTarget2D}. */
+  PIXEL_ACCESS
 }
