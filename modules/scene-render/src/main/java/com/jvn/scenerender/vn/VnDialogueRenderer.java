@@ -89,6 +89,7 @@ final class VnDialogueRenderer {
       double uiFontScale,
 
       // --- Text box ---
+      boolean textBoxAssetEnabled,
       @Nullable String textBoxImagePath,
       @Nullable String narrationTextBoxImagePath,
       double[] textBoxFillColor,
@@ -131,6 +132,7 @@ final class VnDialogueRenderer {
       double[] bubbleTextFillColor,
 
       // --- Text box buttons ---
+      boolean textBoxButtonsEnabled,
       List<VnUiActionButtonSpec> textBoxButtons
   ) {
     static RenderSettings defaults() {
@@ -140,7 +142,7 @@ final class VnDialogueRenderer {
           new VnFontSpec(DEFAULT_FONT_FAMILY, 20, false),
           false,
           1.0,
-          null, null, TEXTBOX_COLOR, 0.0, List.of(),
+          true, null, null, TEXTBOX_COLOR, 0.0, List.of(),
           null, NAME_BOX_COLOR, DEFAULT_NAME_TEXT_COLOR, 0.0, 1.0, List.of(),
           TEXT_COLOR, 0.0, List.of(),
           null, 0.0, 0.0,
@@ -150,7 +152,7 @@ final class VnDialogueRenderer {
           new double[] {0xA9 / 255.0, 0xBC / 255.0, 0xD9 / 255.0, 1.0}, 2.0, 20.0,
           new double[] {1.0, 0xD7 / 255.0, 0x8A / 255.0, 1.0},
           new double[] {0xF1 / 255.0, 0xF5 / 255.0, 0xFF / 255.0, 1.0},
-          List.of());
+          true, List.of());
     }
   }
 
@@ -237,10 +239,13 @@ final class VnDialogueRenderer {
     // Draw text box background (asset if provided, otherwise default fill).
     String speakerName = dialogue.getSpeakerName() == null ? "" : dialogue.getSpeakerName();
     boolean hasSpeaker = !speakerName.isEmpty();
-    String activeTextBoxImage = hasSpeaker || settings.narrationTextBoxImagePath() == null
-        ? settings.textBoxImagePath()
-        : settings.narrationTextBoxImagePath();
-    boolean clipTextBox = hasPolygon(settings.textBoxBoundsPolygon());
+    boolean useTextBoxAsset = settings.textBoxAssetEnabled();
+    String activeTextBoxImage = useTextBoxAsset
+        ? (hasSpeaker || settings.narrationTextBoxImagePath() == null
+            ? settings.textBoxImagePath()
+            : settings.narrationTextBoxImagePath())
+        : null;
+    boolean clipTextBox = useTextBoxAsset && hasPolygon(settings.textBoxBoundsPolygon());
     if (clipTextBox) {
       // Known limitation: Blitter2D has no arbitrary-polygon clip primitive — draw unclipped.
       // See the class Javadoc "Known port limitations" note.
@@ -574,6 +579,7 @@ final class VnDialogueRenderer {
   private void renderTextBoxButtons(
       TextBoxGeometry textBox, double viewportWidth, double viewportHeight, int hoveredButtonIndex,
       VnState state, RenderSettings settings) {
+    if (!settings.textBoxButtonsEnabled()) return;
     List<VnUiActionButtonSpec> textBoxButtons = settings.textBoxButtons();
     if (textBoxButtons == null || textBoxButtons.isEmpty()) return;
     for (int i = 0; i < textBoxButtons.size(); i++) {
@@ -845,7 +851,14 @@ final class VnDialogueRenderer {
   // ─────────────────────────────────────────────────────────────────────────
 
   double computeTextWidth(String text, VnFontSpec font) {
-    return blitter.measureTextWidth(text, font.size(), font.bold());
+    // Routed through measureTextMetrics (not the bare measureTextWidth(text, size, bold)) because
+    // FxBlitter2D.measureTextWidth resolves the font FAMILY from persistent canvas state (the last
+    // setFont call), not from any argument here — only measureTextMetrics takes family explicitly.
+    // Without this, a theme's non-default font family measures against whatever family a sibling
+    // collaborator (or an earlier frame) last left on the canvas, while drawStyledLines paints in
+    // the correct family — causing visible glyph/advance-width mismatches (overlap or gaps) and
+    // wrap points computed against the wrong width.
+    return blitter.measureTextMetrics(text, font.family(), font.size(), font.bold()).width();
   }
 
   double computeTextAscent(VnFontSpec font) {
