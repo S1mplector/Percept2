@@ -13,6 +13,9 @@ dependencies {
   testImplementation(platform("org.junit:junit-bom:5.11.0"))
   testImplementation("org.junit.jupiter:junit-jupiter-api")
   testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine")
+  // Needed by VnCharacterCompositorTest's missing-layer-warning coverage, which asserts on
+  // RenderDiagnostics output through a logback ListAppender (same dependency :core and :fx declare).
+  testImplementation("ch.qos.logback:logback-classic:1.5.6")
 
   testFixturesImplementation(project(":core"))
   testFixturesImplementation(project(":render-api"))
