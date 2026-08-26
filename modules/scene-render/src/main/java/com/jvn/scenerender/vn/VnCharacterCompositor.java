@@ -105,6 +105,9 @@ final class VnCharacterCompositor {
   private double characterHeightFactor = 0.85;
   private double characterBaselineY = 1.0;
 
+  /** Character-layer draws this frame, polled by {@code VnRenderer} into its {@code DrawCallStats}. */
+  private int characterLayerDrawCount;
+
   VnCharacterCompositor(Blitter2D blitter) {
     this.blitter = blitter;
   }
@@ -178,10 +181,16 @@ final class VnCharacterCompositor {
 
   void beginFrame() {
     timelineLayerWorkingSet.beginFrame();
+    characterLayerDrawCount = 0;
   }
 
   void endFrame() {
     timelineLayerWorkingSet.endFrame();
+  }
+
+  /** Character layers drawn since the last {@link #beginFrame()}. */
+  int characterLayerDrawCount() {
+    return characterLayerDrawCount;
   }
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -638,6 +647,7 @@ final class VnCharacterCompositor {
       VnStagePreset stage) {
     RenderTarget2D composite = compositeSpriteFor(imagePathSpec, layerPaths);
     if (composite != null) {
+      characterLayerDrawCount++;
       if (stage != null && !stage.getLights().isEmpty() && stageLightingRenderer != null) {
         stageLightingRenderer.drawLitComposite(
             composite,
@@ -1404,6 +1414,7 @@ final class VnCharacterCompositor {
                                   double canvasHeight,
                                   VnStagePreset stage) {
     if (path == null || path.isBlank()) return;
+    characterLayerDrawCount++;
     if (stage == null || stage.getLights().isEmpty() || stageLightingRenderer == null) {
       blitter.drawImage(path, x, y, drawWidth, drawHeight);
       return;

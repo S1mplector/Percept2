@@ -56,7 +56,7 @@ import com.jvn.fx.scene2d.FxBlitter2D;
 import com.jvn.scenerender.menu.MenuRenderer;
 import com.jvn.scenerender.menu.MenuTheme;
 import com.jvn.fx.phone.PhoneRenderer;
-import com.jvn.fx.vn.VnRenderer;
+import com.jvn.scenerender.vn.VnRenderer;
 
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
@@ -89,8 +89,8 @@ public class VnPreviewView extends StackPane {
 
   private final Canvas canvas = new Canvas(1200, 740);
   private final GraphicsContext gc = canvas.getGraphicsContext2D();
-  private final VnRenderer renderer = new VnRenderer(gc);
   private final FxBlitter2D blitter2D = new FxBlitter2D(gc);
+  private final VnRenderer renderer = new VnRenderer(blitter2D);
   private final MenuRenderer menuRenderer = new MenuRenderer(blitter2D, MenuTheme.fromAssets());
   private final PhoneRenderer phoneRenderer = new PhoneRenderer();
   private final Tooltip previewTooltip = new Tooltip(PREVIEW_HINT);

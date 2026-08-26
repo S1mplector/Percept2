@@ -646,6 +646,41 @@ final class VnDialogueRenderer {
     }
   }
 
+  /**
+   * Hit-tests the text-box buttons in top-most-first order, mirroring
+   * {@link #renderTextBoxButtons}'s geometry/visibility rules exactly so hover state always
+   * matches what was last drawn.
+   */
+  int getHoveredTextBoxButtonIndex(
+      VnState state, VnUiLayoutSpec uiLayout, double width, double height, double mouseX, double mouseY,
+      RenderSettings settings) {
+    if (!settings.textBoxButtonsEnabled()) return -1;
+    List<VnUiActionButtonSpec> textBoxButtons = settings.textBoxButtons();
+    if (textBoxButtons == null || textBoxButtons.isEmpty()) return -1;
+    TextBoxGeometry textBox = computeTextBoxGeometry(uiLayout, width, height);
+    for (int i = textBoxButtons.size() - 1; i >= 0; i--) {
+      VnUiActionButtonSpec button = textBoxButtons.get(i);
+      if (button == null || !button.enabled()) continue;
+      ButtonGeometry geometry = computeButtonGeometry(button, textBox, width, height);
+      if (buttonContainsPoint(button, geometry, mouseX, mouseY)) return i;
+    }
+    return -1;
+  }
+
+  private boolean buttonContainsPoint(VnUiActionButtonSpec button, ButtonGeometry geometry, double mouseX, double mouseY) {
+    if (button == null || geometry == null) return false;
+    String raw = button.boundsPoints();
+    if (raw != null && !raw.isBlank()) {
+      List<BoundsPointCodec.Point> points = BoundsPointCodec.parse(raw);
+      if (points.size() >= 3) {
+        return BoundsPointCodec.containsInRect(
+            points, geometry.x(), geometry.y(), geometry.width(), geometry.height(), mouseX, mouseY);
+      }
+    }
+    return mouseX >= geometry.x() && mouseX <= geometry.x() + geometry.width()
+        && mouseY >= geometry.y() && mouseY <= geometry.y() + geometry.height();
+  }
+
   // ─────────────────────────────────────────────────────────────────────────
   //  Styled text layout / painting
   // ─────────────────────────────────────────────────────────────────────────

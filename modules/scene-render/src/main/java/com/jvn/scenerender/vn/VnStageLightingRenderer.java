@@ -58,8 +58,20 @@ final class VnStageLightingRenderer implements VnCharacterCompositor.StageLitCha
   @SuppressWarnings("NullAway.Init")
   private File projectRoot;
 
+  /** Stage-relight cache misses (recomposes) this frame, polled by {@code VnRenderer}. */
+  private int stageLightingRecomposeCount;
+
   VnStageLightingRenderer(Blitter2D blitter) {
     this.blitter = blitter;
+  }
+
+  void beginFrame() {
+    stageLightingRecomposeCount = 0;
+  }
+
+  /** Stage relights (cache misses) since the last {@link #beginFrame()}. */
+  int stageLightingRecomposeCount() {
+    return stageLightingRecomposeCount;
   }
 
   void setProjectRoot(File root) {
@@ -398,6 +410,7 @@ final class VnStageLightingRenderer implements VnCharacterCompositor.StageLitCha
       double canvasWidth,
       double canvasHeight,
       @Nullable VnStagePreset stage) {
+    stageLightingRecomposeCount++;
     int[] litArgb = VnStageLightingSupport.buildLitCharacter(
         sourceArgb, srcW, srcH, spriteTag, x, y, drawWidth, drawHeight, canvasWidth, canvasHeight, stage);
     int outW = Math.max(1, (int) Math.round(drawWidth));

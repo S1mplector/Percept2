@@ -1,4 +1,4 @@
-package com.jvn.fx.vn;
+package com.jvn.scenerender.vn;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;

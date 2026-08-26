@@ -13,7 +13,7 @@ import org.openjdk.jmh.annotations.Scope;
 import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.Warmup;
 
-import com.jvn.fx.vn.VnRenderer;
+import com.jvn.scenerender.vn.VnRenderer;
 
 /** Measures parsing of layered character sprite specifications on the render path. */
 @BenchmarkMode(Mode.AverageTime)

@@ -16,9 +16,10 @@ import com.jvn.core.vn.VnScenario;
 import com.jvn.core.vn.VnScenarioLoader;
 import com.jvn.core.vn.VnScene;
 import com.jvn.core.vn.text.TextParser;
+import com.jvn.fx.scene2d.FxBlitter2D;
 import com.jvn.fx.testkit.FxToolkit;
 import com.jvn.fx.testkit.FxToolkitExtension;
-import com.jvn.fx.vn.VnRenderer;
+import com.jvn.scenerender.vn.VnRenderer;
 import java.io.File;
 import java.nio.file.Path;
 import javax.imageio.ImageIO;
@@ -81,7 +82,8 @@ class HeadlessVnReviewRenderTest {
     VnRenderer[] rendererHolder = new VnRenderer[1];
     Canvas canvas = FxToolkit.runFx(() -> {
       Canvas result = new Canvas(width, height);
-      VnRenderer renderer = new VnRenderer(result.getGraphicsContext2D());
+      FxBlitter2D blitter = new FxBlitter2D(result.getGraphicsContext2D());
+      VnRenderer renderer = new VnRenderer(blitter);
       renderer.setProjectRoot(projectRoot.toFile());
       renderer.setTimelineAccessor(timelineAccessor);
       renderer.render(vnScene.getState(), scenario, width, height);
@@ -116,6 +118,50 @@ class HeadlessVnReviewRenderTest {
           ((CheckMenuItem) guideMenu.getItems().get(i)).setSelected(previousGuideState[i]);
         }
       }
+    });
+
+    File parent = output.getParentFile();
+    if (parent != null) parent.mkdirs();
+    assertTrue(ImageIO.write(SwingFXUtils.fromFXImage(image, null), "png", output));
+  }
+
+  @Test
+  void rendersStageLightingAndChoicesWithoutFallingBackToPlaceholders() throws Exception {
+    String projectSetting = setting("review.projectRoot", "JVN_REVIEW_PROJECT_ROOT", "");
+    String outputSetting = setting("review.stageOutput", "JVN_REVIEW_STAGE_OUTPUT", "");
+    String target = setting("review.stageTarget", "JVN_REVIEW_STAGE_TARGET", "");
+    assumeTrue(!projectSetting.isBlank() && !outputSetting.isBlank() && !target.isBlank(),
+        "Offscreen stage-lighting/choice review render was not requested");
+
+    Path projectRoot = Path.of(projectSetting).toAbsolutePath();
+    File output = Path.of(outputSetting).toAbsolutePath().toFile();
+    String script = setting("review.stageScript", "JVN_REVIEW_STAGE_SCRIPT", "scripts/story/chapter_1_demo.vns");
+    int width = 1920;
+    int height = 1080;
+
+    AssetCatalog.setDefaultManager(new OverlayAssetManager(
+        new FilesystemAssetManager(projectRoot), new ClasspathAssetManager()));
+    System.setProperty("jvn.assets.root", projectRoot.toString());
+
+    VnScenario scenario = new VnScenarioLoader().load(script);
+    VnScene vnScene = new VnScene(scenario);
+    VnCharacterSceneAccessor timelineAccessor = new VnCharacterSceneAccessor();
+    DefaultVnInterop interop = new DefaultVnInterop();
+    interop.setSceneAccessor(timelineAccessor);
+    vnScene.setInterop(interop);
+    vnScene.onEnter();
+    advanceToTarget(vnScene, target);
+
+    WritableImage image = FxToolkit.runFx(() -> {
+      Canvas canvas = new Canvas(width, height);
+      FxBlitter2D blitter = new FxBlitter2D(canvas.getGraphicsContext2D());
+      VnRenderer renderer = new VnRenderer(blitter);
+      renderer.setProjectRoot(projectRoot.toFile());
+      renderer.setTimelineAccessor(timelineAccessor);
+      renderer.render(vnScene.getState(), scenario, width, height);
+      WritableImage snapshot = new WritableImage(width, height);
+      canvas.snapshot(null, snapshot);
+      return snapshot;
     });
 
     File parent = output.getParentFile();

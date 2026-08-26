@@ -54,7 +54,7 @@ import com.jvn.fx.scene2d.FxBlitter2D;
 import com.jvn.fx.ui.ProjectFontResolver;
 import com.jvn.core.diagnostics.PerformanceHud;
 import com.jvn.fx.diagnostics.FxPerformanceHudOverlay;
-import com.jvn.fx.vn.VnRenderer;
+import com.jvn.scenerender.vn.VnRenderer;
 import com.sun.management.OperatingSystemMXBean;
 
 import javafx.animation.AnimationTimer;
@@ -210,7 +210,7 @@ public class FxLauncher extends Application {
     // Initialize graphics context and resize canvas with scene
     this.gc = this.canvas.getGraphicsContext2D();
     this.blitter2D = new FxBlitter2D(gc);
-    this.vnRenderer = new VnRenderer(gc);
+    this.vnRenderer = new VnRenderer(blitter2D);
     MenuTheme menuTheme = MenuTheme.fromAssets();
     this.menuRenderer = new MenuRenderer(blitter2D, menuTheme);
     if (engine != null && engine.scenes().peek() instanceof MainMenuScene main

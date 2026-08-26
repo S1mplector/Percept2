@@ -308,4 +308,24 @@ class VnCharacterCompositorTest {
     assertEquals(4.0, target.getWidth(), 1e-9);
     assertEquals(3.0, target.getHeight(), 1e-9);
   }
+
+  // ───────────────────────────────────────────────────────────────────────────
+  //  Ported from modules/fx VnRendererCompositeCacheTest (budget-constant assertions only —
+  //  see Task 15's cross-check note: the cache-churn tests modeled Image raster weight via
+  //  FxImageMemory and no longer apply once compositing moved to RenderTarget2D inside this
+  //  collaborator, whose own cache-eviction behavior is already covered by this file's other
+  //  tests and by compositeSpriteFor's real-asset test above).
+  // ───────────────────────────────────────────────────────────────────────────
+
+  @Test
+  void compositeBudgetRetainsAFullHdTransitionWorkingSet() {
+    long fullHdBytes = 1920L * 1080L * 4L;
+    assertTrue(com.jvn.scenerender.vn.VnRenderer.COMPOSITE_SPRITE_CACHE_BUDGET_BYTES >= 12L * fullHdBytes);
+  }
+
+  // backgroundBudgetRetainsBothSidesOfAFullHdTransition intentionally not ported: background
+  // image caching is retired under this port (backgrounds draw straight through
+  // Blitter2D.drawImage per VnTransitionRenderer's design), so BACKGROUND_IMAGE_CACHE_BUDGET_BYTES
+  // is unused by any cache and a test asserting on it can never fail regardless of runtime
+  // behavior — it would only give false confidence.
 }
