@@ -132,7 +132,7 @@ final class VnCharacterCompositor {
         double drawHeight,
         double canvasWidth,
         double canvasHeight,
-        VnStagePreset stage);
+        @Nullable VnStagePreset stage);
 
     /**
      * Draws an already-composited multi-layer sprite with stage lighting applied. The {@code
@@ -147,7 +147,7 @@ final class VnCharacterCompositor {
         double drawHeight,
         double canvasWidth,
         double canvasHeight,
-        VnStagePreset stage);
+        @Nullable VnStagePreset stage);
   }
 
   void setStageLightingRenderer(@Nullable StageLitCharacterDrawer renderer) {

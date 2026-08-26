@@ -1,5 +1,6 @@
 package com.jvn.scenerender.vn;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -7,6 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.jvn.core.scene2d.RenderTarget2D;
 import com.jvn.core.vn.stage.VnStagePreset;
+import com.jvn.scenerender.testkit.DrawCall;
 import com.jvn.scenerender.testkit.RecordingBlitter2D;
 import java.util.HashSet;
 import java.util.List;
@@ -140,6 +142,203 @@ class VnStageLightingRendererTest {
         blitter.calls().stream().anyMatch(c -> c.method().equals("drawRenderTarget")),
         "expected the lit composite to be drawn, got: " + blitter.calls());
     assertTrue(composite.isValid(), "the compositor still owns and caches the composite");
+  }
+
+  // ───────────────────────────────────────────────────────────────────────────
+  //  Null / lightless stage guards
+  // ───────────────────────────────────────────────────────────────────────────
+
+  @Test
+  void litCharacterDrawsUnlitForANullStageRatherThanMismatchingPixelBuffers() {
+    RecordingBlitter2D blitter = new RecordingBlitter2D();
+    VnStageLightingRenderer renderer = new VnStageLightingRenderer(blitter);
+
+    renderer.drawLitCharacter("probe/tier1.png", "alice_happy", 0, 0, 40, 30, 200, 100, null);
+
+    assertTrue(
+        blitter.calls().stream().anyMatch(c -> c.method().equals("drawImage")),
+        "a null stage must fall back to an unlit path draw: " + blitter.calls());
+    assertTrue(
+        blitter.calls().stream().noneMatch(c -> c.method().equals("createRenderTarget")),
+        "no relight work should happen without lights: " + blitter.calls());
+  }
+
+  @Test
+  void litCompositeDrawsUnlitForANullStageRatherThanMismatchingPixelBuffers() {
+    RecordingBlitter2D blitter = new RecordingBlitter2D();
+    VnStageLightingRenderer renderer = new VnStageLightingRenderer(blitter);
+    RenderTarget2D composite = blitter.createRenderTarget(4, 4, 1.0);
+    blitter.clearCalls();
+
+    renderer.drawLitComposite(composite, "alice:composite", 0, 0, 40, 30, 200, 100, null);
+
+    assertTrue(
+        blitter.calls().stream().anyMatch(c -> c.method().equals("drawRenderTarget")),
+        "a null stage must fall back to a direct composite blit: " + blitter.calls());
+    assertTrue(composite.isValid(), "the caller-owned composite must survive the fallback");
+  }
+
+  @Test
+  void litCharacterDrawsUnlitForAStageWithNoLights() {
+    RecordingBlitter2D blitter = new RecordingBlitter2D();
+    VnStageLightingRenderer renderer = new VnStageLightingRenderer(blitter);
+    VnStagePreset lightless = new VnStagePreset(
+        "stage-dark", "", "", "", VnStagePreset.BackgroundGrade.defaults(),
+        List.of(), List.of(), List.of());
+
+    renderer.drawLitCharacter("probe/tier1.png", "alice_happy", 0, 0, 40, 30, 200, 100, lightless);
+
+    assertTrue(
+        blitter.calls().stream().anyMatch(c -> c.method().equals("drawImage")),
+        "a lightless stage must fall back to an unlit path draw: " + blitter.calls());
+  }
+
+  // ───────────────────────────────────────────────────────────────────────────
+  //  Light overlay pass
+  // ───────────────────────────────────────────────────────────────────────────
+
+  private static VnStagePreset stageWithLightOfType(
+      VnStagePreset.LightType type, VnStagePreset.LightLayer layer, List<VnStagePreset.Point> polygon) {
+    VnStagePreset.Light light = new VnStagePreset.Light(
+        "key", type, layer,
+        0.5, 0.5, 0.38, 0.2,
+        "#ffd7a8", 0.8, 0.6, 0.5, 0.4,
+        false, false, false, "", polygon);
+    return new VnStagePreset(
+        "stage-1", "", "", "", VnStagePreset.BackgroundGrade.defaults(),
+        List.of(light), List.of(), List.of());
+  }
+
+  @Test
+  void skipsOverlayDrawingWhenStageHasNoLights() {
+    RecordingBlitter2D blitter = new RecordingBlitter2D();
+    VnStageLightingRenderer renderer = new VnStageLightingRenderer(blitter);
+
+    renderer.renderStageLightOverlays(null, 1280, 720, VnStagePreset.LightLayer.FOREGROUND);
+
+    assertTrue(blitter.calls().isEmpty(), "no stage means no overlay draw calls at all");
+  }
+
+  @Test
+  void radialLightDrawsAGradientFilledCircle() {
+    RecordingBlitter2D blitter = new RecordingBlitter2D();
+    VnStageLightingRenderer renderer = new VnStageLightingRenderer(blitter);
+
+    renderer.renderStageLightOverlays(
+        stageWithLightOfType(
+            VnStagePreset.LightType.RADIAL, VnStagePreset.LightLayer.FOREGROUND, null),
+        1280, 720, VnStagePreset.LightLayer.FOREGROUND);
+
+    assertTrue(
+        blitter.calls().stream().anyMatch(c -> c.method().equals("setFillRadialGradient")),
+        "a radial light should set a radial gradient fill: " + blitter.calls());
+    assertTrue(
+        blitter.calls().stream().anyMatch(c -> c.method().equals("fillCircle")),
+        "a radial light should fill a circle: " + blitter.calls());
+  }
+
+  @Test
+  void coneAndStripLightsDrawQuadPolygons() {
+    for (VnStagePreset.LightType type :
+        List.of(VnStagePreset.LightType.CONE, VnStagePreset.LightType.STRIP,
+            VnStagePreset.LightType.WINDOW)) {
+      RecordingBlitter2D blitter = new RecordingBlitter2D();
+      VnStageLightingRenderer renderer = new VnStageLightingRenderer(blitter);
+
+      renderer.renderStageLightOverlays(
+          stageWithLightOfType(type, VnStagePreset.LightLayer.FOREGROUND, null),
+          1280, 720, VnStagePreset.LightLayer.FOREGROUND);
+
+      DrawCall polygon = blitter.calls().stream()
+          .filter(c -> c.method().equals("fillPolygon"))
+          .findFirst()
+          .orElse(null);
+      assertNotNull(polygon, type + " should fill a polygon, got: " + blitter.calls());
+      assertEquals(8, ((double[]) polygon.args().get(0)).length,
+          type + " overlay is a 4-point quad (8 flattened coordinates)");
+    }
+  }
+
+  @Test
+  void polygonLightFillsItsAuthoredPolygonScaledToTheCanvas() {
+    RecordingBlitter2D blitter = new RecordingBlitter2D();
+    VnStageLightingRenderer renderer = new VnStageLightingRenderer(blitter);
+
+    renderer.renderStageLightOverlays(
+        stageWithLightOfType(
+            VnStagePreset.LightType.POLYGON, VnStagePreset.LightLayer.FOREGROUND,
+            List.of(new VnStagePreset.Point(0.0, 0.0),
+                new VnStagePreset.Point(0.5, 0.0),
+                new VnStagePreset.Point(0.5, 1.0))),
+        1000, 500, VnStagePreset.LightLayer.FOREGROUND);
+
+    DrawCall polygon = blitter.calls().stream()
+        .filter(c -> c.method().equals("fillPolygon"))
+        .findFirst()
+        .orElse(null);
+    assertNotNull(polygon, "expected a polygon fill, got: " + blitter.calls());
+    assertArrayEquals(
+        new double[] {0.0, 0.0, 500.0, 0.0, 500.0, 500.0},
+        (double[]) polygon.args().get(0),
+        1e-9,
+        "authored unit-space points scale by canvas width/height");
+  }
+
+  @Test
+  void degenerateAndFilteredLightsDrawNothing() {
+    RecordingBlitter2D blitter = new RecordingBlitter2D();
+    VnStageLightingRenderer renderer = new VnStageLightingRenderer(blitter);
+
+    // A polygon light with fewer than 3 points has no fillable area.
+    renderer.renderStageLightOverlays(
+        stageWithLightOfType(
+            VnStagePreset.LightType.POLYGON, VnStagePreset.LightLayer.FOREGROUND,
+            List.of(new VnStagePreset.Point(0.0, 0.0), new VnStagePreset.Point(0.5, 0.5))),
+        1280, 720, VnStagePreset.LightLayer.FOREGROUND);
+    assertTrue(
+        blitter.calls().stream().noneMatch(c -> c.method().equals("fillPolygon")),
+        "a 2-point polygon light must not be filled: " + blitter.calls());
+
+    // A light on a different layer than the one being rendered is skipped.
+    blitter.clearCalls();
+    renderer.renderStageLightOverlays(
+        stageWithLightOfType(
+            VnStagePreset.LightType.RADIAL, VnStagePreset.LightLayer.BACKGROUND, null),
+        1280, 720, VnStagePreset.LightLayer.FOREGROUND);
+    assertTrue(blitter.calls().isEmpty(),
+        "a background light must not draw into the foreground pass: " + blitter.calls());
+  }
+
+  @Test
+  void backgroundFallbackOverlayFillsTintAndOverlayForAGradedStage() {
+    RecordingBlitter2D blitter = new RecordingBlitter2D();
+    VnStageLightingRenderer renderer = new VnStageLightingRenderer(blitter);
+    VnStagePreset graded = new VnStagePreset(
+        "stage-1", "", "", "",
+        new VnStagePreset.BackgroundGrade("#ff0000", 1.0, 0.0, 0.0, "#0000ff", 1.0),
+        List.of(), List.of(), List.of());
+
+    renderer.applyStageBackgroundFallbackOverlay(graded, 800, 600);
+
+    assertEquals(2, blitter.calls().stream().filter(c -> c.method().equals("fillRect")).count(),
+        "a graded stage fills once for tint and once for overlay: " + blitter.calls());
+  }
+
+  @Test
+  void backgroundFallbackOverlayDrawsNothingForANullOrNeutralStage() {
+    RecordingBlitter2D blitter = new RecordingBlitter2D();
+    VnStageLightingRenderer renderer = new VnStageLightingRenderer(blitter);
+
+    renderer.applyStageBackgroundFallbackOverlay(null, 800, 600);
+    assertTrue(blitter.calls().isEmpty(), "a null stage draws no overlay");
+
+    // Default grade has zero tint strength and zero overlay opacity.
+    renderer.applyStageBackgroundFallbackOverlay(
+        new VnStagePreset("stage-1", "", "", "", VnStagePreset.BackgroundGrade.defaults(),
+            List.of(), List.of(), List.of()),
+        800, 600);
+    assertTrue(blitter.calls().isEmpty(),
+        "a neutral grade must not pay for two full-canvas fills: " + blitter.calls());
   }
 
   // ───────────────────────────────────────────────────────────────────────────
