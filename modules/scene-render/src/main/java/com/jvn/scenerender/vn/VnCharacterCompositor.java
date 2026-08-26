@@ -122,10 +122,24 @@ final class VnCharacterCompositor {
    * {@link VnCharacterCompositor#stageCharacterCacheKey}, which stays here as a pure, separately
    * tested function.
    */
-  @FunctionalInterface
   interface StageLitCharacterDrawer {
     void drawLitCharacter(
         String path,
+        String spriteTag,
+        double x,
+        double y,
+        double drawWidth,
+        double drawHeight,
+        double canvasWidth,
+        double canvasHeight,
+        VnStagePreset stage);
+
+    /**
+     * Draws an already-composited multi-layer sprite with stage lighting applied. The {@code
+     * composite} target is owned by the caller and must not be closed by the implementation.
+     */
+    void drawLitComposite(
+        RenderTarget2D composite,
         String spriteTag,
         double x,
         double y,
@@ -624,7 +638,20 @@ final class VnCharacterCompositor {
       VnStagePreset stage) {
     RenderTarget2D composite = compositeSpriteFor(imagePathSpec, layerPaths);
     if (composite != null) {
-      blitter.drawRenderTarget(composite, x, y, drawWidth, drawHeight);
+      if (stage != null && !stage.getLights().isEmpty() && stageLightingRenderer != null) {
+        stageLightingRenderer.drawLitComposite(
+            composite,
+            imagePathSpec,
+            x,
+            y,
+            drawWidth,
+            drawHeight,
+            canvasWidth,
+            canvasHeight,
+            stage);
+      } else {
+        blitter.drawRenderTarget(composite, x, y, drawWidth, drawHeight);
+      }
       return;
     }
     String path = firstResolvableLayerPath(layerPaths);
