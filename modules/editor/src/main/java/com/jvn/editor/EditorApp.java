@@ -327,6 +327,11 @@ public class EditorApp extends Application {
   private static final Color MAINTENANCE_CHOOSER_TINT_COLOR = Color.rgb(26, 14, 0, 0.38);
   private static final boolean DEVELOPER_MODE = Boolean.getBoolean("jvn.editor.developerMode");
   private static final boolean SAFE_MODE = Boolean.getBoolean("jvn.editor.safeMode");
+  // VNS z-order applies to scene entities, while backgrounds are always painted first.
+  // Reserve values below the complete Integer range accepted by VNS `z=` so negative-z
+  // props remain visible above the background in Puppeteer just as they are in preview.
+  private static final double PUPPETEER_PREVIOUS_BACKGROUND_Z = (double) Integer.MIN_VALUE - 0.5;
+  private static final double PUPPETEER_CURRENT_BACKGROUND_Z = (double) Integer.MIN_VALUE - 0.25;
   private static final Pattern DSL_DIAGNOSTIC_PATTERN =
       Pattern.compile("^L(\\d+)\\s+(\\S+?):\\s+(.+?)(?:\\s+Quick fix:\\s+(.+))?$");
   private final EnumMap<EditorSidebarPanel, Stage> panelWindows =
@@ -8216,6 +8221,7 @@ public class EditorApp extends Application {
       com.jvn.core.scene2d.Sprite2D prevBg = new com.jvn.core.scene2d.Sprite2D(prevBgPath, sceneW, sceneH);
       prevBg.setOrigin(0.0, 0.0);
       prevBg.setPosition(0.0, 0.0);
+      prevBg.setZ(PUPPETEER_PREVIOUS_BACKGROUND_Z);
       scene.add(prevBg);
       scene.registerEntity("bg_prev", prevBg);
     }
@@ -8225,6 +8231,7 @@ public class EditorApp extends Application {
       com.jvn.core.scene2d.Sprite2D bg = new com.jvn.core.scene2d.Sprite2D(bgPath, sceneW, sceneH);
       bg.setOrigin(0.0, 0.0);
       bg.setPosition(0.0, 0.0);
+      bg.setZ(PUPPETEER_CURRENT_BACKGROUND_Z);
       scene.add(bg);
       scene.registerEntity("bg_" + snapshot.backgroundId, bg);
       scene.registerEntity("bg_current", bg);

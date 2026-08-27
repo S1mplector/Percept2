@@ -9,6 +9,7 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /** Verifies that resolved cursor state survives the final handoff into Puppeteer's JES scene. */
 class PuppeteerSnapshotSceneConstructionTest {
@@ -43,6 +44,26 @@ class PuppeteerSnapshotSceneConstructionTest {
     assertNotNull(scene.find("hero_body"));
     assertNotNull(scene.find("hero_eyes"));
     assertNotNull(scene.find("hero_mouth"));
+  }
+
+  @Test
+  void negativeZSceneEntitiesRemainAboveTheBackground() throws Exception {
+    String source = """
+        @background lunchroom assets/backgrounds/lunchroom.png
+        @charlayer crowd_milling crowd assets/props/crowd.png
+        [bg lunchroom]
+        [show crowd_milling at 0.4,1.325 $crowd slot=milling z=-5]
+        """;
+
+    JesScene2D scene = buildScene(PuppeteerLauncherPanel.resolveSnapshot(source, 3));
+    Entity2D background = scene.find("bg_current");
+    Entity2D crowd = scene.find("crowd_milling_crowd");
+
+    assertNotNull(background);
+    assertNotNull(crowd);
+    assertEquals(-5.0, crowd.getZ(), 1e-9);
+    assertTrue(background.getZ() < crowd.getZ(),
+        "VNS backgrounds must stay behind negative-z scene entities in Puppeteer");
   }
 
   private static JesScene2D buildScene(PuppeteerLauncherPanel.SceneSnapshot snapshot) throws Exception {
