@@ -92,6 +92,20 @@ public class WebImageCacheTest {
     assertTrue(callbacks(cache).isEmpty(), "Callbacks should be cleared");
   }
 
+  @Test
+  void dimensionsOfReturnsEmptyForAnUnrelatedCachedImageThatIsNotAnHTMLImageElement() throws Exception {
+    WebImageCache cache = new WebImageCache();
+    String classpath = "game/images/hero.png";
+    cachedImages(cache).put(classpath, new FakeImage());
+
+    java.util.Optional<double[]> dims = cache.dimensionsOf(classpath);
+
+    assertTrue(dims.isEmpty(),
+        "a CanvasImageSource that isn't an HTMLImageElement (e.g. this test's FakeImage stub) "
+            + "has no naturalWidth/naturalHeight to read, so dimensionsOf must return empty rather "
+            + "than throw a ClassCastException");
+  }
+
   @SuppressWarnings("unchecked")
   private static Map<String, CanvasImageSource> cachedImages(WebImageCache cache) throws Exception {
     return (Map<String, CanvasImageSource>) field(cache, "cache");

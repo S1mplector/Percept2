@@ -66,6 +66,25 @@ public class WebImageCache {
     return null;
   }
 
+  /**
+   * Natural pixel dimensions of the cached image at {@code classpath}, if it has
+   * finished loading. Triggers/continues an async load as a side effect if not yet
+   * cached, matching {@link #getOrLoad}'s existing behavior — the caller (typically
+   * {@code Blitter2D.imageDimensions}) is expected to re-poll on a later frame.
+   */
+  public java.util.Optional<double[]> dimensionsOf(String classpath) {
+    CanvasImageSource cachedValue = cache.get(classpath);
+    if (cachedValue instanceof HTMLImageElement img) {
+      int width = img.getNaturalWidth();
+      int height = img.getNaturalHeight();
+      if (width > 0 && height > 0) {
+        return java.util.Optional.of(new double[] { width, height });
+      }
+    }
+    getOrLoadInternal(classpath, null);
+    return java.util.Optional.empty();
+  }
+
   private void loadImageAsync(String classpath) {
     String imageUrl = resolveAssetUrl(classpath);
     HTMLImageElement image = (HTMLImageElement) HTMLDocument.current().createElement("img");

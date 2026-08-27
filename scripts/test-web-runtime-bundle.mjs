@@ -1,9 +1,31 @@
 import { createRequire } from "node:module";
-import { resolve } from "node:path";
+import { resolve, dirname, join } from "node:path";
+import { readFileSync } from "node:fs";
 
 const bundlePath = process.argv[2];
 if (!bundlePath) {
   throw new Error("Usage: node scripts/test-web-runtime-bundle.mjs <jvn-web.js>");
+}
+
+const distRoot = dirname(dirname(bundlePath)); // .../distributions/web (parent of js/)
+
+function readPngDimensions(relativeUrl) {
+  try {
+    const filePath = join(distRoot, relativeUrl);
+    const data = readFileSync(filePath);
+    // PNG signature is 8 bytes; IHDR chunk follows immediately: 4-byte length,
+    // 4-byte type "IHDR", then 4-byte width + 4-byte height, both big-endian,
+    // at byte offsets 16 and 20 respectively.
+    if (data.length < 24) return null;
+    const isPng = data[0] === 0x89 && data[1] === 0x50 && data[2] === 0x4e && data[3] === 0x47;
+    if (!isPng) return null;
+    const width = data.readUInt32BE(16);
+    const height = data.readUInt32BE(20);
+    if (width <= 0 || height <= 0) return null;
+    return { width, height };
+  } catch {
+    return null;
+  }
 }
 
 const drawingCalls = [];
@@ -73,6 +95,8 @@ class HTMLImageElement {
   constructor() {
     this._src = "";
     this._listeners = {};
+    this._naturalWidth = 0;
+    this._naturalHeight = 0;
   }
 
   addEventListener(type, listener) {
@@ -83,8 +107,21 @@ class HTMLImageElement {
     return this._src;
   }
 
+  get naturalWidth() {
+    return this._naturalWidth;
+  }
+
+  get naturalHeight() {
+    return this._naturalHeight;
+  }
+
   set src(value) {
     this._src = value;
+    const dims = readPngDimensions(value);
+    if (dims) {
+      this._naturalWidth = dims.width;
+      this._naturalHeight = dims.height;
+    }
     // Synchronously fire "load" so the web runtime's image cache resolves
     // on the same tick that requested it, matching an instantly-cached
     // browser image load closely enough for this DOM-stub smoke test.
@@ -138,6 +175,7 @@ globalThis.document = {
   },
   createElement(tag) {
     if (tag === "img") return new HTMLImageElement();
+    if (tag === "canvas") return new HTMLCanvasElement();
     throw new Error(`Unsupported createElement tag in smoke harness: ${tag}`);
   },
 };

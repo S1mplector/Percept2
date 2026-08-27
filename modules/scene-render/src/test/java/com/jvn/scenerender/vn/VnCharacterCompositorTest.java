@@ -328,4 +328,78 @@ class VnCharacterCompositorTest {
   // Blitter2D.drawImage per VnTransitionRenderer's design), so BACKGROUND_IMAGE_CACHE_BUDGET_BYTES
   // is unused by any cache and a test asserting on it can never fail regardless of runtime
   // behavior — it would only give false confidence.
+
+  // ───────────────────────────────────────────────────────────────────────────
+  //  Capability-first dimension lookup (Task 4)
+  // ───────────────────────────────────────────────────────────────────────────
+
+  @Test
+  void prefersBlitterImageDimensionsOverAssetDimensionProbeWhenSupported() {
+    RecordingImageDimensionsBlitter blitter = new RecordingImageDimensionsBlitter();
+    VnCharacterCompositor compositor = new VnCharacterCompositor(blitter);
+
+    // Exercise a method that internally calls the new dimensionsOf(path) wrapper.
+    // spriteSourceDimensions/firstResolvableLayerPath/timelineLayerDimensions are
+    // private; drawLayerStack is package-private and reachable from this test's
+    // same package, and its only observable effect (a drawImage call) directly
+    // depends on dimensionsOf(path) reporting a resolved path.
+    compositor.drawLayerStack(java.util.List.of("any/path.png"), 0, 0, 10, 10);
+
+    assertTrue(blitter.imageDimensionsCalls.contains("any/path.png"),
+        "expected VnCharacterCompositor to call Blitter2D.imageDimensions when the backend "
+            + "supports RenderFeature.IMAGE_DIMENSIONS, rather than falling through to "
+            + "AssetDimensionProbe");
+  }
+
+  /**
+   * Minimal Blitter2D test double that supports ONLY RenderFeature.IMAGE_DIMENSIONS
+   * (delegating every other method call to RecordingBlitter2D via composition) — used
+   * solely to prove VnCharacterCompositor prefers this capability over AssetDimensionProbe
+   * when present.
+   *
+   * Note on Blitter2D's shape (confirmed against the real interface): `supports(RenderFeature)`
+   * and `createRenderTarget(...)` are themselves DEFAULT methods on Blitter2D that delegate to
+   * `getCapabilities()` — so this double only needs to override `getCapabilities()` (not
+   * `supports` directly) to control which features it advertises, and does NOT need to
+   * implement `createRenderTarget` at all (the interface's own default handles it, backed by
+   * whatever `getCapabilities()` reports). Only the 20 genuinely ABSTRACT methods below need
+   * real delegating bodies.
+   */
+  private static final class RecordingImageDimensionsBlitter implements com.jvn.core.scene2d.Blitter2D {
+    private final RecordingBlitter2D delegate = new RecordingBlitter2D();
+    final java.util.List<String> imageDimensionsCalls = new java.util.ArrayList<>();
+
+    @Override
+    public java.util.Optional<double[]> imageDimensions(String classpath) {
+      imageDimensionsCalls.add(classpath);
+      return java.util.Optional.of(new double[] { 4.0, 3.0 });
+    }
+
+    @Override
+    public com.jvn.core.scene2d.RendererCapabilities getCapabilities() {
+      return com.jvn.core.scene2d.RendererCapabilities.of(
+          "RecordingImageDimensionsBlitter", com.jvn.core.scene2d.RenderFeature.IMAGE_DIMENSIONS);
+    }
+
+    @Override public void clear(double r, double g, double b, double a) { delegate.clear(r, g, b, a); }
+    @Override public void setFill(double r, double g, double b, double a) { delegate.setFill(r, g, b, a); }
+    @Override public void setStroke(double r, double g, double b, double a) { delegate.setStroke(r, g, b, a); }
+    @Override public void setStrokeWidth(double w) { delegate.setStrokeWidth(w); }
+    @Override public void setGlobalAlpha(double a) { delegate.setGlobalAlpha(a); }
+    @Override public void setFont(String family, double size, boolean bold) { delegate.setFont(family, size, bold); }
+    @Override public void push() { delegate.push(); }
+    @Override public void pop() { delegate.pop(); }
+    @Override public void translate(double x, double y) { delegate.translate(x, y); }
+    @Override public void rotateDeg(double degrees) { delegate.rotateDeg(degrees); }
+    @Override public void scale(double sx, double sy) { delegate.scale(sx, sy); }
+    @Override public void fillRect(double x, double y, double w, double h) { delegate.fillRect(x, y, w, h); }
+    @Override public void strokeRect(double x, double y, double w, double h) { delegate.strokeRect(x, y, w, h); }
+    @Override public void fillCircle(double cx, double cy, double radius) { delegate.fillCircle(cx, cy, radius); }
+    @Override public void strokeCircle(double cx, double cy, double radius) { delegate.strokeCircle(cx, cy, radius); }
+    @Override public void drawLine(double x1, double y1, double x2, double y2) { delegate.drawLine(x1, y1, x2, y2); }
+    @Override public void drawImage(String classpath, double x, double y, double w, double h) { delegate.drawImage(classpath, x, y, w, h); }
+    @Override public void drawImageRegion(String classpath, double sx, double sy, double sw, double sh, double dx, double dy, double dw, double dh) { delegate.drawImageRegion(classpath, sx, sy, sw, sh, dx, dy, dw, dh); }
+    @Override public void drawText(String text, double x, double y, double size, boolean bold) { delegate.drawText(text, x, y, size, bold); }
+    @Override public double measureTextWidth(String text, double size, boolean bold) { return delegate.measureTextWidth(text, size, bold); }
+  }
 }

@@ -242,6 +242,20 @@ public interface Blitter2D {
   void drawImageRegion(String classpath, double sx, double sy, double sw, double sh,
                        double dx, double dy, double dw, double dh);
 
+  /**
+   * Natural pixel dimensions of the image at {@code classpath}, if it has finished
+   * loading. Returns {@link java.util.Optional#empty()} if the image hasn't loaded yet (the
+   * backend should trigger/continue an async load as a side effect of the call, the
+   * same way {@link #drawImage} does) or if this backend doesn't support the feature
+   * — check {@link #supports(RenderFeature)} for {@link RenderFeature#IMAGE_DIMENSIONS}
+   * first if the distinction matters to the caller; backends that don't implement this
+   * return empty unconditionally, matching "unsupported" and "not loaded yet" the same
+   * way, since callers already have a fallback path for both.
+   */
+  default java.util.Optional<double[]> imageDimensions(String classpath) {
+    return java.util.Optional.empty();
+  }
+
   // ──────────────────────────────────────────────────────────────────────────
   //  Text
   // ──────────────────────────────────────────────────────────────────────────

@@ -13,6 +13,7 @@ import com.jvn.core.scene2d.Blitter2D;
 import com.jvn.core.scene2d.RenderFeature;
 import com.jvn.core.scene2d.RenderBlendMode;
 import com.jvn.core.scene2d.RendererCapabilities;
+import com.jvn.core.scene2d.RenderTarget2D;
 import com.jvn.render.RenderSurface;
 
 /**
@@ -28,7 +29,10 @@ public class WebRenderer implements Blitter2D {
       RenderFeature.ADVANCED_STROKE,
       RenderFeature.RECTANGULAR_CLIP,
       RenderFeature.POLYGONS,
-      RenderFeature.TEXT_ALIGNMENT)
+      RenderFeature.TEXT_ALIGNMENT,
+      RenderFeature.IMAGE_DIMENSIONS,
+      RenderFeature.OFFSCREEN_RENDER_TARGETS,
+      RenderFeature.PIXEL_ACCESS)
       .withBlendModes(
           RenderBlendMode.NORMAL,
           RenderBlendMode.ADDITIVE,
@@ -36,9 +40,10 @@ public class WebRenderer implements Blitter2D {
           RenderBlendMode.SCREEN,
           RenderBlendMode.DESTINATION_IN);
 
-  private final RenderSurface surface;
   private final CanvasRenderingContext2D context;
   private final WebImageCache imageCache;
+  private final double width;
+  private final double height;
   private final Deque<RenderState> stateStack = new ArrayDeque<>();
   private RenderState state = new RenderState();
 
@@ -60,10 +65,26 @@ public class WebRenderer implements Blitter2D {
     if (!(surface instanceof WebCanvasRenderSurface webSurface)) {
       throw new IllegalArgumentException("WebRenderer requires WebCanvasRenderSurface");
     }
-    this.surface = surface;
     this.context = webSurface.getContext2D();
+    this.width = surface.getWidth();
+    this.height = surface.getHeight();
     this.context.scale(surface.getPixelScale(), surface.getPixelScale());
     this.imageCache = new WebImageCache();
+  }
+
+  /**
+   * Offscreen constructor: builds a renderer directly around a detached canvas's context,
+   * bypassing {@link WebCanvasRenderSurface}'s DOM-element-by-ID lookup (offscreen canvases
+   * are never attached to the DOM). Shares the parent renderer's image cache so character-layer
+   * images already loaded there don't need to reload per render target.
+   */
+  WebRenderer(CanvasRenderingContext2D context, double width, double height, double pixelScale,
+      WebImageCache sharedImageCache) {
+    this.context = context;
+    this.width = width;
+    this.height = height;
+    this.context.scale(pixelScale, pixelScale);
+    this.imageCache = sharedImageCache;
   }
 
   @Override
@@ -72,7 +93,7 @@ public class WebRenderer implements Blitter2D {
   @Override
   public void clear(double r, double g, double b, double a) {
     context.setFillStyle(rgbToCss(r, g, b, a));
-    context.fillRect(0, 0, surface.getWidth(), surface.getHeight());
+    context.fillRect(0, 0, width, height);
     context.setFillStyle(state.fillStyle);
   }
 
@@ -187,6 +208,25 @@ public class WebRenderer implements Blitter2D {
     if (img != null) {
       context.drawImage(img, sx, sy, sw, sh, dx, dy, dw, dh);
     }
+  }
+
+  @Override
+  public java.util.Optional<double[]> imageDimensions(String classpath) {
+    if (classpath == null) return java.util.Optional.empty();
+    return imageCache.dimensionsOf(classpath);
+  }
+
+  @Override
+  public RenderTarget2D createRenderTarget(double width, double height, double pixelScale) {
+    return new WebRenderTarget2D(width, height, pixelScale, imageCache);
+  }
+
+  @Override
+  public void drawRenderTarget(RenderTarget2D target, double x, double y, double width, double height) {
+    if (!(target instanceof WebRenderTarget2D webTarget)) {
+      throw new IllegalArgumentException("WebRenderer requires a web render target");
+    }
+    context.drawImage(webTarget.getCanvas(), x, y, width, height);
   }
 
   @Override

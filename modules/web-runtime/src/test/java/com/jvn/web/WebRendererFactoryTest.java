@@ -17,6 +17,7 @@ public class WebRendererFactoryTest {
     assertNotNull(factory);
     assertEquals("Canvas 2D", factory.getRendererName());
     assertTrue(factory.getCapabilities().supports(RenderFeature.BLEND_MODES));
+    assertTrue(factory.getCapabilities().supports(RenderFeature.IMAGE_DIMENSIONS));
   }
 
   @Test

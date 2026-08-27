@@ -18,5 +18,7 @@ public enum RenderFeature {
   ALPHA_MASKS,
   TEXT_LAYOUT,
   /** Whole-buffer packed-ARGB pixel read/write on a {@link RenderTarget2D}. */
-  PIXEL_ACCESS
+  PIXEL_ACCESS,
+  /** Natural pixel dimensions of an already-loaded image, keyed by classpath id. */
+  IMAGE_DIMENSIONS
 }

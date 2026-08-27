@@ -16,6 +16,7 @@ import com.jvn.core.assets.BoundedImageCache;
 import com.jvn.core.scene2d.Blitter2D;
 import com.jvn.core.scene2d.Entity2D;
 import com.jvn.core.scene2d.RenderDiagnostics;
+import com.jvn.core.scene2d.RenderFeature;
 import com.jvn.core.scene2d.RenderTarget2D;
 import com.jvn.core.scene2d.Sprite2D;
 import com.jvn.core.vn.CharacterPosition;
@@ -1328,6 +1329,19 @@ final class VnCharacterCompositor {
   // ─────────────────────────────────────────────────────────────────────────
 
   /**
+   * Resolves an image's dimensions via {@link Blitter2D#imageDimensions} when the active
+   * backend supports {@link RenderFeature#IMAGE_DIMENSIONS} (currently: web only), falling
+   * back to {@link AssetDimensionProbe}'s classpath/filesystem-based lookup otherwise
+   * (desktop's existing, unchanged behavior).
+   */
+  private Optional<double[]> dimensionsOf(String path) {
+    if (blitter.supports(RenderFeature.IMAGE_DIMENSIONS)) {
+      return blitter.imageDimensions(path);
+    }
+    return AssetDimensionProbe.dimensionsOf(assetCatalog, path, projectRoot);
+  }
+
+  /**
    * Dimensions of the first layer path that resolves, replacing the original
    * {@code firstAvailableImage}'s size-probing role. A {@code null} result carries the same
    * "no source resolved" meaning the original's {@code null}/error {@code Image} did.
@@ -1335,7 +1349,7 @@ final class VnCharacterCompositor {
   private double @Nullable [] spriteSourceDimensions(List<String> layerPaths) {
     if (layerPaths == null) return null;
     for (String path : layerPaths) {
-      Optional<double[]> dims = AssetDimensionProbe.dimensionsOf(assetCatalog, path, projectRoot);
+      Optional<double[]> dims = dimensionsOf(path);
       if (dims.isPresent()) return dims.get();
     }
     return null;
@@ -1344,7 +1358,7 @@ final class VnCharacterCompositor {
   private @Nullable String firstResolvableLayerPath(List<String> layerPaths) {
     if (layerPaths == null) return null;
     for (String path : layerPaths) {
-      if (AssetDimensionProbe.dimensionsOf(assetCatalog, path, projectRoot).isPresent()) return path;
+      if (dimensionsOf(path).isPresent()) return path;
     }
     return null;
   }
@@ -1355,7 +1369,7 @@ final class VnCharacterCompositor {
    */
   private double @Nullable [] timelineLayerDimensions(String path) {
     return timelineLayerWorkingSet.getOrLoad(
-        path, p -> AssetDimensionProbe.dimensionsOf(assetCatalog, p, projectRoot).orElse(null));
+        path, p -> dimensionsOf(p).orElse(null));
   }
 
   /**
@@ -1379,7 +1393,7 @@ final class VnCharacterCompositor {
     int height = 1;
     List<String> resolvedLayers = new ArrayList<>();
     for (String path : layerPaths) {
-      Optional<double[]> dims = AssetDimensionProbe.dimensionsOf(assetCatalog, path, projectRoot);
+      Optional<double[]> dims = dimensionsOf(path);
       if (dims.isEmpty()) continue;
       resolvedLayers.add(path);
       width = Math.max(width, (int) Math.round(dims.get()[0]));
@@ -1454,7 +1468,7 @@ final class VnCharacterCompositor {
     if (layerPaths == null) return;
     for (String path : layerPaths) {
       if (path == null || path.isBlank()) continue;
-      if (AssetDimensionProbe.dimensionsOf(assetCatalog, path, projectRoot).isPresent()) {
+      if (dimensionsOf(path).isPresent()) {
         blitter.drawImage(path, x, y, width, height);
       }
     }
