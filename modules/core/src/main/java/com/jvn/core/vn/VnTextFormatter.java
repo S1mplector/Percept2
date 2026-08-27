@@ -41,6 +41,7 @@ public final class VnTextFormatter {
     private static String processIcuBlocks(String template, Map<String, ?> variables) {
         Matcher matcher = ICU_BLOCK.matcher(template);
         StringBuilder sb = new StringBuilder();
+        int lastEnd = 0;
 
         while (matcher.find()) {
             String varName = matcher.group(1);
@@ -55,9 +56,11 @@ public final class VnTextFormatter {
                 default -> matcher.group(0);
             };
 
-            matcher.appendReplacement(sb, Matcher.quoteReplacement(replacement));
+            sb.append(template, lastEnd, matcher.start());
+            sb.append(replacement);
+            lastEnd = matcher.end();
         }
-        matcher.appendTail(sb);
+        sb.append(template, lastEnd, template.length());
         return sb.toString();
     }
 
@@ -134,14 +137,17 @@ public final class VnTextFormatter {
     private static String interpolateVariables(String template, Map<String, ?> variables) {
         Matcher matcher = PLACEHOLDER.matcher(template);
         StringBuilder sb = new StringBuilder();
+        int lastEnd = 0;
 
         while (matcher.find()) {
             String key = matcher.group(1);
             Object value = variables.get(key);
             String replacement = value == null ? "" : String.valueOf(value);
-            matcher.appendReplacement(sb, Matcher.quoteReplacement(replacement));
+            sb.append(template, lastEnd, matcher.start());
+            sb.append(replacement);
+            lastEnd = matcher.end();
         }
-        matcher.appendTail(sb);
+        sb.append(template, lastEnd, template.length());
         return sb.toString();
     }
 
