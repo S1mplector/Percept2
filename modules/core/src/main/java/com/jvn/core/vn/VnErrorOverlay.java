@@ -308,7 +308,7 @@ public class VnErrorOverlay {
 
   private static String lineFromSource(String source, int lineNumber) {
     if (source == null || lineNumber <= 0) return null;
-    String[] lines = source.split("\\R", -1);
+    String[] lines = source.split("\r\n|\r|\n", -1);
     if (lineNumber > lines.length) return null;
     return lines[lineNumber - 1];
   }

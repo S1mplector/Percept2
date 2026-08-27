@@ -12,13 +12,60 @@ const scheduledFrames = [];
 const context2d = {
   scale: (...args) => drawingCalls.push(["scale", ...args]),
   fillRect: (...args) => drawingCalls.push(["fillRect", ...args]),
+  strokeRect: (...args) => drawingCalls.push(["strokeRect", ...args]),
   fillText: (...args) => drawingCalls.push(["fillText", ...args]),
   drawImage: (...args) => drawingCalls.push(["drawImage", ...args]),
+  save: (...args) => drawingCalls.push(["save", ...args]),
+  restore: (...args) => drawingCalls.push(["restore", ...args]),
+  translate: (...args) => drawingCalls.push(["translate", ...args]),
+  rotate: (...args) => drawingCalls.push(["rotate", ...args]),
+  transform: (...args) => drawingCalls.push(["transform", ...args]),
+  beginPath: (...args) => drawingCalls.push(["beginPath", ...args]),
+  closePath: (...args) => drawingCalls.push(["closePath", ...args]),
+  moveTo: (...args) => drawingCalls.push(["moveTo", ...args]),
+  lineTo: (...args) => drawingCalls.push(["lineTo", ...args]),
+  arc: (...args) => drawingCalls.push(["arc", ...args]),
+  rect: (...args) => drawingCalls.push(["rect", ...args]),
+  clip: (...args) => drawingCalls.push(["clip", ...args]),
+  fill: (...args) => drawingCalls.push(["fill", ...args]),
+  stroke: (...args) => drawingCalls.push(["stroke", ...args]),
+  measureText: (...args) => {
+    drawingCalls.push(["measureText", ...args]);
+    return { width: 0 };
+  },
+  setLineDash: (...args) => drawingCalls.push(["setLineDash", ...args]),
   set fillStyle(value) {
     drawingCalls.push(["fillStyle", value]);
   },
+  set strokeStyle(value) {
+    drawingCalls.push(["strokeStyle", value]);
+  },
+  set lineWidth(value) {
+    drawingCalls.push(["lineWidth", value]);
+  },
+  set globalAlpha(value) {
+    drawingCalls.push(["globalAlpha", value]);
+  },
   set font(value) {
     drawingCalls.push(["font", value]);
+  },
+  set textAlign(value) {
+    drawingCalls.push(["textAlign", value]);
+  },
+  set textBaseline(value) {
+    drawingCalls.push(["textBaseline", value]);
+  },
+  set globalCompositeOperation(value) {
+    drawingCalls.push(["globalCompositeOperation", value]);
+  },
+  set lineCap(value) {
+    drawingCalls.push(["lineCap", value]);
+  },
+  set lineJoin(value) {
+    drawingCalls.push(["lineJoin", value]);
+  },
+  set lineDashOffset(value) {
+    drawingCalls.push(["lineDashOffset", value]);
   },
 };
 
@@ -30,6 +77,10 @@ class HTMLImageElement {
 
   addEventListener(type, listener) {
     (this._listeners[type] ||= []).push(listener);
+  }
+
+  toString() {
+    return this._src;
   }
 
   set src(value) {

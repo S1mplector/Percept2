@@ -15,6 +15,7 @@ import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.jvn.core.accessibility.TextToSpeechService;
 import com.jvn.core.assets.AssetCatalog;
 import com.jvn.core.assets.AssetType;
 import com.jvn.core.demo.Example2DScene;
@@ -96,6 +97,7 @@ public class FxLauncher extends Application {
   private static boolean showPerfHud;
   private static String pendingAccessibilityTheme = "none";
   private static double pendingUiFontScale = 1.0;
+  private static @Nullable TextToSpeechService pendingTextToSpeechService;
   private AnimationTimer timer;
   private Canvas canvas;
   private GraphicsContext gc;
@@ -149,6 +151,16 @@ public class FxLauncher extends Application {
       String accessibilityTheme,
       double uiFontScale
   ) {
+    launch(eng, perfHudEnabled, accessibilityTheme, uiFontScale, null);
+  }
+
+  public static void launch(
+      Engine eng,
+      boolean perfHudEnabled,
+      String accessibilityTheme,
+      double uiFontScale,
+      @Nullable TextToSpeechService tts
+  ) {
     com.jvn.core.diagnostics.GraphicsPipeline.configure();
     engine = eng;
     showPerfHud = perfHudEnabled;
@@ -156,6 +168,7 @@ public class FxLauncher extends Application {
     pendingUiFontScale = Double.isFinite(uiFontScale)
         ? Math.max(0.75, Math.min(2.0, uiFontScale))
         : 1.0;
+    pendingTextToSpeechService = tts;
     Application.launch();
   }
 
@@ -211,6 +224,9 @@ public class FxLauncher extends Application {
     this.gc = this.canvas.getGraphicsContext2D();
     this.blitter2D = new FxBlitter2D(gc);
     this.vnRenderer = new VnRenderer(blitter2D);
+    if (pendingTextToSpeechService != null) {
+      this.vnRenderer.setTextToSpeechService(pendingTextToSpeechService);
+    }
     MenuTheme menuTheme = MenuTheme.fromAssets();
     this.menuRenderer = new MenuRenderer(blitter2D, menuTheme);
     if (engine != null && engine.scenes().peek() instanceof MainMenuScene main

@@ -5,7 +5,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
-import java.util.ServiceLoader;
 
 import com.jvn.core.accessibility.AccessibilityThemeLoader;
 import com.jvn.core.accessibility.NoopTextToSpeechService;
@@ -119,8 +118,7 @@ public class VnRenderer {
   private final ParticleEmitter2D particleEmitter = new ParticleEmitter2D();
   private final DrawCallStats drawCallStats = new DrawCallStats();
 
-  private final TextToSpeechService tts = ServiceLoader.load(TextToSpeechService.class)
-      .findFirst().orElseGet(NoopTextToSpeechService::new);
+  private TextToSpeechService tts = new NoopTextToSpeechService();
   private @Nullable String lastTtsNodeId;
   private boolean textToSpeechEnabled;
 
@@ -234,6 +232,10 @@ public class VnRenderer {
 
   public void setAudioFacade(@Nullable AudioFacade facade) {
     this.audioFacade = facade;
+  }
+
+  public void setTextToSpeechService(@Nullable TextToSpeechService tts) {
+    this.tts = tts == null ? new NoopTextToSpeechService() : tts;
   }
 
   public void setProjectRoot(File root) {

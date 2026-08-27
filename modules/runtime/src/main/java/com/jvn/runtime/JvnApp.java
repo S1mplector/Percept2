@@ -344,11 +344,16 @@ public class JvnApp {
     if ("swing".equalsIgnoreCase(ui)) {
       com.jvn.swing.SwingLauncher.launch(engine);
     } else {
+      com.jvn.core.accessibility.TextToSpeechService tts =
+          java.util.ServiceLoader.load(com.jvn.core.accessibility.TextToSpeechService.class)
+              .findFirst()
+              .orElseGet(com.jvn.core.accessibility.NoopTextToSpeechService::new);
       FxLauncher.launch(
           engine,
           showPerfHud,
           settingsModel.getAccessibilityTheme(),
-          settingsModel.getUiFontScale()
+          settingsModel.getUiFontScale(),
+          tts
       );
     }
   }

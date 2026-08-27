@@ -6,7 +6,6 @@ import org.slf4j.LoggerFactory;
 import com.jvn.core.config.ApplicationConfig;
 import com.jvn.core.engine.Engine;
 import com.jvn.core.vn.VnScenario;
-import com.jvn.core.vn.VnScenarioLoader;
 import com.jvn.core.vn.VnScene;
 import com.jvn.scenerender.vn.VnRenderer;
 
@@ -18,7 +17,6 @@ import com.jvn.scenerender.vn.VnRenderer;
  */
 public final class WebLauncher {
   private static final Logger log = LoggerFactory.getLogger(WebLauncher.class);
-  private static final String FIXTURE_SCRIPT = "story/web_fixture.vns";
 
   private WebLauncher() {}
 
@@ -41,7 +39,7 @@ public final class WebLauncher {
       Engine engine = new Engine(config);
       engine.start();
 
-      VnScenario scenario = new VnScenarioLoader().load(FIXTURE_SCRIPT);
+      VnScenario scenario = WebFixtureScenario.load();
       VnScene vnScene = new VnScene(scenario);
       vnScene.setAudioFacade(new NoopAudioFacade());
       vnScene.setPersistenceBackend(new WebLocalStoragePersistenceBackend());
@@ -63,7 +61,7 @@ public final class WebLauncher {
       throw e;
     } catch (java.io.IOException e) {
       log.error("Failed to load web fixture scenario", e);
-      throw new IllegalStateException("Failed to load web fixture scenario: " + FIXTURE_SCRIPT, e);
+      throw new IllegalStateException("Failed to load web fixture scenario", e);
     }
   }
 

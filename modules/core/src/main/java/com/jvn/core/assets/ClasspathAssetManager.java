@@ -52,7 +52,12 @@ public class ClasspathAssetManager implements AssetManager {
 
   @Override
   public boolean exists(AssetType type, String name) {
-    return url(type, name) != null;
+    String path = AssetPaths.build(type, name);
+    try (InputStream in = loader.getResourceAsStream(path)) {
+      return in != null;
+    } catch (IOException e) {
+      return false;
+    }
   }
 
   @Override

@@ -147,7 +147,7 @@ public final class LayeredCharacterResolver {
    */
   public static String collapseLayerDirectiveContinuations(String source) {
     if (source == null || source.isEmpty()) return source == null ? "" : source;
-    String[] lines = source.split("\\R", -1);
+    String[] lines = source.split("\r\n|\r|\n", -1);
     for (int start = 0; start < lines.length; start++) {
       String trimmed = lines[start] == null ? "" : lines[start].trim();
       if (!startsLayerDirective(trimmed) || !hasTrailingContinuation(trimmed)) continue;
