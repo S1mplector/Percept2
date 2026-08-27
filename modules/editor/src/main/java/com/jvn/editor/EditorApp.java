@@ -8242,13 +8242,14 @@ public class EditorApp extends Application {
           firstLayerPath(spritePathSpec), characterHeight * ch.scale);
       double charW = spriteSize[0];
       double charH = spriteSize[1];
-      double leftX = positionToLeftX(ch.position, sceneW, charW);
-      double topY = (sceneH * 1.0) - charH;
+      double leftX = snapshotPositionToLeftX(ch, sceneW, charW);
+      double bottomY = snapshotPositionBottomY(ch, sceneH);
       com.jvn.core.scene2d.Sprite2D sprite = new com.jvn.core.scene2d.Sprite2D(spritePathSpec, charW, charH);
       // Character-friendly pivot for puppeteering: bottom-center (feet/contact point).
       sprite.setOrigin(0.5, 1.0);
       // Keep visual placement equivalent to prior top-left anchoring.
-      sprite.setPosition(leftX + (charW * 0.5), topY + charH);
+      sprite.setPosition(leftX + (charW * 0.5), bottomY);
+      if (ch.layerOrder != null) sprite.setZ(ch.layerOrder);
       scene.add(sprite);
       scene.registerEntity(ch.characterId, sprite);
     }
@@ -8278,8 +8279,9 @@ public class EditorApp extends Application {
       charH = Math.max(charH, size[1]);
     }
     if (resolvedPaths.isEmpty()) return;
-    double leftX = positionToLeftX(ch.position, sceneW, charW);
-    double bottomY = sceneH;
+    double leftX = snapshotPositionToLeftX(ch, sceneW, charW);
+    double bottomY = snapshotPositionBottomY(ch, sceneH);
+    double baseZ = ch.layerOrder == null ? 0.0 : ch.layerOrder;
     int layerIndex = 0;
     for (PuppeteerLauncherPanel.CharacterLayerEntry layer : layers) {
       if (layer == null || layer.path == null || layer.path.isBlank()) continue;
@@ -8291,7 +8293,7 @@ public class EditorApp extends Application {
       com.jvn.core.scene2d.Sprite2D sprite = new com.jvn.core.scene2d.Sprite2D(resolvedPath, charW, charH);
       sprite.setOrigin(0.5, 1.0);
       sprite.setPosition(leftX + (charW * 0.5), bottomY);
-      sprite.setZ(layerIndex);
+      sprite.setZ(baseZ + (layerIndex * 0.001));
       scene.add(sprite);
       scene.registerEntity(entityName, sprite);
       for (String alias : PuppeteerLauncherPanel.equivalentSnapshotLayerEntityNames(snapshot, ch, layer.layerId)) {
@@ -8339,6 +8341,23 @@ public class EditorApp extends Application {
       case "far_right" -> sceneW * 0.95 - spriteW;
       default          -> (sceneW - spriteW) * 0.5;
     };
+  }
+
+  private double snapshotPositionToLeftX(
+      PuppeteerLauncherPanel.CharacterEntry character, double sceneW, double spriteW) {
+    if (character != null && character.customPosition && Double.isFinite(character.positionX)) {
+      return (sceneW * character.positionX) - (spriteW * 0.5);
+    }
+    return positionToLeftX(character == null ? null : character.position, sceneW, spriteW);
+  }
+
+  private double snapshotPositionBottomY(
+      PuppeteerLauncherPanel.CharacterEntry character, double sceneH) {
+    if (character != null && character.customPosition
+        && Double.isFinite(character.positionY) && character.positionY >= 0.0) {
+      return sceneH * character.positionY;
+    }
+    return sceneH;
   }
 
   private double[] estimateSpriteSize(String spritePath, double targetHeight) {

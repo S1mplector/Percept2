@@ -109,14 +109,18 @@ final class VnsTimelineDiagnostics {
     if (snapshot == null) return scene;
     for (PuppeteerLauncherPanel.CharacterEntry character : snapshot.characters) {
       if (character == null || character.characterId == null || character.characterId.isBlank()) continue;
-      CharacterPosition base = CharacterPosition.predefined(character.position);
-      CharacterPosition slot = CharacterPosition.slotted(
-          base == null ? CharacterPosition.CENTER : base,
-          "timeline-diagnostic-" + character.characterId);
+      CharacterPosition base = character.customPosition && Double.isFinite(character.positionX)
+          ? CharacterPosition.at(character.positionX, character.positionY)
+          : CharacterPosition.predefined(character.position);
+      String displaySlot = character.displaySlot == null || character.displaySlot.isBlank()
+          ? "timeline-diagnostic-" + character.characterId
+          : character.displaySlot;
       scene.getState().showCharacter(
-          slot,
+          base == null ? CharacterPosition.CENTER : base,
           character.characterId,
-          character.expression == null || character.expression.isBlank() ? "neutral" : character.expression);
+          character.expression == null || character.expression.isBlank() ? "neutral" : character.expression,
+          character.layerOrder,
+          displaySlot);
     }
     return scene;
   }

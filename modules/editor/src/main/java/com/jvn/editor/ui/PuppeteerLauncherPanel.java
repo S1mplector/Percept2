@@ -20,6 +20,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import com.jvn.core.vn.LayeredCharacterResolver;
+import com.jvn.core.vn.VnArgTokenizer;
 import com.jvn.editor.ui.actioneditor.AnimationProject;
 import com.jvn.editor.ui.actioneditor.CodeImporter;
 import com.jvn.editor.ui.actioneditor.EntityTrack;
@@ -59,6 +60,9 @@ public class PuppeteerLauncherPanel extends VBox {
   private static final Pattern CHARLAYER_PATTERN = Pattern.compile("^\\s*@charlayer\\s+(\\S+)\\s+(\\S+)\\s+(.+)", Pattern.CASE_INSENSITIVE);
   private static final Pattern CHARGROUP_PATTERN = Pattern.compile("^\\s*@chargroup\\s+(\\S+)\\s+(\\S+)\\s+(.+)", Pattern.CASE_INSENSITIVE);
   private static final Pattern CHARPRESET_PATTERN = Pattern.compile("^\\s*@charpreset\\s+(\\S+)\\s+(\\S+)\\s+(.+)", Pattern.CASE_INSENSITIVE);
+  private static final Pattern DISPLAY_PRESET_PATTERN = Pattern.compile("^\\s*@displaypreset\\s+(\\S+)(?:\\s+(.+))?$", Pattern.CASE_INSENSITIVE);
+  private static final Pattern DISPLAY_PRESET_ENTRY_PATTERN = Pattern.compile("^\\s*([^=\\s]+)\\s*=\\s*(.+)$");
+  private static final Pattern POSITION_PATTERN = Pattern.compile("^\\s*@position\\s+(\\S+)\\s+(.+)$", Pattern.CASE_INSENSITIVE);
   private static final Pattern JES_TIMELINE_PATTERN = Pattern.compile("^\\s*@external\\s+jes_timeline\\s+(\\S+)", Pattern.CASE_INSENSITIVE);
   private static final Pattern EXT_STAGE_PATTERN = Pattern.compile("^\\s*@external\\s+stage\\s+(.+)$", Pattern.CASE_INSENSITIVE);
   private static final Pattern EXT_CHAR_SHOW = Pattern.compile("^\\s*@external\\s+char(?:acter)?\\s+(\\S+)\\s+show\\s+(\\S+)(?:\\s+(\\S+))?", Pattern.CASE_INSENSITIVE);
@@ -1237,6 +1241,8 @@ button then opens it in the editor."""));
     Map<String, Map<String, String>> charLayerPaths = new LinkedHashMap<>();
     Map<String, List<CharacterLayerEntry>> charPresetLayers = new LinkedHashMap<>();
     Map<String, CharacterLayerGroupEntry> charLayerGroups = new LinkedHashMap<>();
+    Map<String, SnapshotPosition> customPositions = new LinkedHashMap<>();
+    Map<String, List<DisplayPresetEntry>> displayPresets = new LinkedHashMap<>();
     Map<String, String> dynamicGroups = new LinkedHashMap<>();
     String activeStagePresetId = null;
 
@@ -1257,6 +1263,8 @@ button then opens it in the editor."""));
         charLayerPaths,
         charPresetLayers,
         charLayerGroups,
+        customPositions,
+        displayPresets,
         new HashSet<>());
 
     for (int i = 0; i <= limit; i++) {
@@ -1283,6 +1291,14 @@ button then opens it in the editor."""));
         continue;
       }
 
+      String transitionBackground = parseTransitionBackground(commandLine);
+      if (transitionBackground != null) {
+        previousBackgroundId = backgroundId;
+        backgroundId = transitionBackground;
+        backgroundLine = i;
+        continue;
+      }
+
       // @background declaration — capture id → path mapping
       m = BG_DECL_PATTERN.matcher(line);
       if (m.find()) {
@@ -1299,7 +1315,11 @@ button then opens it in the editor."""));
       // @charimg declaration — capture charId+expression → path mapping
       m = CHARIMG_PATTERN.matcher(line);
       if (m.find()) {
-        charImgPaths.put(m.group(1) + "/" + m.group(2), m.group(3).trim());
+        String key = m.group(1) + "/" + m.group(2);
+        String pathSpec = m.group(3).trim();
+        charImgPaths.put(key, pathSpec);
+        List<CharacterLayerEntry> directLayers = directLayerEntries(pathSpec);
+        if (!directLayers.isEmpty()) charPresetLayers.put(key, directLayers);
         continue;
       }
 
@@ -1350,7 +1370,8 @@ button then opens it in the editor."""));
         String expr = m.group(2);
         String spec = m.group(3).trim();
         String resolved = resolvePresetSpec(charLayerPaths, charImgPaths, charLayerGroups, charId, spec);
-        List<CharacterLayerEntry> layers = resolvePresetLayerEntries(charLayerPaths, charImgPaths, charLayerGroups, charId, spec);
+        List<CharacterLayerEntry> layers = resolvePresetLayerEntries(
+            charLayerPaths, charImgPaths, charLayerGroups, charPresetLayers, charId, spec);
         if (!resolved.isBlank()) {
           charImgPaths.put(charId + "/" + expr, resolved);
         }
@@ -1360,21 +1381,53 @@ button then opens it in the editor."""));
         continue;
       }
 
-      // [show charId pos expression?]
-      CharacterEntry showEntry = parseShowCommand(commandLine, i);
+      // [show charId pos expression? slot=...? z=...?]
+      CharacterEntry showEntry = parseShowCommand(
+          commandLine,
+          i,
+          customPositions,
+          charLayerPaths,
+          charImgPaths,
+          charLayerGroups,
+          charPresetLayers);
       if (showEntry != null) {
-        visible.put(showEntry.characterId, showEntry);
+        putVisible(visible, showEntry);
         continue;
       }
 
-      // [hide charId]
-	      String hideCharacterId = parseHideCommand(commandLine);
-	      if (hideCharacterId != null) {
-	        visible.remove(hideCharacterId);
-	        continue;
-	      }
+      HideTarget hideTarget = parseHideCommand(commandLine);
+      if (hideTarget != null) {
+        removeVisible(visible, hideTarget.characterId(), hideTarget.displaySlot());
+        continue;
+      }
 
-	      if (applyCharacterCommand(commandLine, i, visible)) {
+      if (applyDisplayPresetCommand(
+          commandLine, i, visible, displayPresets, customPositions,
+          charLayerPaths, charImgPaths, charLayerGroups, charPresetLayers)) {
+        continue;
+      }
+
+      if (applyMoveCommand(
+          commandLine,
+          i,
+          visible,
+          customPositions,
+          charLayerPaths,
+          charImgPaths,
+          charLayerGroups,
+          charPresetLayers)) {
+        continue;
+      }
+
+	      if (applyCharacterCommand(
+              commandLine,
+              i,
+              visible,
+              customPositions,
+              charLayerPaths,
+              charImgPaths,
+              charLayerGroups,
+              charPresetLayers)) {
 	        continue;
 	      }
 
@@ -1420,14 +1473,14 @@ button then opens it in the editor."""));
         String charId = m.group(1);
         String pos = m.group(2).toLowerCase(Locale.ROOT);
         String expr = m.group(3) != null ? m.group(3) : "neutral";
-        visible.put(charId, new CharacterEntry(charId, pos, expr, i));
+        putVisible(visible, new CharacterEntry(charId, pos, expr, i));
         continue;
       }
 
       // @external character <id> hide
       m = EXT_CHAR_HIDE.matcher(line);
       if (m.find()) {
-        visible.remove(m.group(1));
+        removeVisible(visible, m.group(1), null);
         continue;
       }
 
@@ -1436,9 +1489,11 @@ button then opens it in the editor."""));
       if (m.find()) {
         String charId = m.group(1);
         String pos = m.group(2).toLowerCase(Locale.ROOT);
-        CharacterEntry existing = visible.get(charId);
+        CharacterEntry existing = findVisible(visible, charId, null);
         String expr = existing != null ? existing.expression : "neutral";
-        visible.put(charId, new CharacterEntry(charId, pos, expr, i));
+        putVisible(visible, existing != null
+            ? existing.withPosition(snapshotPosition(pos, customPositions), i)
+            : new CharacterEntry(charId, pos, expr, i));
         continue;
       }
 
@@ -1447,9 +1502,11 @@ button then opens it in the editor."""));
       if (m.find()) {
         String charId = m.group(1);
         String expr = m.group(2);
-        CharacterEntry existing = visible.get(charId);
+        CharacterEntry existing = findVisible(visible, charId, null);
         String pos = existing != null ? existing.position : "center";
-        visible.put(charId, new CharacterEntry(charId, pos, expr, i));
+        putVisible(visible, existing != null
+            ? existing.withExpression(expr, i)
+            : new CharacterEntry(charId, pos, expr, i));
       }
     }
 
@@ -1532,7 +1589,8 @@ button then opens it in the editor."""));
       if (!snapshot.hasCharacterPathMapping(ch.characterId, ch.expression) && ch.atLine >= 0) {
         return new OpenTarget(activeScriptFile, ch.atLine + 1);
       }
-      if (ch.position == null || !KNOWN_POSITIONS.contains(ch.position.toLowerCase(Locale.ROOT))) {
+      if (!ch.customPosition
+          && (ch.position == null || !KNOWN_POSITIONS.contains(ch.position.toLowerCase(Locale.ROOT)))) {
         return new OpenTarget(activeScriptFile, ch.atLine + 1);
       }
     }
@@ -1718,7 +1776,8 @@ button then opens it in the editor."""));
         String expr = (ch.expression == null || ch.expression.isBlank()) ? "neutral" : ch.expression;
         out.add("Character '" + ch.characterId + "' expression '" + expr + "' has no @charimg/@charpreset mapping.");
       }
-      if (ch.position == null || !KNOWN_POSITIONS.contains(ch.position.toLowerCase(Locale.ROOT))) {
+      if (!ch.customPosition
+          && (ch.position == null || !KNOWN_POSITIONS.contains(ch.position.toLowerCase(Locale.ROOT)))) {
         out.add("Character '" + ch.characterId + "' uses position '" + ch.position + "' (Puppeteer launch falls back to center).");
       }
     }
@@ -1729,114 +1788,143 @@ button then opens it in the editor."""));
     return out;
   }
 
-  private static CharacterEntry parseShowCommand(String line, int atLine) {
+  private static CharacterEntry parseShowCommand(
+      String line,
+      int atLine,
+      Map<String, SnapshotPosition> customPositions,
+      Map<String, Map<String, String>> layerPaths,
+      Map<String, String> imagePaths,
+      Map<String, CharacterLayerGroupEntry> layerGroups,
+      Map<String, List<CharacterLayerEntry>> presetLayers) {
     List<String> tokens = bracketTokens(line);
     if (tokens.size() < 2 || !"show".equalsIgnoreCase(tokens.get(0))) return null;
-    String charId = tokens.get(1);
-    if (charId == null || charId.isBlank()) return null;
-
-    String position = null;
-    String expression = null;
-    for (int i = 2; i < tokens.size(); i++) {
-      String token = tokens.get(i);
-      if (token == null || token.isBlank()) continue;
-      String lower = token.toLowerCase(Locale.ROOT);
-      if ("at".equals(lower)) {
-        if (i + 1 < tokens.size()) {
-          String atValue = tokens.get(++i);
-          if (atValue != null && !atValue.isBlank()) {
-            String atLower = atValue.toLowerCase(Locale.ROOT);
-            if (isKnownPosition(atLower) && position == null) {
-              position = atLower;
-            } else if (expression == null) {
-              expression = atValue;
-            }
-          }
-        }
-        continue;
-      }
-      if (position == null && isKnownPosition(lower)) {
-        position = lower;
-        continue;
-      }
-      if (expression == null) expression = token;
-    }
-
-    if (position == null) position = "center";
-    if (expression == null || expression.isBlank()) expression = "neutral";
-    return new CharacterEntry(charId, position, expression, atLine);
+    String characterId = tokens.get(1);
+    if (characterId == null || characterId.isBlank()) return null;
+    Placement placement = parsePlacement(tokens, 2, null, null, null, customPositions);
+    String expression = resolveSnapshotExpression(
+        characterId, placement.expression(), layerPaths, imagePaths, layerGroups, presetLayers);
+    return CharacterEntry.fromPlacement(characterId, expression, placement, atLine);
   }
 
-	  private static String parseHideCommand(String line) {
-	    List<String> tokens = bracketTokens(line);
-	    if (tokens.size() < 2 || !"hide".equalsIgnoreCase(tokens.get(0))) return null;
-	    String charId = tokens.get(1);
-	    return (charId == null || charId.isBlank()) ? null : charId;
-	  }
+  private static HideTarget parseHideCommand(String line) {
+    List<String> tokens = bracketTokens(line);
+    if (tokens.size() < 2 || !"hide".equalsIgnoreCase(tokens.get(0))) return null;
+    String characterId = null;
+    String displaySlot = null;
+    for (int i = 1; i < tokens.size(); i++) {
+      String token = tokens.get(i);
+      if (token.startsWith("@") && token.length() > 1) displaySlot = token.substring(1);
+      else if (isOption(token, "slot", "as", "instance", "display", "display_slot", "display-slot")) displaySlot = optionValue(token);
+      else if (characterId == null) characterId = token;
+    }
+    return characterId == null && displaySlot == null ? null : new HideTarget(characterId, displaySlot);
+  }
 
-	  private static boolean applyCharacterCommand(
-	      String line,
-	      int atLine,
-	      Map<String, CharacterEntry> visible
-	  ) {
-	    List<String> tokens = bracketTokens(line);
-	    if (tokens.size() < 2) return false;
-	    String head = tokens.get(0);
-	    if (!"character".equalsIgnoreCase(head) && !"char".equalsIgnoreCase(head)) return false;
-	    String characterId = tokens.get(1);
-	    if (characterId == null || characterId.isBlank()) return true;
-	    String command = tokens.size() >= 3 ? tokens.get(2).trim().toLowerCase(Locale.ROOT) : "expression";
-	    CharacterEntry existing = visible.get(characterId);
-	    String position = existing != null ? existing.position : "center";
-	    String expression = existing != null ? existing.expression : "neutral";
+  private static boolean applyMoveCommand(
+      String line,
+      int atLine,
+      Map<String, CharacterEntry> visible,
+      Map<String, SnapshotPosition> customPositions,
+      Map<String, Map<String, String>> layerPaths,
+      Map<String, String> imagePaths,
+      Map<String, CharacterLayerGroupEntry> layerGroups,
+      Map<String, List<CharacterLayerEntry>> presetLayers) {
+    List<String> tokens = bracketTokens(line);
+    if (tokens.size() < 2 || !"move".equalsIgnoreCase(tokens.get(0))) return false;
+    String characterId = null;
+    String displaySlot = null;
+    String target = tokens.get(1);
+    if (target.startsWith("@")) displaySlot = target.substring(1);
+    else if (isOption(target, "slot", "as", "instance", "display", "display_slot", "display-slot")) displaySlot = optionValue(target);
+    else characterId = target;
+    CharacterEntry existing = findVisible(visible, characterId, displaySlot);
+    if (existing == null) return true;
+    Placement placement = parsePlacement(
+        tokens, 2, existing.snapshotPosition(), existing.expression, existing.displaySlot, customPositions);
+    String expression = resolveSnapshotExpression(
+        existing.characterId, placement.expression(), layerPaths, imagePaths, layerGroups, presetLayers);
+    putVisible(visible, CharacterEntry.fromPlacement(existing.characterId, expression, placement, atLine)
+        .withLayerOrder(existing.layerOrder));
+    return true;
+  }
 
-	    if ("hide".equals(command)) {
-	      visible.remove(characterId);
-	      return true;
-	    }
-	    if ("show".equals(command)) {
-	      CharacterEntry showEntry = parseCharacterShowCommand(characterId, tokens, 3, atLine);
-	      visible.put(characterId, showEntry);
-	      return true;
-	    }
-	    if ("move".equals(command) || "position".equals(command) || "pos".equals(command) || "at".equals(command)) {
-	      int start = "at".equals(command) ? 2 : 3;
-	      CharacterUpdate update = parseCharacterUpdate(tokens, start, position, expression);
-	      visible.put(characterId, new CharacterEntry(characterId, update.position(), update.expression(), atLine));
-	      return true;
-	    }
-	    if ("expression".equals(command) || "expr".equals(command)) {
-	      String parsed = tokens.size() >= 4 ? stripQuotes(tokens.get(3)) : null;
-	      if (parsed != null && !parsed.isBlank()) expression = parsed;
-	      visible.put(characterId, new CharacterEntry(characterId, position, expression, atLine));
-	      return true;
-	    }
+  private static boolean applyDisplayPresetCommand(
+      String line,
+      int atLine,
+      Map<String, CharacterEntry> visible,
+      Map<String, List<DisplayPresetEntry>> displayPresets,
+      Map<String, SnapshotPosition> customPositions,
+      Map<String, Map<String, String>> layerPaths,
+      Map<String, String> imagePaths,
+      Map<String, CharacterLayerGroupEntry> layerGroups,
+      Map<String, List<CharacterLayerEntry>> presetLayers) {
+    List<String> tokens = bracketTokens(line);
+    if (tokens.size() < 2) return false;
+    String command = tokens.get(0).toLowerCase(Locale.ROOT);
+    if (!Set.of("showpreset", "movepreset", "hidepreset").contains(command)) return false;
+    List<DisplayPresetEntry> entries = displayPresets.getOrDefault(tokens.get(1), List.of());
+    if ("hidepreset".equals(command)) {
+      for (DisplayPresetEntry entry : entries) removeVisible(visible, null, entry.displaySlot());
+      return true;
+    }
+    SnapshotPosition override = parsePositionOnly(tokens, 2, customPositions);
+    for (DisplayPresetEntry entry : entries) {
+      SnapshotPosition position = override != null ? override : entry.position();
+      if ("showpreset".equals(command)) {
+        String expression = resolveSnapshotExpression(
+            entry.characterId(), entry.expression(), layerPaths, imagePaths, layerGroups, presetLayers);
+        putVisible(visible, new CharacterEntry(
+            entry.characterId(), position.name, expression, atLine, 1.0,
+            entry.displaySlot(), position.x, position.y, position.custom, entry.layerOrder()));
+      } else {
+        CharacterEntry existing = findVisible(visible, null, entry.displaySlot());
+        if (existing != null) putVisible(visible, existing.withPosition(position, atLine));
+      }
+    }
+    return true;
+  }
 
-	    int equals = command.indexOf('=');
-	    if (equals > 0) {
-	      String key = command.substring(0, equals).trim();
-	      String value = stripQuotes(command.substring(equals + 1).trim());
-	      if ("expression".equals(key) || "expr".equals(key)) {
-	        if (!value.isBlank()) expression = value;
-	        visible.put(characterId, new CharacterEntry(characterId, position, expression, atLine));
-	        return true;
-	      }
-	    }
-
-	    CharacterUpdate update = parseCharacterUpdate(tokens, 2, position, expression);
-	    visible.put(characterId, new CharacterEntry(characterId, update.position(), update.expression(), atLine));
-	    return true;
-	  }
-
-	  private static CharacterEntry parseCharacterShowCommand(
-	      String characterId,
-	      List<String> tokens,
-	      int startIndex,
-	      int atLine
-	  ) {
-	    CharacterUpdate update = parseCharacterUpdate(tokens, startIndex, "center", "neutral");
-	    return new CharacterEntry(characterId, update.position(), update.expression(), atLine);
-	  }
+  private static boolean applyCharacterCommand(
+      String line,
+      int atLine,
+      Map<String, CharacterEntry> visible,
+      Map<String, SnapshotPosition> customPositions,
+      Map<String, Map<String, String>> layerPaths,
+      Map<String, String> imagePaths,
+      Map<String, CharacterLayerGroupEntry> layerGroups,
+      Map<String, List<CharacterLayerEntry>> presetLayers) {
+    List<String> tokens = bracketTokens(line);
+    if (tokens.size() < 2 || !("character".equalsIgnoreCase(tokens.get(0)) || "char".equalsIgnoreCase(tokens.get(0)))) return false;
+    String characterId = tokens.get(1);
+    if (characterId == null || characterId.isBlank()) return true;
+    String command = tokens.size() >= 3 ? tokens.get(2).toLowerCase(Locale.ROOT) : "expression";
+    String displaySlot = findOptionValue(tokens, "slot", "as", "instance", "display", "display_slot", "display-slot");
+    CharacterEntry existing = findVisible(visible, characterId, displaySlot);
+    if ("hide".equals(command)) {
+      removeVisible(visible, characterId, displaySlot);
+      return true;
+    }
+    if ("show".equals(command)) {
+      Placement placement = parsePlacement(tokens, 3, null, null, displaySlot, customPositions);
+      String expression = resolveSnapshotExpression(characterId, placement.expression(), layerPaths, imagePaths, layerGroups, presetLayers);
+      putVisible(visible, CharacterEntry.fromPlacement(characterId, expression, placement, atLine));
+      return true;
+    }
+    if (existing == null) return true;
+    if ("expression".equals(command) || "expr".equals(command)) {
+      String raw = tokens.size() >= 4 ? tokens.get(3) : existing.expression;
+      String expression = resolveSnapshotExpression(characterId, raw, layerPaths, imagePaths, layerGroups, presetLayers);
+      putVisible(visible, existing.withExpression(expression, atLine));
+      return true;
+    }
+    if (Set.of("move", "position", "pos", "at").contains(command)) {
+      int start = "at".equals(command) ? 2 : 3;
+      Placement placement = parsePlacement(tokens, start, existing.snapshotPosition(), existing.expression, existing.displaySlot, customPositions);
+      String expression = resolveSnapshotExpression(characterId, placement.expression(), layerPaths, imagePaths, layerGroups, presetLayers);
+      putVisible(visible, CharacterEntry.fromPlacement(characterId, expression, placement, atLine).withLayerOrder(existing.layerOrder));
+    }
+    return true;
+  }
 
 	  private static List<String> parseGroupCommand(String line) {
 	    List<String> tokens = bracketTokens(line);
@@ -1847,48 +1935,248 @@ button then opens it in the editor."""));
 	    return Arrays.asList(targetId, parentId);
 	  }
 
-	  private static CharacterUpdate parseCharacterUpdate(
-	      List<String> tokens,
-	      int startIndex,
-	      String fallbackPosition,
-	      String fallbackExpression
-	  ) {
-	    String position = fallbackPosition == null || fallbackPosition.isBlank() ? "center" : fallbackPosition;
-	    String expression = fallbackExpression == null || fallbackExpression.isBlank() ? "neutral" : fallbackExpression;
-	    if (tokens == null) return new CharacterUpdate(position, expression);
-	    for (int i = Math.max(0, startIndex); i < tokens.size(); i++) {
-	      String token = tokens.get(i);
-	      if (token == null || token.isBlank()) continue;
-	      String lower = token.toLowerCase(Locale.ROOT);
-	      if ("at".equals(lower) && i + 1 < tokens.size()) {
-	        String atValue = stripQuotes(tokens.get(++i));
-	        if (isKnownPosition(atValue)) position = atValue.toLowerCase(Locale.ROOT);
-	        continue;
-	      }
-	      int equals = token.indexOf('=');
-	      if (equals > 0) {
-	        String key = token.substring(0, equals).trim().toLowerCase(Locale.ROOT);
-	        String value = stripQuotes(token.substring(equals + 1).trim());
-	        if (Set.of("expression", "expr").contains(key) && !value.isBlank()) {
-	          expression = value;
-	        } else if (Set.of("position", "pos", "at").contains(key) && isKnownPosition(value)) {
-	          position = value.toLowerCase(Locale.ROOT);
-	        }
-	        continue;
-	      }
-	      if (isKnownPosition(lower)) {
-	        position = lower;
-	      } else if (!Set.of("expression", "expr", "show", "move", "position", "pos").contains(lower)) {
-	        expression = stripQuotes(token);
-	      }
-	    }
-	    return new CharacterUpdate(position, expression);
-	  }
+
+  private static Placement parsePlacement(
+      List<String> tokens,
+      int startIndex,
+      SnapshotPosition fallbackPosition,
+      String fallbackExpression,
+      String fallbackSlot,
+      Map<String, SnapshotPosition> customPositions) {
+    SnapshotPosition position = fallbackPosition;
+    String expression = fallbackExpression;
+    boolean expressionExplicit = false;
+    String displaySlot = fallbackSlot;
+    Integer layerOrder = null;
+    for (int i = startIndex; i < tokens.size(); i++) {
+      String token = tokens.get(i);
+      if (token == null || token.isBlank()) continue;
+      String lower = token.toLowerCase(Locale.ROOT);
+      if ("at".equals(lower) && i + 1 < tokens.size()) {
+        String coordinateToken = tokens.get(++i);
+        SnapshotPosition parsed = parseInlinePosition(coordinateToken);
+        if (parsed != null) position = parsed;
+        Integer inlineLayer = parseInlineLayerOrder(coordinateToken);
+        if (inlineLayer != null) layerOrder = inlineLayer;
+        continue;
+      }
+      if (isOption(token, "pos", "position", "at", "coord", "coords", "xy")) {
+        SnapshotPosition parsed = snapshotPosition(optionValue(token), customPositions);
+        if (parsed == null) parsed = parseInlinePosition(optionValue(token));
+        if (parsed != null) position = parsed;
+        continue;
+      }
+      if (isOption(token, "expr", "expression", "preset")) {
+        expression = optionValue(token);
+        expressionExplicit = true;
+        continue;
+      }
+      if (isOption(token, "slot", "as", "instance", "display", "display_slot", "display-slot")) {
+        displaySlot = optionValue(token);
+        continue;
+      }
+      if (isOption(token, "layer", "z", "zorder")) {
+        layerOrder = parseInteger(optionValue(token));
+        continue;
+      }
+      SnapshotPosition parsed = snapshotPosition(token, customPositions);
+      if (parsed != null) {
+        position = parsed;
+      } else if (layerOrder == null && token.matches("[-+]?\\d+")) {
+        layerOrder = parseInteger(token);
+      } else if (!expressionExplicit && !lower.startsWith("ease_") && !lower.startsWith("easing=")) {
+        expression = stripQuotes(token);
+        expressionExplicit = true;
+      }
+    }
+    if (position == null) position = SnapshotPosition.predefined("center");
+    if (expression == null || expression.isBlank()) expression = "neutral";
+    return new Placement(position, expression, displaySlot, layerOrder);
+  }
+
+  private static SnapshotPosition parsePositionOnly(
+      List<String> tokens, int startIndex, Map<String, SnapshotPosition> customPositions) {
+    for (int i = startIndex; i < tokens.size(); i++) {
+      String token = tokens.get(i);
+      if ("at".equalsIgnoreCase(token) && i + 1 < tokens.size()) return parseInlinePosition(tokens.get(i + 1));
+      if (isOption(token, "pos", "position")) return snapshotPosition(optionValue(token), customPositions);
+      if (isOption(token, "at", "coord", "coords", "xy")) return parseInlinePosition(optionValue(token));
+      SnapshotPosition parsed = snapshotPosition(token, customPositions);
+      if (parsed != null) return parsed;
+    }
+    return null;
+  }
+
+  private static SnapshotPosition parseDeclaredPosition(String name, String rawCoordinates) {
+    if (name == null || name.isBlank() || rawCoordinates == null) return null;
+    String[] parts = rawCoordinates.trim().split("\\s+");
+    try {
+      double x = Double.parseDouble(parts[0]);
+      double y = parts.length > 1 ? Double.parseDouble(parts[1]) : -1.0;
+      return new SnapshotPosition(name.trim().toLowerCase(Locale.ROOT), x, y, true);
+    } catch (RuntimeException ignored) {
+      return null;
+    }
+  }
+
+  private static SnapshotPosition parseInlinePosition(String raw) {
+    if (raw == null || raw.isBlank()) return null;
+    String[] parts = stripQuotes(raw).split(",");
+    if (parts.length < 1 || parts.length > 3) return null;
+    try {
+      double x = Double.parseDouble(parts[0].trim());
+      double y = parts.length > 1 ? Double.parseDouble(parts[1].trim()) : -1.0;
+      return new SnapshotPosition("at_" + parts[0].trim() + "_" + (parts.length > 1 ? parts[1].trim() : "baseline"), x, y, true);
+    } catch (NumberFormatException ignored) {
+      return null;
+    }
+  }
+
+  private static Integer parseInlineLayerOrder(String raw) {
+    if (raw == null) return null;
+    String[] parts = stripQuotes(raw).split(",");
+    return parts.length == 3 ? parseInteger(parts[2].trim()) : null;
+  }
+
+  private static SnapshotPosition snapshotPosition(String raw, Map<String, SnapshotPosition> customPositions) {
+    if (raw == null || raw.isBlank()) return null;
+    String normalized = stripQuotes(raw).toLowerCase(Locale.ROOT);
+    SnapshotPosition predefined = SnapshotPosition.predefined(normalized);
+    if (predefined != null) return predefined;
+    return customPositions == null ? null : customPositions.get(normalized);
+  }
+
+  private static DisplayPresetEntry parseDisplayPresetEntry(
+      String rawLine, Map<String, SnapshotPosition> customPositions) {
+    if (rawLine == null) return null;
+    Matcher matcher = DISPLAY_PRESET_ENTRY_PATTERN.matcher(rawLine.trim());
+    if (!matcher.matches()) return null;
+    String slot = matcher.group(1).trim();
+    List<String> body = VnArgTokenizer.tokenize(matcher.group(2));
+    if (body.isEmpty()) return null;
+    String characterId = null;
+    int start = 0;
+    if (isOption(body.get(0), "char", "character", "id", "sprite")) {
+      characterId = optionValue(body.get(0));
+      start = 1;
+    } else {
+      characterId = body.get(0);
+      start = 1;
+    }
+    Placement placement = parsePlacement(body, start, null, null, slot, customPositions);
+    return new DisplayPresetEntry(
+        slot, characterId, placement.position(), placement.expression(), placement.layerOrder());
+  }
+
+  private static String resolveSnapshotExpression(
+      String characterId,
+      String rawExpression,
+      Map<String, Map<String, String>> layerPaths,
+      Map<String, String> imagePaths,
+      Map<String, CharacterLayerGroupEntry> layerGroups,
+      Map<String, List<CharacterLayerEntry>> presetLayers) {
+    String token = rawExpression == null || rawExpression.isBlank() ? "neutral" : rawExpression.trim();
+    if (token.startsWith("@") && token.indexOf('+') < 0 && token.indexOf('$') < 0) return token.substring(1);
+    if (token.indexOf('$') < 0 && token.indexOf('+') < 0) return token;
+    List<CharacterLayerEntry> layers = new ArrayList<>();
+    for (String rawPart : token.split("\\+")) {
+      String part = rawPart.trim();
+      if (part.startsWith("@")) {
+        layers.addAll(presetLayers.getOrDefault(characterId + "/" + part.substring(1), List.of()));
+      } else if (part.startsWith("$")) {
+        layers.addAll(resolveLayerOrGroupEntries(layerPaths, layerGroups, characterId, part.substring(1)));
+      }
+    }
+    if (layers.isEmpty()) return token;
+    String resolvedSpec = layers.stream().map(layer -> layer.path).filter(path -> path != null && !path.isBlank())
+        .collect(java.util.stream.Collectors.joining(" | "));
+    String base = token.replace('@', ' ').replace('$', ' ').replace('+', ' ').replace(':', ' ').replace('.', ' ')
+        .trim().replaceAll("[^A-Za-z0-9_]+", "_").replaceAll("_+", "_");
+    if (base.isEmpty()) base = "composite";
+    if (!Character.isLetter(base.charAt(0)) && base.charAt(0) != '_') base = "_" + base;
+    String expression = "__inline_" + base.toLowerCase(Locale.ROOT) + "_" + Integer.toUnsignedString(resolvedSpec.hashCode(), 36);
+    imagePaths.put(characterId + "/" + expression, resolvedSpec);
+    presetLayers.put(characterId + "/" + expression, List.copyOf(layers));
+    return expression;
+  }
+
+  private static void putVisible(Map<String, CharacterEntry> visible, CharacterEntry entry) {
+    if (entry == null) return;
+    String key = entry.displaySlot == null || entry.displaySlot.isBlank()
+        ? "character:" + entry.characterId
+        : "slot:" + entry.displaySlot;
+    visible.put(key, entry);
+  }
+
+  private static CharacterEntry findVisible(
+      Map<String, CharacterEntry> visible, String characterId, String displaySlot) {
+    if (displaySlot != null && !displaySlot.isBlank()) return visible.get("slot:" + displaySlot);
+    if (characterId == null || characterId.isBlank()) return null;
+    CharacterEntry direct = visible.get("character:" + characterId);
+    if (direct != null) return direct;
+    for (CharacterEntry entry : visible.values()) if (characterId.equals(entry.characterId)) return entry;
+    return null;
+  }
+
+  private static void removeVisible(
+      Map<String, CharacterEntry> visible, String characterId, String displaySlot) {
+    if (displaySlot != null && !displaySlot.isBlank()) {
+      visible.remove("slot:" + displaySlot);
+      return;
+    }
+    if (characterId == null || characterId.isBlank()) return;
+    visible.entrySet().removeIf(entry -> characterId.equals(entry.getValue().characterId));
+  }
+
+  private static boolean isOption(String token, String... keys) {
+    if (token == null) return false;
+    int eq = token.indexOf('=');
+    int colon = token.indexOf(':');
+    int split = eq > 0 && colon > 0 ? Math.min(eq, colon) : Math.max(eq, colon);
+    if (split <= 0) return false;
+    String key = token.substring(0, split).trim().toLowerCase(Locale.ROOT);
+    return Arrays.stream(keys).anyMatch(key::equals);
+  }
+
+  private static String findOptionValue(List<String> tokens, String... keys) {
+    for (String token : tokens) if (isOption(token, keys)) return optionValue(token);
+    return null;
+  }
+
+  private static Integer parseInteger(String raw) {
+    try {
+      return Integer.valueOf(raw);
+    } catch (RuntimeException ignored) {
+      return null;
+    }
+  }
 
   private static String parseStageCommand(String line) {
     List<String> tokens = bracketTokens(line);
     if (tokens.isEmpty() || !"stage".equalsIgnoreCase(tokens.get(0))) return null;
     return parseStageTokenList(tokens.subList(1, tokens.size()));
+  }
+
+  private static String parseTransitionBackground(String line) {
+    List<String> tokens = bracketTokens(line);
+    if (tokens.size() < 2 || !"transition".equalsIgnoreCase(tokens.get(0))) return null;
+    String background = null;
+    boolean typeSeen = false;
+    for (int i = 1; i < tokens.size(); i++) {
+      String token = tokens.get(i);
+      if (isOption(token, "bg", "background")) {
+        background = optionValue(token);
+      } else if (isOption(token, "type", "kind", "style")) {
+        typeSeen = true;
+      } else if (isOption(token, "dur", "duration", "ms", "mask", "maskPath", "maskAsset")) {
+        // Not a background token.
+      } else if (!typeSeen) {
+        typeSeen = true;
+      } else if (!token.matches("[-+]?\\d+") && background == null) {
+        background = token;
+      }
+    }
+    return background == null || background.isBlank() ? null : background;
   }
 
   private static String parseStageTokenList(List<String> tokens) {
@@ -1931,10 +2219,7 @@ button then opens it in the editor."""));
     }
     String inner = raw.substring(1, raw.length() - 1).trim();
     if (inner.isEmpty()) return List.of();
-    return Arrays.stream(inner.split("\\s+"))
-        .map(String::trim)
-        .filter(s -> !s.isEmpty())
-        .toList();
+    return VnArgTokenizer.tokenize(inner);
   }
 
   private static String stripInlineComment(String line) {
@@ -2047,6 +2332,8 @@ button then opens it in the editor."""));
       Map<String, Map<String, String>> charLayerPaths,
       Map<String, List<CharacterLayerEntry>> charPresetLayers,
       Map<String, CharacterLayerGroupEntry> charLayerGroups,
+      Map<String, SnapshotPosition> customPositions,
+      Map<String, List<DisplayPresetEntry>> displayPresets,
       Set<String> includeStack
   ) {
     if (source == null || source.isBlank()) return;
@@ -2056,6 +2343,7 @@ button then opens it in the editor."""));
     try {
       String[] lines = source.split("\n", -1);
       int limit = maxLineInclusive < 0 ? lines.length - 1 : Math.min(maxLineInclusive, lines.length - 1);
+      String activeDisplayPresetId = null;
       for (int i = 0; i <= limit; i++) {
         String line = lines[i];
         String trimmed = stripInlineComment(line).trim();
@@ -2080,6 +2368,8 @@ button then opens it in the editor."""));
                     charLayerPaths,
                     charPresetLayers,
                     charLayerGroups,
+                    customPositions,
+                    displayPresets,
                     includeStack);
               }
             } catch (IOException ignored) {
@@ -2105,9 +2395,11 @@ button then opens it in the editor."""));
 
         Matcher charImgMatcher = CHARIMG_PATTERN.matcher(trimmed);
         if (charImgMatcher.matches()) {
-          charImgPaths.put(
-              charImgMatcher.group(1) + "/" + charImgMatcher.group(2),
-              charImgMatcher.group(3).trim());
+          String key = charImgMatcher.group(1) + "/" + charImgMatcher.group(2);
+          String pathSpec = charImgMatcher.group(3).trim();
+          charImgPaths.put(key, pathSpec);
+          List<CharacterLayerEntry> directLayers = directLayerEntries(pathSpec);
+          if (!directLayers.isEmpty()) charPresetLayers.put(key, directLayers);
           continue;
         }
 
@@ -2150,13 +2442,48 @@ button then opens it in the editor."""));
           String expr = charPresetMatcher.group(2);
           String spec = charPresetMatcher.group(3).trim();
           String resolved = resolvePresetSpec(charLayerPaths, charImgPaths, charLayerGroups, charId, spec);
-          List<CharacterLayerEntry> layers = resolvePresetLayerEntries(charLayerPaths, charImgPaths, charLayerGroups, charId, spec);
+          List<CharacterLayerEntry> layers = resolvePresetLayerEntries(
+              charLayerPaths, charImgPaths, charLayerGroups, charPresetLayers, charId, spec);
           if (!resolved.isBlank()) {
             charImgPaths.put(charId + "/" + expr, resolved);
           }
           if (!layers.isEmpty()) {
             charPresetLayers.put(charId + "/" + expr, layers);
           }
+          continue;
+        }
+
+        Matcher positionMatcher = POSITION_PATTERN.matcher(trimmed);
+        if (positionMatcher.matches()) {
+          SnapshotPosition position = parseDeclaredPosition(
+              positionMatcher.group(1), positionMatcher.group(2));
+          if (position != null) customPositions.put(position.name, position);
+          continue;
+        }
+
+        Matcher displayPresetMatcher = DISPLAY_PRESET_PATTERN.matcher(trimmed);
+        if (displayPresetMatcher.matches()) {
+          activeDisplayPresetId = displayPresetMatcher.group(1);
+          List<DisplayPresetEntry> entries = displayPresets.computeIfAbsent(
+              activeDisplayPresetId, ignored -> new ArrayList<>());
+          String inlineEntries = displayPresetMatcher.group(2);
+          if (inlineEntries != null && !inlineEntries.isBlank()) {
+            for (String inlineEntry : inlineEntries.split("\\|")) {
+              DisplayPresetEntry parsed = parseDisplayPresetEntry(inlineEntry, customPositions);
+              if (parsed != null) entries.add(parsed);
+            }
+            activeDisplayPresetId = null;
+          }
+          continue;
+        }
+
+        if (activeDisplayPresetId != null) {
+          DisplayPresetEntry entry = parseDisplayPresetEntry(trimmed, customPositions);
+          if (entry != null) {
+            displayPresets.get(activeDisplayPresetId).add(entry);
+            continue;
+          }
+          activeDisplayPresetId = null;
         }
       }
     } finally {
@@ -2216,6 +2543,7 @@ button then opens it in the editor."""));
       Map<String, Map<String, String>> layersByCharacter,
       Map<String, String> expressionsByCharacter,
       Map<String, CharacterLayerGroupEntry> groupsByCharacter,
+      Map<String, List<CharacterLayerEntry>> presetLayersByCharacter,
       String characterId,
       String spec
   ) {
@@ -2236,6 +2564,13 @@ button then opens it in the editor."""));
       } else if (part.startsWith("@")) {
         LayeredCharacterResolver.CharacterRef ref =
             LayeredCharacterResolver.parseReference(part.substring(1).trim(), characterId);
+        List<CharacterLayerEntry> nestedLayers = presetLayersByCharacter == null
+            ? null
+            : presetLayersByCharacter.get(ref.characterId() + "/" + ref.localId());
+        if (nestedLayers != null && !nestedLayers.isEmpty()) {
+          resolved.addAll(nestedLayers);
+          continue;
+        }
         String presetPath = expressionsByCharacter.get(ref.characterId() + "/" + ref.localId());
         List<String> paths = splitResolvedLayerSpec(presetPath);
         int nestedIndex = 1;
@@ -2410,6 +2745,23 @@ button then opens it in the editor."""));
     return resolved;
   }
 
+  private static List<CharacterLayerEntry> directLayerEntries(String pathSpec) {
+    List<String> paths = splitResolvedLayerSpec(pathSpec);
+    if (paths.size() < 2) return List.of();
+    List<CharacterLayerEntry> layers = new ArrayList<>();
+    for (int i = 0; i < paths.size(); i++) {
+      String path = paths.get(i);
+      String normalized = path.replace('\\', '/');
+      int slash = normalized.lastIndexOf('/');
+      String name = slash >= 0 ? normalized.substring(slash + 1) : normalized;
+      int dot = name.lastIndexOf('.');
+      if (dot > 0) name = name.substring(0, dot);
+      String layerId = selectorSafeName(name);
+      layers.add(new CharacterLayerEntry(layerId.isBlank() ? "layer" + (i + 1) : layerId, path));
+    }
+    return List.copyOf(layers);
+  }
+
   private ResolvedInclude resolveIncludeSource(String sourceName, String includePath) throws IOException {
     String normalized = includePath == null ? "" : includePath.trim().replace('\\', '/');
     if (normalized.isBlank()) {
@@ -2502,6 +2854,11 @@ button then opens it in the editor."""));
     public final String expression;
     public final int atLine;
     public final double scale;
+    public final String displaySlot;
+    public final double positionX;
+    public final double positionY;
+    public final boolean customPosition;
+    public final Integer layerOrder;
 
     public CharacterEntry(String characterId, String position, String expression, int atLine) {
       this(characterId, position, expression, atLine, 1.0);
@@ -2513,15 +2870,61 @@ button then opens it in the editor."""));
         String expression,
         int atLine,
         double scale) {
+      this(characterId, position, expression, atLine, scale, null, Double.NaN, Double.NaN, false, null);
+    }
+
+    public CharacterEntry(
+        String characterId,
+        String position,
+        String expression,
+        int atLine,
+        double scale,
+        String displaySlot,
+        double positionX,
+        double positionY,
+        boolean customPosition,
+        Integer layerOrder) {
       this.characterId = characterId;
       this.position = position;
       this.expression = expression;
       this.atLine = atLine;
       this.scale = Double.isFinite(scale) ? Math.max(0.1, Math.min(3.0, scale)) : 1.0;
+      this.displaySlot = displaySlot == null || displaySlot.isBlank() ? null : displaySlot.trim();
+      this.positionX = positionX;
+      this.positionY = positionY;
+      this.customPosition = customPosition;
+      this.layerOrder = layerOrder;
     }
 
     public CharacterEntry withScale(double scale) {
-      return new CharacterEntry(characterId, position, expression, atLine, scale);
+      return new CharacterEntry(characterId, position, expression, atLine, scale, displaySlot,
+          positionX, positionY, customPosition, layerOrder);
+    }
+
+    private CharacterEntry withPosition(SnapshotPosition position, int atLine) {
+      return new CharacterEntry(characterId, position.name, expression, atLine, scale, displaySlot,
+          position.x, position.y, position.custom, layerOrder);
+    }
+
+    private CharacterEntry withExpression(String expression, int atLine) {
+      return new CharacterEntry(characterId, position, expression, atLine, scale, displaySlot,
+          positionX, positionY, customPosition, layerOrder);
+    }
+
+    private CharacterEntry withLayerOrder(Integer layerOrder) {
+      return new CharacterEntry(characterId, position, expression, atLine, scale, displaySlot,
+          positionX, positionY, customPosition, layerOrder);
+    }
+
+    private SnapshotPosition snapshotPosition() {
+      return new SnapshotPosition(position, positionX, positionY, customPosition);
+    }
+
+    private static CharacterEntry fromPlacement(
+        String characterId, String expression, Placement placement, int atLine) {
+      SnapshotPosition position = placement.position();
+      return new CharacterEntry(characterId, position.name, expression, atLine, 1.0,
+          placement.displaySlot(), position.x, position.y, position.custom, placement.layerOrder());
     }
   }
 
@@ -2864,7 +3267,28 @@ button then opens it in the editor."""));
   }
 
 	  record ResolvedInclude(String sourceName, String sourceText) {}
-	  private record CharacterUpdate(String position, String expression) {}
+	  private record SnapshotPosition(String name, double x, double y, boolean custom) {
+      private static SnapshotPosition predefined(String raw) {
+        if (raw == null) return null;
+        return switch (raw.trim().toLowerCase(Locale.ROOT)) {
+          case "far_left", "farleft", "fl" -> new SnapshotPosition("far_left", 0.10, -1.0, false);
+          case "left", "l" -> new SnapshotPosition("left", 0.25, -1.0, false);
+          case "center", "centre", "c" -> new SnapshotPosition("center", 0.50, -1.0, false);
+          case "right", "r" -> new SnapshotPosition("right", 0.75, -1.0, false);
+          case "far_right", "farright", "fr" -> new SnapshotPosition("far_right", 0.90, -1.0, false);
+          default -> null;
+        };
+      }
+    }
+	  private record Placement(
+        SnapshotPosition position, String expression, String displaySlot, Integer layerOrder) {}
+	  private record HideTarget(String characterId, String displaySlot) {}
+	  private record DisplayPresetEntry(
+        String displaySlot,
+        String characterId,
+        SnapshotPosition position,
+        String expression,
+        Integer layerOrder) {}
 	  public record InlineTimelineContext(int startLine, int endLine, String body) {}
 
 }
