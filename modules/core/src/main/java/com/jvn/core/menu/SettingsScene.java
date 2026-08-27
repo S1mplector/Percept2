@@ -23,6 +23,7 @@ import com.jvn.core.vn.VnScenario;
 import com.jvn.core.vn.VnScenarioLoader;
 import com.jvn.core.vn.VnScene;
 import com.jvn.core.vn.VnEntryScriptResolver;
+import com.jvn.core.vn.VnPersistenceBackend;
 import com.jvn.core.vn.VnSettings;
 import com.jvn.core.vn.VnSettingsStore;
 import com.jvn.core.vn.save.VnSaveManager;
@@ -51,6 +52,7 @@ public class SettingsScene implements Scene {
 
   private final VnSettings settings;
   private final AudioFacade audio; // optional, to apply volumes live
+  private final VnPersistenceBackend persistenceBackend;
   private final Engine engine;
   private final VnSaveManager saveManager;
   private final String defaultScriptName;
@@ -87,29 +89,19 @@ public class SettingsScene implements Scene {
   }
 
   public SettingsScene(VnSettings settings) {
-    this(null, null, null, settings, null, null, null, "settings");
+    this(null, null, null, settings, null, null, null, null, "settings");
   }
 
   public SettingsScene(VnSettings settings, AudioFacade audio) {
-    this(null, null, null, settings, audio, null, null, "settings");
+    this(null, null, null, settings, audio, null, null, null, "settings");
   }
 
-  public SettingsScene(VnSettings settings, AudioFacade audio, MenuProfile profile, String menuId) {
-    this(null, null, null, settings, audio, null, profile, menuId);
+  public SettingsScene(VnSettings settings, AudioFacade audio, VnPersistenceBackend persistenceBackend, MenuProfile profile, String menuId) {
+    this(null, null, null, settings, audio, persistenceBackend, null, profile, menuId);
   }
 
-  public SettingsScene(VnSettings settings, AudioFacade audio, ActionBindingProfile bindings) {
-    this(null, null, null, settings, audio, bindings, null, "settings");
-  }
-
-  public SettingsScene(
-      Engine engine,
-      VnSaveManager saveManager,
-      String defaultScriptName,
-      VnSettings settings,
-      AudioFacade audio
-  ) {
-    this(engine, saveManager, defaultScriptName, settings, audio, null, null, "settings");
+  public SettingsScene(VnSettings settings, AudioFacade audio, VnPersistenceBackend persistenceBackend, ActionBindingProfile bindings) {
+    this(null, null, null, settings, audio, persistenceBackend, bindings, null, "settings");
   }
 
   public SettingsScene(
@@ -118,9 +110,21 @@ public class SettingsScene implements Scene {
       String defaultScriptName,
       VnSettings settings,
       AudioFacade audio,
+      VnPersistenceBackend persistenceBackend
+  ) {
+    this(engine, saveManager, defaultScriptName, settings, audio, persistenceBackend, null, null, "settings");
+  }
+
+  public SettingsScene(
+      Engine engine,
+      VnSaveManager saveManager,
+      String defaultScriptName,
+      VnSettings settings,
+      AudioFacade audio,
+      VnPersistenceBackend persistenceBackend,
       ActionBindingProfile bindings
   ) {
-    this(engine, saveManager, defaultScriptName, settings, audio, bindings, null, "settings");
+    this(engine, saveManager, defaultScriptName, settings, audio, persistenceBackend, bindings, null, "settings");
   }
 
   SettingsScene(
@@ -129,10 +133,11 @@ public class SettingsScene implements Scene {
       String defaultScriptName,
       VnSettings settings,
       AudioFacade audio,
+      VnPersistenceBackend persistenceBackend,
       ActionBindingProfile bindings,
       MenuProfile profile
   ) {
-    this(engine, saveManager, defaultScriptName, settings, audio, bindings, profile, "settings");
+    this(engine, saveManager, defaultScriptName, settings, audio, persistenceBackend, bindings, profile, "settings");
   }
 
   public SettingsScene(
@@ -141,10 +146,11 @@ public class SettingsScene implements Scene {
       String defaultScriptName,
       VnSettings settings,
       AudioFacade audio,
+      VnPersistenceBackend persistenceBackend,
       ActionBindingProfile bindings,
       String menuId
   ) {
-    this(engine, saveManager, defaultScriptName, settings, audio, bindings, null, menuId);
+    this(engine, saveManager, defaultScriptName, settings, audio, persistenceBackend, bindings, null, menuId);
   }
 
   SettingsScene(
@@ -153,6 +159,7 @@ public class SettingsScene implements Scene {
       String defaultScriptName,
       VnSettings settings,
       AudioFacade audio,
+      VnPersistenceBackend persistenceBackend,
       ActionBindingProfile bindings,
       MenuProfile profile,
       String menuId
@@ -163,6 +170,7 @@ public class SettingsScene implements Scene {
     this.defaultScriptName = normalize(resolvedDefault, "story/prologue.vns");
     this.settings = settings == null ? new VnSettings() : settings;
     this.audio = audio;
+    this.persistenceBackend = persistenceBackend;
     if (bindings != null) {
       this.bindings = bindings;
     } else if (this.settings.getInputProfileSerialized() != null && !this.settings.getInputProfileSerialized().isBlank()) {
@@ -197,6 +205,7 @@ public class SettingsScene implements Scene {
   public VnSaveManager getSaveManager() { return saveManager; }
   public String getDefaultScriptName() { return defaultScriptName; }
   public AudioFacade getAudioFacade() { return audio; }
+  public VnPersistenceBackend getPersistenceBackend() { return persistenceBackend; }
   public int itemCount() { return rows.size(); }
   public int getSelected() { return selected; }
   public String getSelectedKey() {
@@ -655,7 +664,7 @@ public class SettingsScene implements Scene {
       case LOAD_MENU -> {
         if (engine != null) {
           String script = normalize(action.target(), defaultScriptName);
-          engine.scenes().push(new LoadMenuScene(engine, saveManager, script, settings, audio));
+          engine.scenes().push(new LoadMenuScene(engine, saveManager, script, settings, audio, persistenceBackend));
         } else if (confirm) {
           bindingStatus = "Load menu unavailable in standalone settings";
         }
@@ -735,7 +744,7 @@ public class SettingsScene implements Scene {
       LOG.debug("Configured menu '{}' not found in profile", requested);
       return false;
     }
-    MainMenuScene child = new MainMenuScene(engine, settings, saveManager, defaultScriptName, audio, requested);
+    MainMenuScene child = new MainMenuScene(engine, settings, saveManager, defaultScriptName, audio, persistenceBackend, requested);
     engine.scenes().push(child);
     return true;
   }
@@ -760,6 +769,7 @@ public class SettingsScene implements Scene {
         defaultScriptName,
         settings,
         audio,
+        persistenceBackend,
         bindings,
         menuProfile,
         requested
@@ -791,6 +801,7 @@ public class SettingsScene implements Scene {
     }
     vnScene.getState().setSourceScriptName(resolvedScript);
     if (audio != null) vnScene.setAudioFacade(audio);
+    if (persistenceBackend != null) vnScene.setPersistenceBackend(persistenceBackend);
     if (engine.getVnInteropFactory() != null) {
       vnScene.setInterop(engine.getVnInteropFactory().create(engine));
     }

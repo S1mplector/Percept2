@@ -199,7 +199,7 @@ public class SaveMenuScene implements Scene {
       case LOAD_MENU -> {
         if (engine != null) {
           String script = normalize(action.target(), defaultScriptName);
-          engine.scenes().push(new LoadMenuScene(engine, saveManager, script, settingsModel, currentAudio()));
+          engine.scenes().push(new LoadMenuScene(engine, saveManager, script, settingsModel, currentAudio(), null));
         }
         yield true;
       }
@@ -214,6 +214,7 @@ public class SaveMenuScene implements Scene {
               defaultScriptName,
               settingsModel,
               currentAudio(),
+              null,
               profile,
               menuProfile,
               targetMenu
@@ -404,7 +405,7 @@ public class SaveMenuScene implements Scene {
       LOG.debug("Configured menu '{}' not found in profile", requested);
       return;
     }
-    MainMenuScene child = new MainMenuScene(engine, settingsModel, saveManager, defaultScriptName, currentAudio(), requested);
+    MainMenuScene child = new MainMenuScene(engine, settingsModel, saveManager, defaultScriptName, currentAudio(), currentPersistence(), requested);
     engine.scenes().push(child);
   }
 
@@ -415,7 +416,7 @@ public class SaveMenuScene implements Scene {
     }
     if (requested == null || requested.isBlank() || "save".equalsIgnoreCase(requested)) return false;
     if (!menuProfile.screens().containsKey(requested) || engine == null) return false;
-    MainMenuScene child = new MainMenuScene(engine, settingsModel, saveManager, defaultScriptName, currentAudio(), requested);
+    MainMenuScene child = new MainMenuScene(engine, settingsModel, saveManager, defaultScriptName, currentAudio(), currentPersistence(), requested);
     engine.scenes().push(child);
     return true;
   }
@@ -432,6 +433,7 @@ public class SaveMenuScene implements Scene {
     }
     scene.getState().setSourceScriptName(resolvedScript);
     if (currentAudio() != null) scene.setAudioFacade(currentAudio());
+    if (currentPersistence() != null) scene.setPersistenceBackend(currentPersistence());
     if (engine != null && engine.getVnInteropFactory() != null) {
       scene.setInterop(engine.getVnInteropFactory().create(engine));
     }
@@ -460,6 +462,10 @@ public class SaveMenuScene implements Scene {
 
   private com.jvn.core.audio.AudioFacade currentAudio() {
     return currentVnScene != null ? currentVnScene.getAudioFacade() : null;
+  }
+
+  private com.jvn.core.vn.VnPersistenceBackend currentPersistence() {
+    return currentVnScene != null ? currentVnScene.getPersistenceBackend() : null;
   }
 
   private MenuStyleSpec styleForItemId(String... ids) {

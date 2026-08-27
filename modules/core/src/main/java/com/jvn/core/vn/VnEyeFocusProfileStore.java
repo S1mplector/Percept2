@@ -9,6 +9,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -26,7 +27,7 @@ public final class VnEyeFocusProfileStore {
 
   public static List<VnEyeFocusProfile> load(File projectRoot) {
     if (projectRoot == null) return List.of();
-    Path file = projectRoot.toPath().resolve(CONFIG_PATH);
+    Path file = Paths.get(projectRoot.getAbsolutePath()).resolve(CONFIG_PATH);
     if (!Files.isRegularFile(file)) return List.of();
     Properties props = new Properties();
     try (InputStream in = Files.newInputStream(file)) {
@@ -39,7 +40,7 @@ public final class VnEyeFocusProfileStore {
 
   public static void save(File projectRoot, Iterable<VnEyeFocusProfile> profiles) {
     if (projectRoot == null || profiles == null) return;
-    Path file = projectRoot.toPath().resolve(CONFIG_PATH);
+    Path file = Paths.get(projectRoot.getAbsolutePath()).resolve(CONFIG_PATH);
     Properties props = write(profiles);
     try {
       Files.createDirectories(file.getParent());

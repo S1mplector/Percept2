@@ -296,7 +296,8 @@ public class FxLauncher extends Application {
               new com.jvn.core.vn.save.VnSaveManager(),
               fallbackScript,
               vn.getState().getSettings(),
-              vn.getAudioFacade()
+              vn.getAudioFacade(),
+              vn.getPersistenceBackend()
           ));
         }
       } else if (e.getCode() == KeyCode.ESCAPE) {
@@ -363,7 +364,8 @@ public class FxLauncher extends Application {
                   new com.jvn.core.vn.save.VnSaveManager(),
                   fallbackScript,
                   vn.getState().getSettings(),
-                  vn.getAudioFacade()
+                  vn.getAudioFacade(),
+                  vn.getPersistenceBackend()
               ));
             }
           }
@@ -1127,7 +1129,8 @@ public class FxLauncher extends Application {
           new com.jvn.core.vn.save.VnSaveManager(),
           fallbackScript,
           vn.getState().getSettings(),
-          vn.getAudioFacade()
+          vn.getAudioFacade(),
+          vn.getPersistenceBackend()
       ));
     }
   }
@@ -1169,7 +1172,8 @@ public class FxLauncher extends Application {
             new com.jvn.core.vn.save.VnSaveManager(),
             fallbackScript,
             state.getSettings(),
-            vn.getAudioFacade()
+            vn.getAudioFacade(),
+            vn.getPersistenceBackend()
         ));
       }
       return;
@@ -1428,7 +1432,8 @@ public class FxLauncher extends Application {
             new com.jvn.core.vn.save.VnSaveManager(),
             script,
             vnScene.getState().getSettings(),
-            vnScene.getAudioFacade()
+            vnScene.getAudioFacade(),
+            vnScene.getPersistenceBackend()
         ));
         return true;
       }
@@ -1444,6 +1449,7 @@ public class FxLauncher extends Application {
             fallbackScript,
             vnScene.getState().getSettings(),
             vnScene.getAudioFacade(),
+            vnScene.getPersistenceBackend(),
             profile,
             targetMenu
         ));
@@ -1456,7 +1462,8 @@ public class FxLauncher extends Application {
             vnScene.getState().getSettings(),
             new com.jvn.core.vn.save.VnSaveManager(),
             fallbackScript,
-            vnScene.getAudioFacade()
+            vnScene.getAudioFacade(),
+            vnScene.getPersistenceBackend()
         ));
         return true;
       }
@@ -1472,6 +1479,7 @@ public class FxLauncher extends Application {
             new com.jvn.core.vn.save.VnSaveManager(),
             fallbackScript,
             vnScene.getAudioFacade(),
+            vnScene.getPersistenceBackend(),
             target
         ));
         return true;
@@ -1485,6 +1493,7 @@ public class FxLauncher extends Application {
             new com.jvn.core.vn.save.VnSaveManager(),
             fallbackScript,
             vnScene.getAudioFacade(),
+            vnScene.getPersistenceBackend(),
             menuTarget
         ));
         return true;
@@ -1597,6 +1606,7 @@ public class FxLauncher extends Application {
             fallbackScript,
             vn.getState().getSettings(),
             vn.getAudioFacade(),
+            vn.getPersistenceBackend(),
             profile,
             configuredPauseMenu
         ));
@@ -1874,6 +1884,7 @@ public class FxLauncher extends Application {
           main.getSaveManager(),
           main.getDefaultScriptName(),
           main.getAudioFacade(),
+          main.getPersistenceBackend(),
           main.getMenuId()
       );
       replacement.setSelected(main.getSelected());
@@ -1910,7 +1921,8 @@ public class FxLauncher extends Application {
           load.getSaveManager(),
           load.getDefaultScriptName(),
           load.getSettingsModel(),
-          load.getAudioFacade()
+          load.getAudioFacade(),
+          load.getPersistenceBackend()
       );
       if (load.isFavoritesOnly()) {
         replacement.toggleFavoritesOnly();
@@ -1924,6 +1936,7 @@ public class FxLauncher extends Application {
           settings.getDefaultScriptName(),
           settings.model(),
           settings.getAudioFacade(),
+          settings.getPersistenceBackend(),
           settings.getBindings(),
           settings.getMenuId()
       );
@@ -1982,6 +1995,7 @@ public class FxLauncher extends Application {
       VnScene replacement = new VnScene(reloadedScenario);
       replacement.getState().setSourceScriptName(sourceScript);
       replacement.setAudioFacade(vnScene.getAudioFacade());
+      replacement.setPersistenceBackend(vnScene.getPersistenceBackend());
       replacement.setQuickSaveManager(vnScene.getQuickSaveManager());
       if (engine.getVnInteropFactory() != null) {
         replacement.setInterop(engine.getVnInteropFactory().create(engine));

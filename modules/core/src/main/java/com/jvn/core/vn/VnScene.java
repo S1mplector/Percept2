@@ -70,6 +70,14 @@ public class VnScene implements Scene {
     return audioFacade;
   }
 
+  public void setPersistenceBackend(VnPersistenceBackend backend) {
+    state.getPersistentStore().setBackend(backend);
+  }
+
+  public VnPersistenceBackend getPersistenceBackend() {
+    return state.getPersistentStore().getBackend();
+  }
+
   public void setQuickSaveManager(VnQuickSaveManager manager) {
     this.quickSaveManager = manager;
   }

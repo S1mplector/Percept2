@@ -44,6 +44,7 @@ public final class WebLauncher {
       VnScenario scenario = new VnScenarioLoader().load(FIXTURE_SCRIPT);
       VnScene vnScene = new VnScene(scenario);
       vnScene.setAudioFacade(new NoopAudioFacade());
+      vnScene.setPersistenceBackend(new WebLocalStoragePersistenceBackend());
       vnScene.onEnter();
       engine.scenes().push(vnScene);
 

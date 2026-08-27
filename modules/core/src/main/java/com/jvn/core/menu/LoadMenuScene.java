@@ -21,6 +21,7 @@ import com.jvn.core.vn.VnScene;
 import com.jvn.core.vn.VnScenarioLoader;
 import com.jvn.core.vn.VnScenario;
 import com.jvn.core.vn.VnEntryScriptResolver;
+import com.jvn.core.vn.VnPersistenceBackend;
 import com.jvn.core.vn.save.VnSaveData;
 import com.jvn.core.vn.save.VnSaveManager;
 import org.slf4j.Logger;
@@ -52,6 +53,7 @@ public class LoadMenuScene implements Scene {
   private final String defaultScriptName;
   private final com.jvn.core.vn.VnSettings settingsModel;
   private final AudioFacade audio;
+  private final VnPersistenceBackend persistenceBackend;
   private final MenuProfile menuProfile;
   private final MenuScreenSpec menuScreen;
   private final MenuLayoutSpec menuLayout;
@@ -64,8 +66,8 @@ public class LoadMenuScene implements Scene {
   private boolean favoritesOnly = false;
   private int selected = -1;
 
-  public LoadMenuScene(Engine engine, VnSaveManager saveManager, String defaultScriptName, com.jvn.core.vn.VnSettings settingsModel, AudioFacade audio) {
-    this(engine, saveManager, defaultScriptName, settingsModel, audio, null);
+  public LoadMenuScene(Engine engine, VnSaveManager saveManager, String defaultScriptName, com.jvn.core.vn.VnSettings settingsModel, AudioFacade audio, VnPersistenceBackend persistenceBackend) {
+    this(engine, saveManager, defaultScriptName, settingsModel, audio, persistenceBackend, null);
   }
 
   LoadMenuScene(
@@ -74,6 +76,7 @@ public class LoadMenuScene implements Scene {
       String defaultScriptName,
       com.jvn.core.vn.VnSettings settingsModel,
       AudioFacade audio,
+      VnPersistenceBackend persistenceBackend,
       MenuProfile profile
   ) {
     this.engine = engine;
@@ -82,6 +85,7 @@ public class LoadMenuScene implements Scene {
     this.defaultScriptName = resolvedDefault == null ? "story/prologue.vns" : resolvedDefault;
     this.settingsModel = settingsModel == null ? new com.jvn.core.vn.VnSettings() : settingsModel;
     this.audio = audio;
+    this.persistenceBackend = persistenceBackend;
     if (profile == null) {
       MenuProfileLoader.LoadResult menuLoad = MenuProfileLoader.loadWithDiagnostics();
       this.menuProfile = menuLoad.profile();
@@ -178,6 +182,7 @@ public class LoadMenuScene implements Scene {
   public String getDefaultScriptName() { return defaultScriptName; }
   public com.jvn.core.vn.VnSettings getSettingsModel() { return settingsModel; }
   public AudioFacade getAudioFacade() { return audio; }
+  public VnPersistenceBackend getPersistenceBackend() { return persistenceBackend; }
   public VnScene getGameplayVnScene() { return gameplayVnScene; }
   public LoadMenuScene withGameplayVnScene(VnScene scene) {
     this.gameplayVnScene = scene;
@@ -398,6 +403,7 @@ public class LoadMenuScene implements Scene {
               defaultScriptName,
               settingsModel,
               audio,
+              persistenceBackend,
               profile,
               menuProfile,
               targetMenu
@@ -548,6 +554,7 @@ public class LoadMenuScene implements Scene {
       VnScene scene = new VnScene(scenario);
       scene.getState().setSourceScriptName(script);
       if (audio != null) scene.setAudioFacade(audio);
+      if (persistenceBackend != null) scene.setPersistenceBackend(persistenceBackend);
       if (engine != null && engine.getVnInteropFactory() != null) {
         scene.setInterop(engine.getVnInteropFactory().create(engine));
       }
@@ -572,7 +579,7 @@ public class LoadMenuScene implements Scene {
       LOG.debug("Configured menu '{}' not found in profile", requested);
       return;
     }
-    MainMenuScene child = new MainMenuScene(engine, settingsModel, saveManager, defaultScriptName, audio, requested);
+    MainMenuScene child = new MainMenuScene(engine, settingsModel, saveManager, defaultScriptName, audio, persistenceBackend, requested);
     engine.scenes().push(child);
   }
 
@@ -583,7 +590,7 @@ public class LoadMenuScene implements Scene {
     }
     if (requested == null || requested.isBlank() || "load".equalsIgnoreCase(requested)) return false;
     if (!menuProfile.screens().containsKey(requested) || engine == null) return false;
-    MainMenuScene child = new MainMenuScene(engine, settingsModel, saveManager, defaultScriptName, audio, requested);
+    MainMenuScene child = new MainMenuScene(engine, settingsModel, saveManager, defaultScriptName, audio, persistenceBackend, requested);
     engine.scenes().push(child);
     return true;
   }
@@ -600,6 +607,7 @@ public class LoadMenuScene implements Scene {
     }
     scene.getState().setSourceScriptName(resolvedScript);
     if (audio != null) scene.setAudioFacade(audio);
+    if (persistenceBackend != null) scene.setPersistenceBackend(persistenceBackend);
     if (engine != null && engine.getVnInteropFactory() != null) {
       scene.setInterop(engine.getVnInteropFactory().create(engine));
     }

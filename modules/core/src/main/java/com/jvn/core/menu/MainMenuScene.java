@@ -17,6 +17,7 @@ import com.jvn.core.menu.config.MenuScreenSpec;
 import com.jvn.core.menu.config.MenuStyleSpec;
 import com.jvn.core.scene.Scene;
 import com.jvn.core.vn.VnEntryScriptResolver;
+import com.jvn.core.vn.VnPersistenceBackend;
 import com.jvn.core.vn.VnScenario;
 import com.jvn.core.vn.VnScenarioLoader;
 import com.jvn.core.vn.VnScene;
@@ -32,6 +33,7 @@ public class MainMenuScene implements Scene {
   private final VnSaveManager saveManager;
   private final String defaultScriptName;
   private final AudioFacade audio;
+  private final VnPersistenceBackend persistenceBackend;
   private final String menuId;
   private final MenuProfile menuProfile;
   private final MenuScreenSpec menuScreen;
@@ -45,17 +47,18 @@ public class MainMenuScene implements Scene {
   private double titleBgmVolume = 0.7;
   private boolean bgmStarted = false;
 
-  public MainMenuScene(Engine engine, VnSettings settingsModel, VnSaveManager saveManager, String defaultScriptName, AudioFacade audio) {
-    this(engine, settingsModel, saveManager, defaultScriptName, audio, "main");
+  public MainMenuScene(Engine engine, VnSettings settingsModel, VnSaveManager saveManager, String defaultScriptName, AudioFacade audio, VnPersistenceBackend persistenceBackend) {
+    this(engine, settingsModel, saveManager, defaultScriptName, audio, persistenceBackend, "main");
   }
 
-  public MainMenuScene(Engine engine, VnSettings settingsModel, VnSaveManager saveManager, String defaultScriptName, AudioFacade audio, String menuId) {
+  public MainMenuScene(Engine engine, VnSettings settingsModel, VnSaveManager saveManager, String defaultScriptName, AudioFacade audio, VnPersistenceBackend persistenceBackend, String menuId) {
     this.engine = engine;
     this.settingsModel = settingsModel == null ? new VnSettings() : settingsModel;
     this.saveManager = saveManager == null ? new VnSaveManager() : saveManager;
     String resolvedDefault = VnEntryScriptResolver.resolveEntryScript(defaultScriptName, null);
     this.defaultScriptName = resolvedDefault == null ? "story/prologue.vns" : resolvedDefault;
     this.audio = audio;
+    this.persistenceBackend = persistenceBackend;
     MenuProfileLoader.LoadResult menuLoad = MenuProfileLoader.loadWithDiagnostics();
     this.menuProfile = menuLoad.profile();
     for (String warning : menuLoad.diagnostics()) {
@@ -83,6 +86,7 @@ public class MainMenuScene implements Scene {
   public VnSaveManager getSaveManager() { return saveManager; }
   public String getDefaultScriptName() { return defaultScriptName; }
   public AudioFacade getAudioFacade() { return audio; }
+  public VnPersistenceBackend getPersistenceBackend() { return persistenceBackend; }
   public MenuProfile getMenuProfile() { return menuProfile; }
   public MenuScreenSpec getMenuScreen() { return menuScreen; }
   public MenuLayoutSpec getMenuLayout() { return menuLayout; }
@@ -180,7 +184,7 @@ public class MainMenuScene implements Scene {
       case RUN_SCRIPT -> startNewGame(normalize(action.target(), defaultScriptName));
       case LOAD_MENU -> {
         String script = normalize(action.target(), defaultScriptName);
-        engine.scenes().push(new LoadMenuScene(engine, saveManager, script, settingsModel, audio));
+        engine.scenes().push(new LoadMenuScene(engine, saveManager, script, settingsModel, audio, persistenceBackend));
       }
       case SETTINGS_MENU -> {
         com.jvn.core.input.ActionBindingProfile profile =
@@ -192,6 +196,7 @@ public class MainMenuScene implements Scene {
             defaultScriptName,
             settingsModel,
             audio,
+            persistenceBackend,
             profile,
             null,
             targetMenu
@@ -249,7 +254,7 @@ public class MainMenuScene implements Scene {
       return;
     }
     if (requested.equalsIgnoreCase(menuId)) return;
-    MainMenuScene child = new MainMenuScene(engine, settingsModel, saveManager, defaultScriptName, audio, requested);
+    MainMenuScene child = new MainMenuScene(engine, settingsModel, saveManager, defaultScriptName, audio, persistenceBackend, requested);
     if (titleBgmPath != null) {
       child.setTitleBgm(titleBgmPath, titleBgmVolume);
     }
@@ -279,6 +284,7 @@ public class MainMenuScene implements Scene {
     }
     vnScene.getState().setSourceScriptName(resolvedScript);
     if (audio != null) vnScene.setAudioFacade(audio);
+    if (persistenceBackend != null) vnScene.setPersistenceBackend(persistenceBackend);
     if (engine != null && engine.getVnInteropFactory() != null) {
       vnScene.setInterop(engine.getVnInteropFactory().create(engine));
     }

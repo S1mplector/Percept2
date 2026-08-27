@@ -7,8 +7,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.util.Properties;
 
 /**
@@ -167,16 +165,10 @@ public final class Localization {
   }
 
   private static String shortSha1(String value) {
-    try {
-      MessageDigest digest = MessageDigest.getInstance("SHA-1");
-      byte[] hash = digest.digest(value.getBytes(StandardCharsets.UTF_8));
-      StringBuilder sb = new StringBuilder();
-      for (int i = 0; i < hash.length && sb.length() < 12; i++) {
-        sb.append(String.format("%02x", hash[i]));
-      }
-      return sb.toString();
-    } catch (NoSuchAlgorithmException ex) {
-      return Integer.toHexString(value.hashCode());
-    }
+    // Non-cryptographic: this produces a stable lookup-key suffix, not a
+    // security hash. Uses String.hashCode() (the same algorithm the old
+    // MessageDigest path already fell back to on NoSuchAlgorithmException),
+    // formatted as unsigned hex, unconditionally on every platform.
+    return Integer.toHexString(value.hashCode());
   }
 }

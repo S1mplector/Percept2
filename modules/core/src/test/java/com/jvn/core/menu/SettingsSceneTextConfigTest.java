@@ -45,7 +45,7 @@ class SettingsSceneTextConfigTest {
         )
     ));
 
-    SettingsScene scene = new SettingsScene(new VnSettings(), null, new MenuProfile("main", screens, layouts, styles), "settings");
+    SettingsScene scene = new SettingsScene(new VnSettings(), null, null, new MenuProfile("main", screens, layouts, styles), "settings");
 
     assertEquals("", scene.getDisplayTitle());
     assertEquals("", scene.getDisplaySubtitle());
@@ -72,7 +72,7 @@ class SettingsSceneTextConfigTest {
         )
     ));
 
-    SettingsScene scene = new SettingsScene(new VnSettings(), null, new MenuProfile("main", screens, layouts, styles), "settings");
+    SettingsScene scene = new SettingsScene(new VnSettings(), null, null, new MenuProfile("main", screens, layouts, styles), "settings");
 
     assertArrayEquals(new String[] { "" }, scene.getDisplayItems());
   }
@@ -121,7 +121,7 @@ class SettingsSceneTextConfigTest {
         )
     ));
 
-    SettingsScene scene = new SettingsScene(new VnSettings(), null, new MenuProfile("main", screens, layouts, styles), "settings");
+    SettingsScene scene = new SettingsScene(new VnSettings(), null, null, new MenuProfile("main", screens, layouts, styles), "settings");
 
     assertArrayEquals(new String[] { "Unseen Text" }, scene.getDisplayItems());
   }
@@ -163,7 +163,7 @@ class SettingsSceneTextConfigTest {
 
     MenuProfile profile = new MenuProfile("main", screens, layouts, styles);
     Engine engine = new Engine(ApplicationConfig.builder().build());
-    SettingsScene scene = new SettingsScene(engine, new VnSaveManager(), "demo.vns", new VnSettings(), null, null, profile);
+    SettingsScene scene = new SettingsScene(engine, new VnSaveManager(), "demo.vns", new VnSettings(), null, null, null, profile);
 
     assertEquals(1, scene.getSelected());
 

@@ -5,6 +5,7 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashSet;
@@ -82,7 +83,7 @@ public final class VnEntryScriptResolver {
 
   static String discoverFromProject(File projectRoot) {
     if (projectRoot == null) return null;
-    Path root = projectRoot.toPath().toAbsolutePath().normalize();
+    Path root = Paths.get(projectRoot.getAbsolutePath()).normalize();
     Path scriptsRootPath = root.resolve("scripts");
     if (!Files.isDirectory(scriptsRootPath)) {
       scriptsRootPath = root.resolve("game").resolve("scripts");

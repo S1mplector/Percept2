@@ -3,7 +3,6 @@ package com.jvn.core.vn;
 import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.text.Normalizer;
 import java.util.Locale;
 import java.util.Properties;
 
@@ -83,9 +82,7 @@ public final class VnStoragePaths {
 
   private static String normalizeId(String raw) {
     if (raw == null || raw.isBlank()) return "";
-    String ascii = Normalizer.normalize(raw.trim(), Normalizer.Form.NFKD)
-        .replaceAll("\\p{M}+", "")
-        .toLowerCase(Locale.ROOT);
+    String ascii = raw.trim().toLowerCase(Locale.ROOT);
     String normalized = ascii
         .replaceAll("[^a-z0-9]+", "-")
         .replaceAll("^-+", "")

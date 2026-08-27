@@ -44,6 +44,7 @@ import com.jvn.core.vn.VnNode;
 import com.jvn.core.vn.VnNodeType;
 import com.jvn.core.vn.VnScenario;
 import com.jvn.core.vn.VnScenarioLoader;
+import com.jvn.core.vn.VnPersistenceBackend;
 import com.jvn.core.vn.VnScene;
 import com.jvn.core.vn.VnSettings;
 import com.jvn.core.vn.save.VnSaveManager;
@@ -101,6 +102,7 @@ public class VnPreviewView extends StackPane {
   private VnScene scene;
   private double mouseX, mouseY;
   private AudioFacade audio;
+  private VnPersistenceBackend persistence;
   private boolean playbackActive;
   private File projectRoot;
   private String audioBackend = "auto";
@@ -367,6 +369,7 @@ public class VnPreviewView extends StackPane {
     bindProjectRoot(audio, root);
     if (scene != null) {
       scene.setAudioFacade(playbackActive ? ensureAudioFacade() : null);
+      scene.setPersistenceBackend(playbackActive ? ensurePersistenceBackend() : null);
     }
   }
 
@@ -386,6 +389,7 @@ public class VnPreviewView extends StackPane {
     if (scene == null) return;
     AudioFacade activeAudio = ensureAudioFacade();
     scene.setAudioFacade(activeAudio);
+    scene.setPersistenceBackend(ensurePersistenceBackend());
     renderer.setAudioFacade(activeAudio);
     restoreAmbientBgm();
   }
@@ -689,6 +693,7 @@ public class VnPreviewView extends StackPane {
     nextScene.setInterop(interop);
     if (playbackActive) {
       nextScene.setAudioFacade(ensureAudioFacade());
+      nextScene.setPersistenceBackend(ensurePersistenceBackend());
     }
     if (settingsTemplate != null) {
       copySettings(settingsTemplate, nextScene.getState().getSettings());
@@ -851,7 +856,7 @@ public class VnPreviewView extends StackPane {
       if (saveMode) {
         overlayScene = new SaveMenuScene(null, previewSaveManager, scene, sourceScriptName);
       } else {
-        overlayScene = new LoadMenuScene(null, previewSaveManager, normalizeScriptKey(sourceScriptName), state.getSettings(), audio);
+        overlayScene = new LoadMenuScene(null, previewSaveManager, normalizeScriptKey(sourceScriptName), state.getSettings(), audio, scene.getPersistenceBackend());
       }
       return;
     }
@@ -1303,7 +1308,7 @@ public class VnPreviewView extends StackPane {
         return true;
       }
       case "load_slots", "open_load_slots", "load_menu", "open_load_menu", "menu_load" -> {
-        overlayScene = new LoadMenuScene(null, previewSaveManager, normalizeScriptKey(sourceScriptName), state.getSettings(), audio);
+        overlayScene = new LoadMenuScene(null, previewSaveManager, normalizeScriptKey(sourceScriptName), state.getSettings(), audio, scene.getPersistenceBackend());
         return true;
       }
       case "toggle_history", "history" -> {
@@ -1478,7 +1483,7 @@ public class VnPreviewView extends StackPane {
       overlayScene = new SaveMenuScene(null, previewSaveManager, scene, sourceScriptName);
       e.consume();
     } else if (code == KeyCode.F9) {
-      overlayScene = new LoadMenuScene(null, previewSaveManager, normalizeScriptKey(sourceScriptName), state.getSettings(), audio);
+      overlayScene = new LoadMenuScene(null, previewSaveManager, normalizeScriptKey(sourceScriptName), state.getSettings(), audio, scene.getPersistenceBackend());
       e.consume();
     } else if (code == KeyCode.ESCAPE) {
       closeOverlayScene();
@@ -1656,7 +1661,7 @@ public class VnPreviewView extends StackPane {
     SettingsScene previewScene;
     MenuProfile profile = loadPreviewMenuProfile();
     if (profile != null && profile.hasScreen(menuId)) {
-      previewScene = new SettingsScene(scene.getState().getSettings(), audio, profile, menuId);
+      previewScene = new SettingsScene(scene.getState().getSettings(), audio, scene.getPersistenceBackend(), profile, menuId);
     } else {
       previewScene = new SettingsScene(scene.getState().getSettings(), audio);
     }
@@ -1868,6 +1873,13 @@ public class VnPreviewView extends StackPane {
     }
     bindProjectRoot(audio, projectRoot);
     return audio;
+  }
+
+  private VnPersistenceBackend ensurePersistenceBackend() {
+    if (persistence == null) {
+      persistence = new com.jvn.fx.vn.FilesystemPersistenceBackend();
+    }
+    return persistence;
   }
 
   private void restoreAmbientBgm() {

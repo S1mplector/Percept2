@@ -39,6 +39,7 @@ class MenuSaveScopeFilteringTest {
         "scripts/a.vns",
         new VnSettings(),
         null,
+        null,
         profileWithTitles("Load Journey", "Save")
     );
 
@@ -83,6 +84,7 @@ class MenuSaveScopeFilteringTest {
         saveManager,
         "scripts/a.vns",
         new VnSettings(),
+        null,
         null,
         profileWithTitles("Load", "Save")
     );

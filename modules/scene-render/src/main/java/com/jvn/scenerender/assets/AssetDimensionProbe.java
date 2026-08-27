@@ -1,13 +1,10 @@
 package com.jvn.scenerender.assets;
 
-import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.net.URL;
 import java.util.Optional;
-import javax.imageio.ImageIO;
 
 import com.jvn.core.assets.AssetCatalog;
 import com.jvn.core.assets.AssetType;
@@ -50,10 +47,8 @@ public final class AssetDimensionProbe {
     }
 
     // Tier 2: raw classpath resource, path used as-is.
-    Optional<double[]> viaClasspath = tryDimensions(() -> {
-      URL url = AssetDimensionProbe.class.getClassLoader().getResource(path);
-      return url != null ? url.openStream() : null;
-    });
+    Optional<double[]> viaClasspath = tryDimensions(() ->
+        AssetDimensionProbe.class.getClassLoader().getResourceAsStream(path));
     if (viaClasspath.isPresent()) return viaClasspath;
 
     // Tier 3: filesystem, absolute or relative-to-CWD.
@@ -77,9 +72,9 @@ public final class AssetDimensionProbe {
   private static Optional<double[]> tryDimensions(StreamSupplier supplier) {
     try (InputStream in = supplier.get()) {
       if (in == null) return Optional.empty();
-      BufferedImage image = ImageIO.read(in);
-      if (image == null) return Optional.empty();
-      return Optional.of(new double[] { image.getWidth(), image.getHeight() });
+      byte[] bytes = in.readAllBytes();
+      Optional<int[]> dims = ImageDimensionParser.parse(bytes);
+      return dims.map(d -> new double[] { d[0], d[1] });
     } catch (IOException e) {
       return Optional.empty();
     }

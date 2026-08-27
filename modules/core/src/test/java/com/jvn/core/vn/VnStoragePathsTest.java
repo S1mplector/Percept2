@@ -68,6 +68,15 @@ class VnStoragePathsTest {
   }
 
   @Test
+  void sanitizeGameIdHandlesNonAsciiInputWithoutThrowing() {
+    // Documents the accepted behavior narrowing from dropping NFKD transliteration:
+    // non-ASCII letters (e.g. accented Latin) are no longer transliterated to their
+    // base letter before sanitization; they are filtered out by the ASCII-only regex.
+    String result = VnStoragePaths.sanitizeGameId("Café Königreich");
+    assertEquals("caf-k-nigreich", result);
+  }
+
+  @Test
   void explicitStorageRootOverridesGameScoping() {
     System.setProperty(VnStoragePaths.STORAGE_ROOT_PROPERTY, "build/test-storage");
     VnStoragePaths.configureGame("game-one");

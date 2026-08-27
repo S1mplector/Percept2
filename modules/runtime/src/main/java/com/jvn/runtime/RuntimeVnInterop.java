@@ -710,7 +710,8 @@ public class RuntimeVnInterop implements VnInterop, VnTimelineAccessorProvider {
             new com.jvn.core.vn.save.VnSaveManager(),
             fallbackScript,
             s,
-            scene.getAudioFacade()
+            scene.getAudioFacade(),
+            scene.getPersistenceBackend()
         );
         engine.scenes().push(m);
         return VnInteropResult.advance();
@@ -722,13 +723,13 @@ public class RuntimeVnInterop implements VnInterop, VnTimelineAccessorProvider {
       }
       case "load": {
         String defScript = toks.length >= 2 ? toks[1] : resolveDefaultScript(scene);
-        LoadMenuScene m = new LoadMenuScene(engine, new com.jvn.core.vn.save.VnSaveManager(), defScript, scene.getState().getSettings(), scene.getAudioFacade());
+        LoadMenuScene m = new LoadMenuScene(engine, new com.jvn.core.vn.save.VnSaveManager(), defScript, scene.getState().getSettings(), scene.getAudioFacade(), scene.getPersistenceBackend());
         engine.scenes().push(m);
         return VnInteropResult.advance();
       }
       case "main": {
         String script = toks.length >= 2 ? toks[1] : resolveDefaultScript(scene);
-        MainMenuScene m = new MainMenuScene(engine, new VnSettings(), new com.jvn.core.vn.save.VnSaveManager(), script, scene.getAudioFacade());
+        MainMenuScene m = new MainMenuScene(engine, new VnSettings(), new com.jvn.core.vn.save.VnSaveManager(), script, scene.getAudioFacade(), scene.getPersistenceBackend());
         engine.scenes().push(m);
         return VnInteropResult.advance();
       }
@@ -742,6 +743,7 @@ public class RuntimeVnInterop implements VnInterop, VnTimelineAccessorProvider {
             new com.jvn.core.vn.save.VnSaveManager(),
             script,
             scene.getAudioFacade(),
+            scene.getPersistenceBackend(),
             kind
         );
         engine.scenes().push(custom);
@@ -858,6 +860,7 @@ public class RuntimeVnInterop implements VnInterop, VnTimelineAccessorProvider {
     VnScene vn = new VnScene(sc);
     vn.getState().setSourceScriptName(script);
     if (current.getAudioFacade() != null) vn.setAudioFacade(current.getAudioFacade());
+    if (current.getPersistenceBackend() != null) vn.setPersistenceBackend(current.getPersistenceBackend());
     // carry settings
     copySettings(current.getState().getSettings(), vn.getState().getSettings());
     vn.setInterop(this);

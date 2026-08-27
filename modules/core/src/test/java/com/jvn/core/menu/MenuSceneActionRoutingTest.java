@@ -32,7 +32,7 @@ class MenuSceneActionRoutingTest {
   void mainMenuStartsUnselectedForDefaultScreenAndSelectsOnFirstMove() throws Exception {
     Engine engine = new Engine(ApplicationConfig.builder().build());
     VnSaveManager saveManager = new VnSaveManager(Files.createTempDirectory("jvn-main-unselected").toString());
-    MainMenuScene scene = new MainMenuScene(engine, new VnSettings(), saveManager, "demo.vns", null);
+    MainMenuScene scene = new MainMenuScene(engine, new VnSettings(), saveManager, "demo.vns", null, null);
 
     assertEquals(-1, scene.getSelected());
 
@@ -47,7 +47,7 @@ class MenuSceneActionRoutingTest {
   void nonDefaultConfiguredMainMenuStartsSelected() throws Exception {
     Engine engine = new Engine(ApplicationConfig.builder().build());
     VnSaveManager saveManager = new VnSaveManager(Files.createTempDirectory("jvn-main-extras-selected").toString());
-    MainMenuScene scene = new MainMenuScene(engine, new VnSettings(), saveManager, "demo.vns", null, "extras");
+    MainMenuScene scene = new MainMenuScene(engine, new VnSettings(), saveManager, "demo.vns", null, null, "extras");
 
     assertTrue(scene.getSelected() >= 0);
 
@@ -66,7 +66,7 @@ class MenuSceneActionRoutingTest {
         saveScreenWith(new MenuActionSpec(MenuActionType.SAVE_MENU, null))
     );
 
-    SettingsScene scene = new SettingsScene(engine, saveManager, "demo.vns", settings, null, null, profile);
+    SettingsScene scene = new SettingsScene(engine, saveManager, "demo.vns", settings, null, null, null, profile);
     assertEquals(0, scene.getSelected());
 
     scene.toggleCurrent();
@@ -93,7 +93,7 @@ class MenuSceneActionRoutingTest {
         saveScreenWith(new MenuActionSpec(MenuActionType.SAVE_MENU, null))
     );
 
-    SettingsScene scene = new SettingsScene(engine, saveManager, "demo.vns", settings, null, null, profile);
+    SettingsScene scene = new SettingsScene(engine, saveManager, "demo.vns", settings, null, null, null, profile);
     scene.toggleCurrent();
 
     MenuActionContext ctx = captured.get();
@@ -128,7 +128,7 @@ class MenuSceneActionRoutingTest {
         profile.styles()
     );
 
-    SettingsScene scene = new SettingsScene(new VnSettings(), null, profile, "settings");
+    SettingsScene scene = new SettingsScene(new VnSettings(), null, null, profile, "settings");
     scene.toggleCurrent();
 
     assertEquals("settings_audio", scene.consumeRequestedMenuId());
@@ -161,7 +161,7 @@ class MenuSceneActionRoutingTest {
         profile.styles()
     );
 
-    SettingsScene scene = new SettingsScene(engine, saveManager, "demo.vns", new VnSettings(), null, null, profile);
+    SettingsScene scene = new SettingsScene(engine, saveManager, "demo.vns", new VnSettings(), null, null, null, profile);
     engine.scenes().push(scene);
 
     scene.toggleCurrent();
@@ -188,7 +188,7 @@ class MenuSceneActionRoutingTest {
         saveScreenWith(new MenuActionSpec(MenuActionType.SAVE_MENU, null))
     );
 
-    LoadMenuScene scene = new LoadMenuScene(engine, saveManager, "demo.vns", new VnSettings(), null, profile);
+    LoadMenuScene scene = new LoadMenuScene(engine, saveManager, "demo.vns", new VnSettings(), null, null, profile);
     assertTrue(scene.activateSelected());
 
     MenuActionContext ctx = captured.get();
@@ -236,7 +236,7 @@ class MenuSceneActionRoutingTest {
         saveScreenWith(new MenuActionSpec(MenuActionType.SAVE_MENU, null))
     );
 
-    SettingsScene scene = new SettingsScene(engine, saveManager, "demo.vns", settings, null, null, profile);
+    SettingsScene scene = new SettingsScene(engine, saveManager, "demo.vns", settings, null, null, null, profile);
     scene.toggleCurrent();
 
     assertInstanceOf(LoadMenuScene.class, engine.scenes().peek());
@@ -252,7 +252,7 @@ class MenuSceneActionRoutingTest {
         saveScreenWith(new MenuActionSpec(MenuActionType.SAVE_MENU, null))
     );
 
-    LoadMenuScene scene = new LoadMenuScene(engine, saveManager, "demo.vns", new VnSettings(), null, profile);
+    LoadMenuScene scene = new LoadMenuScene(engine, saveManager, "demo.vns", new VnSettings(), null, null, profile);
     assertTrue(scene.activateSelected());
 
     Scene top = engine.scenes().peek();

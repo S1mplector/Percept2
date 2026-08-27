@@ -148,7 +148,7 @@ public class PauseMenuScene implements Scene {
         if (engine != null) {
           VnSettings s = vnScene != null ? vnScene.getState().getSettings() : new VnSettings();
           engine.scenes().push(
-              new LoadMenuScene(engine, saveManager, defaultScriptName, s, audio)
+              new LoadMenuScene(engine, saveManager, defaultScriptName, s, audio, null)
                   .withGameplayVnScene(vnScene));
         }
       }
@@ -163,6 +163,7 @@ public class PauseMenuScene implements Scene {
               defaultScriptName,
               s,
               audio,
+              null,
               profile,
               menuProfile,
               targetMenu
@@ -190,7 +191,7 @@ public class PauseMenuScene implements Scene {
           engine.scenes().pop(); // pop pause
           engine.scenes().pop(); // pop VN scene
           VnSettings s = vnScene != null ? vnScene.getState().getSettings() : new VnSettings();
-          MainMenuScene main = new MainMenuScene(engine, s, saveManager, defaultScriptName, audio);
+          MainMenuScene main = new MainMenuScene(engine, s, saveManager, defaultScriptName, audio, null);
           engine.scenes().push(main);
         }
       }
@@ -251,6 +252,7 @@ public class PauseMenuScene implements Scene {
         defaultScriptName,
         settings,
         audio,
+        null,
         bindings,
         menuProfile,
         target
@@ -265,7 +267,7 @@ public class PauseMenuScene implements Scene {
     if (requested == null || requested.isBlank() || "pause".equalsIgnoreCase(requested)) return false;
     if (!menuProfile.screens().containsKey(requested) || engine == null) return false;
     VnSettings model = vnScene != null ? vnScene.getState().getSettings() : new VnSettings();
-    MainMenuScene child = new MainMenuScene(engine, model, saveManager, defaultScriptName, audio, requested);
+    MainMenuScene child = new MainMenuScene(engine, model, saveManager, defaultScriptName, audio, null, requested);
     engine.scenes().push(child);
     return true;
   }

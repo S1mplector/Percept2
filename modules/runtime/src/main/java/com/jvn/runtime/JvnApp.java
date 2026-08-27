@@ -333,7 +333,8 @@ public class JvnApp {
       } catch (Exception ignored) {
             // reason: non-critical operation; exception swallowed to prevent crash propagation
             }
-      MainMenuScene menu = new MainMenuScene(engine, settingsModel, saveManager, resolvedEntryScript, audio);
+      com.jvn.fx.vn.FilesystemPersistenceBackend persistenceBackend = new com.jvn.fx.vn.FilesystemPersistenceBackend();
+      MainMenuScene menu = new MainMenuScene(engine, settingsModel, saveManager, resolvedEntryScript, audio, persistenceBackend);
       if (settingsModel != null) {
         engine.setFixedUpdateStepMs(settingsModel.getPhysicsFixedStepMs(), settingsModel.getPhysicsMaxSubSteps());
       }

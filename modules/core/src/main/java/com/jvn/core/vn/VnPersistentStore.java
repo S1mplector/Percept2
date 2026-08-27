@@ -1,6 +1,5 @@
 package com.jvn.core.vn;
 
-import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -13,20 +12,24 @@ import java.util.Map;
  * global VN progression data.
  */
 public class VnPersistentStore {
-  private final Path file;
   private final Map<String, Object> values = new LinkedHashMap<>();
+  private VnPersistenceBackend backend = new NoopPersistenceBackend();
 
   public VnPersistentStore() {
-    this(VnStoragePaths.persistentData());
-  }
-
-  public VnPersistentStore(Path file) {
-    this.file = file;
     load();
   }
 
-  public Path getFile() {
-    return file;
+  public VnPersistentStore(Path file) {
+    this.backend = new PathBackedBackend(file);
+    load();
+  }
+
+  public void setBackend(VnPersistenceBackend backend) {
+    this.backend = backend == null ? new NoopPersistenceBackend() : backend;
+  }
+
+  public VnPersistenceBackend getBackend() {
+    return backend;
   }
 
   public Map<String, Object> snapshot() {
@@ -83,10 +86,9 @@ public class VnPersistentStore {
 
   public void load() {
     values.clear();
-    if (file == null) return;
-    if (!Files.exists(file)) return;
+    String json = backend.read();
+    if (json == null || json.isBlank()) return;
     try {
-      String json = Files.readString(file, StandardCharsets.UTF_8);
       values.putAll(parseJsonObject(json));
     } catch (Exception ignored) {
             // reason: non-critical operation; exception swallowed to prevent crash propagation
@@ -94,12 +96,9 @@ public class VnPersistentStore {
   }
 
   public void save() {
-    if (file == null) return;
     try {
-      Path parent = file.getParent();
-      if (parent != null) Files.createDirectories(parent);
-      Files.writeString(file, toJson(values), StandardCharsets.UTF_8);
-    } catch (IOException ignored) {
+      backend.write(toJson(values));
+    } catch (Exception ignored) {
             // reason: I/O failure on best-effort save/load; in-memory state remains valid
     }
   }
@@ -274,6 +273,37 @@ public class VnPersistentStore {
     private void skipWhitespace() {
       while (index < input.length() && Character.isWhitespace(input.charAt(index))) {
         index++;
+      }
+    }
+  }
+
+  private static final class PathBackedBackend implements VnPersistenceBackend {
+    private final Path file;
+
+    PathBackedBackend(Path file) {
+      this.file = file;
+    }
+
+    @Override
+    public String read() {
+      if (file == null || !Files.exists(file)) return null;
+      try {
+        return Files.readString(file, StandardCharsets.UTF_8);
+      } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
+        return null;
+      }
+    }
+
+    @Override
+    public void write(String json) {
+      if (file == null) return;
+      try {
+        Path parent = file.getParent();
+        if (parent != null) Files.createDirectories(parent);
+        Files.writeString(file, json, StandardCharsets.UTF_8);
+      } catch (java.io.IOException ignored) {
+            // reason: I/O failure on best-effort save/load; in-memory state remains valid
       }
     }
   }
