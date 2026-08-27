@@ -231,13 +231,33 @@ if (!drewCharacterLayer) {
   throw new Error("Expected a fixture character layer to be drawn via drawImage");
 }
 
-const renderedDialogue = drawingCalls.some(
-  ([operation, text]) =>
-    operation === "fillText" && String(text).includes("Hello from the JVN web scene bootstrap"),
-);
+// Dialogue text is drawn one glyph per fillText call (VnDialogueRenderer.drawStyledLines
+// renders character-by-character to support per-glyph text effects like shake/wave/rainbow),
+// so no single fillText call carries the whole line — concatenate consecutive single-character
+// fillText calls and look for the expected substring in the joined result instead.
+const dialogueGlyphs = drawingCalls
+  .filter(([operation, text]) => operation === "fillText" && String(text).length === 1)
+  .map(([, text]) => text)
+  .join("");
+const renderedDialogue = dialogueGlyphs.includes("Hello from the JVN web scene bootstrap");
 if (!renderedDialogue) {
-  throw new Error("Expected the fixture dialogue line to be rendered via fillText");
+  throw new Error(
+    `Expected the fixture dialogue line to be rendered via per-glyph fillText calls, got: ${JSON.stringify(dialogueGlyphs)}`,
+  );
 }
+
+// Reaching the choice node requires advancing past the now-fully-revealed dialogue line, which
+// normally happens on a browser click. Real click/input routing (sub-project 3) doesn't exist
+// yet, so use the debug-only test hook WebMain exports for exactly this purpose, then drive one
+// more frame so the now-current choice node actually renders.
+if (typeof runtime.testAdvanceFromClick !== "function") {
+  throw new Error("Expected the compiled bundle to export testAdvanceFromClick for the smoke harness");
+}
+runtime.testAdvanceFromClick();
+if (scheduledFrames.length !== 1) {
+  throw new Error("Game loop did not schedule the next animation frame after frame 2");
+}
+scheduledFrames.shift()(50.0);
 
 const renderedChoiceOptionA = drawingCalls.some(
   ([operation, text]) => operation === "fillText" && String(text).includes("Wave back"),
@@ -250,7 +270,7 @@ if (!renderedChoiceOptionA || !renderedChoiceOptionB) {
 }
 
 if (scheduledFrames.length !== 1) {
-  throw new Error("Game loop did not schedule the next animation frame after frame 2");
+  throw new Error("Game loop did not schedule the next animation frame after frame 3");
 }
 
 console.log("Web bundle smoke test passed");

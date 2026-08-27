@@ -44,6 +44,9 @@ public final class WebLauncher {
       vnScene.setAudioFacade(new NoopAudioFacade());
       vnScene.setPersistenceBackend(new WebLocalStoragePersistenceBackend());
       vnScene.onEnter();
+      // Instant text for this fixed bootstrap fixture — it exists to prove rendering, not
+      // typing speed, and the webSmoke harness only drives a couple of animation frames.
+      vnScene.getState().getSettings().setTextSpeed(0);
       engine.scenes().push(vnScene);
 
       VnRenderer vnRenderer = new VnRenderer(renderer);
@@ -51,7 +54,7 @@ public final class WebLauncher {
       WebGameLoop gameLoop = new WebGameLoop(engine, surface);
       gameLoop.setFrameRenderer(() -> vnRenderer.render(
           vnScene.getState(), vnScene.getScenario(), surface.getWidth(), surface.getHeight()));
-      WebRuntimeSession session = new WebRuntimeSession(engine, surface, renderer, gameLoop);
+      WebRuntimeSession session = new WebRuntimeSession(engine, surface, renderer, gameLoop, vnScene);
       gameLoop.start();
 
       log.info("Game loop started on requestAnimationFrame");
