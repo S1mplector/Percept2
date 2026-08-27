@@ -15,6 +15,7 @@ dependencies {
   testImplementation("org.junit.jupiter:junit-jupiter-api")
   testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine")
   testImplementation("ch.qos.logback:logback-classic:1.5.6")
+  testImplementation(testFixtures(project(":scene-render")))
 }
 
 tasks.withType<JavaCompile>().configureEach {

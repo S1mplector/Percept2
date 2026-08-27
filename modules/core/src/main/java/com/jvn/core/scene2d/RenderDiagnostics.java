@@ -1,5 +1,6 @@
 package com.jvn.core.scene2d;
 
+import java.util.Collections;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import org.slf4j.Logger;
@@ -8,7 +9,7 @@ import org.slf4j.LoggerFactory;
 /** Warn-once diagnostics for optional renderer operations that would otherwise disappear silently. */
 public final class RenderDiagnostics {
   private static final Logger log = LoggerFactory.getLogger(RenderDiagnostics.class);
-  private static final Set<String> REPORTED = ConcurrentHashMap.newKeySet();
+  private static final Set<String> REPORTED = Collections.newSetFromMap(new ConcurrentHashMap<>());
 
   private RenderDiagnostics() {}
 
