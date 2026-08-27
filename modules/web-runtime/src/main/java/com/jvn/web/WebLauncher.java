@@ -5,6 +5,10 @@ import org.slf4j.LoggerFactory;
 
 import com.jvn.core.config.ApplicationConfig;
 import com.jvn.core.engine.Engine;
+import com.jvn.core.vn.VnScenario;
+import com.jvn.core.vn.VnScenarioLoader;
+import com.jvn.core.vn.VnScene;
+import com.jvn.scenerender.vn.VnRenderer;
 
 /**
  * Entry point for TeaVM JavaScript execution of JVN's browser bootstrap.
@@ -14,6 +18,7 @@ import com.jvn.core.engine.Engine;
  */
 public final class WebLauncher {
   private static final Logger log = LoggerFactory.getLogger(WebLauncher.class);
+  private static final String FIXTURE_SCRIPT = "story/web_fixture.vns";
 
   private WebLauncher() {}
 
@@ -36,8 +41,17 @@ public final class WebLauncher {
       Engine engine = new Engine(config);
       engine.start();
 
+      VnScenario scenario = new VnScenarioLoader().load(FIXTURE_SCRIPT);
+      VnScene vnScene = new VnScene(scenario);
+      vnScene.setAudioFacade(new NoopAudioFacade());
+      vnScene.onEnter();
+      engine.scenes().push(vnScene);
+
+      VnRenderer vnRenderer = new VnRenderer(renderer);
+
       WebGameLoop gameLoop = new WebGameLoop(engine, surface);
-      gameLoop.setFrameRenderer(() -> renderBootstrapFrame(renderer, config));
+      gameLoop.setFrameRenderer(() -> vnRenderer.render(
+          vnScene.getState(), vnScene.getScenario(), surface.getWidth(), surface.getHeight()));
       WebRuntimeSession session = new WebRuntimeSession(engine, surface, renderer, gameLoop);
       gameLoop.start();
 
@@ -46,6 +60,9 @@ public final class WebLauncher {
     } catch (RuntimeException e) {
       log.error("Failed to initialize web launcher", e);
       throw e;
+    } catch (java.io.IOException e) {
+      log.error("Failed to load web fixture scenario", e);
+      throw new IllegalStateException("Failed to load web fixture scenario: " + FIXTURE_SCRIPT, e);
     }
   }
 
@@ -71,15 +88,5 @@ public final class WebLauncher {
    */
   public static ApplicationConfig parseConfig(String configJson) {
     return WebApplicationConfigParser.parse(configJson);
-  }
-
-  private static void renderBootstrapFrame(WebRenderer renderer, ApplicationConfig config) {
-    renderer.clear(0.025, 0.03, 0.045, 1.0);
-    renderer.setFill(0.91, 0.84, 0.65, 1.0);
-    renderer.drawText(config.title(), 42, 64, 28, true);
-    renderer.setFill(0.67, 0.72, 0.8, 1.0);
-    renderer.drawText("JVN Canvas 2D runtime", 42, 98, 16, false);
-    renderer.setFill(0.48, 0.53, 0.62, 1.0);
-    renderer.drawText("Engine loop online · game scene bootstrap pending", 42, 128, 13, false);
   }
 }

@@ -13,6 +13,7 @@ const context2d = {
   scale: (...args) => drawingCalls.push(["scale", ...args]),
   fillRect: (...args) => drawingCalls.push(["fillRect", ...args]),
   fillText: (...args) => drawingCalls.push(["fillText", ...args]),
+  drawImage: (...args) => drawingCalls.push(["drawImage", ...args]),
   set fillStyle(value) {
     drawingCalls.push(["fillStyle", value]);
   },
@@ -20,6 +21,30 @@ const context2d = {
     drawingCalls.push(["font", value]);
   },
 };
+
+class HTMLImageElement {
+  constructor() {
+    this._src = "";
+    this._listeners = {};
+  }
+
+  addEventListener(type, listener) {
+    (this._listeners[type] ||= []).push(listener);
+  }
+
+  set src(value) {
+    this._src = value;
+    // Synchronously fire "load" so the web runtime's image cache resolves
+    // on the same tick that requested it, matching an instantly-cached
+    // browser image load closely enough for this DOM-stub smoke test.
+    const listeners = this._listeners["load"] || [];
+    for (const listener of listeners) listener({ target: this });
+  }
+
+  get src() {
+    return this._src;
+  }
+}
 
 class HTMLCanvasElement {
   constructor() {
@@ -50,6 +75,7 @@ const config = {
 };
 
 globalThis.HTMLCanvasElement = HTMLCanvasElement;
+globalThis.HTMLImageElement = HTMLImageElement;
 globalThis.window = { devicePixelRatio: 2 };
 globalThis.document = {
   title: "",
@@ -58,6 +84,10 @@ globalThis.document = {
     if (id === "jvn-status") return status;
     if (id === "jvn-config") return config;
     return null;
+  },
+  createElement(tag) {
+    if (tag === "img") return new HTMLImageElement();
+    throw new Error(`Unsupported createElement tag in smoke harness: ${tag}`);
   },
 };
 globalThis.window.document = globalThis.document;
@@ -88,16 +118,50 @@ if (!status.innerText.includes("Engine loop online")) {
   throw new Error(`Expected successful status text, got ${status.innerText}`);
 }
 
+// Drive two frames: the first frame's drawImage calls trigger the
+// WebImageCache's async (here, synchronously-stubbed) image loads; a
+// second frame is needed for the now-cached images to actually draw.
 scheduledFrames.shift()(16.667);
-
-const renderedTitle = drawingCalls.some(
-  ([operation, text]) => operation === "fillText" && text === "Bundle Smoke",
-);
-if (!renderedTitle) {
-  throw new Error("First animation frame did not render the configured title");
-}
 if (scheduledFrames.length !== 1) {
-  throw new Error("Game loop did not schedule the next animation frame");
+  throw new Error("Game loop did not schedule the next animation frame after frame 1");
+}
+scheduledFrames.shift()(33.334);
+
+const drewBackground = drawingCalls.some(
+  ([operation, path]) => operation === "drawImage" && String(path).includes("bg/game.png"),
+);
+if (!drewBackground) {
+  throw new Error("Expected the fixture background to be drawn via drawImage");
+}
+
+const drewCharacterLayer = drawingCalls.some(
+  ([operation, path]) =>
+    operation === "drawImage" && String(path).includes("characters/lavender"),
+);
+if (!drewCharacterLayer) {
+  throw new Error("Expected a fixture character layer to be drawn via drawImage");
+}
+
+const renderedDialogue = drawingCalls.some(
+  ([operation, text]) =>
+    operation === "fillText" && String(text).includes("Hello from the JVN web scene bootstrap"),
+);
+if (!renderedDialogue) {
+  throw new Error("Expected the fixture dialogue line to be rendered via fillText");
+}
+
+const renderedChoiceOptionA = drawingCalls.some(
+  ([operation, text]) => operation === "fillText" && String(text).includes("Wave back"),
+);
+const renderedChoiceOptionB = drawingCalls.some(
+  ([operation, text]) => operation === "fillText" && String(text).includes("Stay quiet"),
+);
+if (!renderedChoiceOptionA || !renderedChoiceOptionB) {
+  throw new Error("Expected both fixture choice options to be rendered via fillText");
+}
+
+if (scheduledFrames.length !== 1) {
+  throw new Error("Game loop did not schedule the next animation frame after frame 2");
 }
 
 console.log("Web bundle smoke test passed");

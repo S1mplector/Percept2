@@ -1,0 +1,23 @@
+@scenario web_fixture
+
+@character lavender "Lavender"
+@charlayer lavender base assets/game/images/characters/lavender/base/lavender_test_sprite_base.png
+@charlayer lavender eyes_neutral assets/game/images/characters/lavender/eyes/lavender_test_sprite_eyes_neutral.png
+@charlayer lavender mouth_smile assets/game/images/characters/lavender/mouth/lavender_test_sprite_mouth_smile.png
+@charpreset lavender happy $base | $eyes_neutral | $mouth_smile
+
+@background game assets/game/images/bg/game.png
+
+@label start
+[bg game]
+[show lavender center happy]
+Lavender: Hello from the JVN web scene bootstrap!
+
+> Wave back -> label_wave
+> Stay quiet -> label_quiet
+
+@label label_wave
+[end]
+
+@label label_quiet
+[end]

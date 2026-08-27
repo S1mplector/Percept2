@@ -11,8 +11,11 @@ dependencies {
   api(project(":core"))
   api(project(":render-api"))
   api(project(":audio"))
+  implementation(project(":scene-render"))
   implementation(teavm.libs.jsoApis)
   implementation("org.teavm:teavm-extras-slf4j:0.15.0")
+
+  testImplementation(testFixtures(project(":scene-render")))
 
   errorprone("com.google.errorprone:error_prone_core:2.28.0")
   errorprone("com.uber.nullaway:nullaway:0.11.0")
@@ -30,6 +33,9 @@ tasks.register<Sync>("webDist") {
   description = "Build a static JVN Canvas 2D browser bootstrap."
   dependsOn(tasks.named("generateJavaScript"))
   from("src/main/webapp")
+  from("src/main/resources/assets") {
+    into("assets")
+  }
   from(layout.buildDirectory.dir("generated/teavm/js")) {
     into("js")
   }
