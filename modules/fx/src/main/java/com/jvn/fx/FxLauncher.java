@@ -103,6 +103,7 @@ public class FxLauncher extends Application {
   private GraphicsContext gc;
   private VnRenderer vnRenderer;
   private MenuRenderer menuRenderer;
+  private com.jvn.scenerender.input.SceneInputRouter sceneInputRouter;
   private PhoneRenderer phoneRenderer;
   private FxBlitter2D blitter2D;
   private FxSceneRendererRegistry rendererRegistry;
@@ -229,6 +230,8 @@ public class FxLauncher extends Application {
     }
     MenuTheme menuTheme = MenuTheme.fromAssets();
     this.menuRenderer = new MenuRenderer(blitter2D, menuTheme);
+    this.sceneInputRouter = new com.jvn.scenerender.input.SceneInputRouter(
+        menuRenderer, vnRenderer, new FxMenuSceneFactory(this::writeSaveThumbnail));
     if (engine != null && engine.scenes().peek() instanceof MainMenuScene main
         && menuTheme.getBgmPath() != null && !menuTheme.getBgmPath().isBlank()) {
       main.setTitleBgm(menuTheme.getBgmPath(), menuTheme.getBgmVolume());
@@ -424,24 +427,7 @@ public class FxLauncher extends Application {
       if (engine != null) {
         double rw = renderWidthForScene(currentScene);
         double rh = renderHeightForScene(currentScene);
-        if (currentScene instanceof PauseMenuScene pause) {
-          int idx = menuRenderer.getHoverIndexForPauseMenu(pause, rw, rh, mouseX, mouseY);
-          if (idx >= 0) pause.setSelected(idx);
-        } else if (currentScene instanceof MainMenuScene main) {
-          int idx = menuRenderer.getHoverIndexForMainMenu(main, rw, rh, mouseX, mouseY);
-          main.setSelected(idx);
-        } else if (currentScene instanceof LoadMenuScene load) {
-          int idx = menuRenderer.getHoverIndexForLoadMenu(load, rw, rh, mouseX, mouseY);
-          if (idx >= 0) {
-            load.setSelected(idx);
-          }
-        } else if (currentScene instanceof SettingsScene settings) {
-          int idx = menuRenderer.getHoverIndexForSettings(settings, rw, rh, mouseX, mouseY);
-          if (idx >= 0) settings.setSelected(idx);
-        } else if (currentScene instanceof SaveMenuScene save) {
-          int idx = menuRenderer.getHoverIndexForSaveMenu(save, rw, rh, mouseX, mouseY);
-          if (idx >= 0) save.setSelected(idx);
-        }
+        sceneInputRouter.handleHover(currentScene, rw, rh, mouseX, mouseY);
       }
     });
 
@@ -1218,106 +1204,11 @@ public class FxLauncher extends Application {
     com.jvn.core.scene.Scene currentScene = engine.scenes().peek();
     double rw = renderWidthForScene(currentScene);
     double rh = renderHeightForScene(currentScene);
-    if (currentScene instanceof VnScene) {
-      VnScene vnScene = (VnScene) currentScene;
 
-      // Handle error overlay clicks before anything else
-      if (vnScene.hasActiveError()) {
-        int errBtn = vnRenderer.renderErrorOverlay(vnScene.getActiveError(), rw, rh, x, y);
-        if (errBtn >= 0) {
-          handleRuntimeErrorButton(vnScene, errBtn);
-        }
-        return;
-      }
-
-      com.jvn.core.vn.ui.VnOverlayButtonSpec overlayButton =
-          vnRenderer.getHoveredOverlayButton(vnScene.getState(), rw, rh, x, y);
-      if (overlayButton != null && executeOverlayButtonAction(vnScene, overlayButton)) {
-        return;
-      }
-      if (vnScene.getState().hasModalOverlayScreen()) {
-        if (vnScene.getState().getTopOverlayScreen() != null
-            && vnScene.getState().getTopOverlayScreen().isDismissOnAdvance()) {
-          vnScene.getState().dismissTopOverlayScreen();
-        }
-        return;
-      }
-
-      com.jvn.core.vn.ui.VnUiActionButtonSpec textBoxButton =
-          vnRenderer.getHoveredTextBoxButton(vnScene.getState(), rw, rh, x, y);
-      if (textBoxButton != null && executeTextBoxButtonAction(vnScene, textBoxButton)) {
-        return;
-      }
-      
-      // Check if clicking on a choice
-      if (vnScene.getState().getCurrentNode() != null && 
-          vnScene.getState().getCurrentNode().getType() == com.jvn.core.vn.VnNodeType.CHOICE) {
-        int choiceIndex = vnRenderer.getHoveredChoiceIndex(
-          vnScene.getState().getCurrentNode().getChoices(),
-          rw, rh, x, y
-        );
-        if (choiceIndex >= 0) {
-          vnScene.selectChoice(choiceIndex);
-          return;
-        }
-      }
-      
-      // Otherwise treat as advance
-      vnScene.advanceFromClick();
-    } else if (currentScene instanceof PauseMenuScene pause) {
-      int idx = menuRenderer.getHoverIndexForPauseMenu(pause, rw, rh, x, y);
-      if (idx >= 0) {
-        pause.setSelected(idx);
-        pause.activateSelected();
-      }
-    } else if (currentScene instanceof MainMenuScene main) {
-      int idx = menuRenderer.getHoverIndexForMainMenu(main, rw, rh, x, y);
-      if (idx >= 0) {
-        main.setSelected(idx);
-        main.activateSelected();
-      }
-    } else if (currentScene instanceof HistoryMenuScene history) {
-      history.close();
-    } else if (currentScene instanceof LoadMenuScene load) {
-      var controlHit = menuRenderer.getLoadControlHit(load, rw, rh, x, y);
-      if (controlHit != null && controlHit.handled()) {
-        switch (controlHit.type()) {
-          case CYCLE_LEFT -> load.movePage(-1);
-          case CYCLE_RIGHT -> load.movePage(1);
-          case TOGGLE_FAVORITES_ONLY -> load.toggleFavoritesOnly();
-          case TOGGLE_SLOT_FAVORITE -> load.toggleFavoriteAt(controlHit.saveIndex());
-          case SET_PAGE -> load.setPageFromProgress01(controlHit.pageProgress01());
-          default -> {
-          }
-        }
-        return;
-      }
-      int idx = menuRenderer.getHoverIndexForLoadMenu(load, rw, rh, x, y);
-      if (idx >= 0) {
-        load.setSelected(idx);
-        load.activateSelected();
-      }
-    } else if (currentScene instanceof SettingsScene settings) {
-      int idx = menuRenderer.getHoverIndexForSettings(settings, rw, rh, x, y);
-      if (idx >= 0) {
-        settings.setSelected(idx);
-        if (!settings.hasSliderAt(idx)) {
-          settings.toggleCurrent();
-          if (settings.consumeCloseRequested()) engine.scenes().pop();
-        } else {
-          if (menuRenderer.isSettingsSliderResetHit(settings, idx, rw, rh, x, y)) {
-            settings.resetValueByIndex(idx);
-          } else {
-            double val = menuRenderer.computeSettingsSliderValue01(settings, idx, rw, rh, x);
-            settings.setValueByIndex(idx, val);
-          }
-        }
-      }
-    } else if (currentScene instanceof SaveMenuScene save) {
-      int idx = menuRenderer.getHoverIndexForSaveMenu(save, rw, rh, x, y);
-      if (idx >= 0) {
-        save.setSelected(idx);
-        handleMenuEnter();
+    int errorButtonIndex = sceneInputRouter.handleClick(currentScene, engine, rw, rh, x, y);
+    if (currentScene instanceof VnScene vnScene && vnScene.hasActiveError()) {
+      if (errorButtonIndex >= 0) {
+        handleRuntimeErrorButton(vnScene, errorButtonIndex);
       }
     }
   }

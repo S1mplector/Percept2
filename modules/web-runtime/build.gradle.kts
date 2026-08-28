@@ -26,6 +26,7 @@ teavm.js {
   targetFileName = "jvn-web.js"
   sourceMap = true
   obfuscated = false
+  strict = false
 }
 
 tasks.register<Sync>("webDist") {

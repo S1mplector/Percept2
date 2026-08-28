@@ -16,6 +16,8 @@ public final class WebRuntimeSession implements AutoCloseable {
   private final WebRenderer renderer;
   private final WebGameLoop gameLoop;
   private final @Nullable VnScene vnScene;
+  private final com.jvn.core.input.ActionMap actionMap;
+  private final com.jvn.scenerender.input.SceneInputRouter sceneInputRouter;
   private boolean closed;
 
   WebRuntimeSession(
@@ -23,12 +25,16 @@ public final class WebRuntimeSession implements AutoCloseable {
       WebCanvasRenderSurface surface,
       WebRenderer renderer,
       WebGameLoop gameLoop,
-      @Nullable VnScene vnScene) {
+      @Nullable VnScene vnScene,
+      com.jvn.core.input.ActionMap actionMap,
+      com.jvn.scenerender.input.SceneInputRouter sceneInputRouter) {
     this.engine = engine;
     this.surface = surface;
     this.renderer = renderer;
     this.gameLoop = gameLoop;
     this.vnScene = vnScene;
+    this.actionMap = actionMap;
+    this.sceneInputRouter = sceneInputRouter;
   }
 
   public Engine engine() {
@@ -48,14 +54,22 @@ public final class WebRuntimeSession implements AutoCloseable {
   }
 
   /**
-   * The active VN scene, if the launched bootstrap pushed one. Exposed only so a test harness
-   * can synthesize {@code VnScene.advanceFromClick()} in the absence of real browser click/input
-   * routing (sub-project 3, not built yet) — not a general-purpose runtime API. Real click
-   * handling should route through the engine's input abstraction, not this getter, once it
-   * exists.
+   * The active VN scene, if the launched bootstrap pushed one. Exposed for state
+   * inspection and used internally by WebMain's DOM event listeners (via
+   * sceneInputRouter()) to route clicks/keys into the running scene.
    */
   public @Nullable VnScene vnScene() {
     return vnScene;
+  }
+
+  /** The {@link com.jvn.core.input.ActionMap} bound to this session's default key-binding profile. */
+  public com.jvn.core.input.ActionMap actionMap() {
+    return actionMap;
+  }
+
+  /** The {@link com.jvn.scenerender.input.SceneInputRouter} shared by this session's DOM listeners. */
+  public com.jvn.scenerender.input.SceneInputRouter sceneInputRouter() {
+    return sceneInputRouter;
   }
 
   /** Replace the callback responsible for drawing each browser frame. */

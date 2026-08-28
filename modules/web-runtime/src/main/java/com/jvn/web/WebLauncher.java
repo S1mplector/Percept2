@@ -51,10 +51,17 @@ public final class WebLauncher {
 
       VnRenderer vnRenderer = new VnRenderer(renderer);
 
+      com.jvn.core.input.ActionMap actionMap = new com.jvn.core.input.ActionMap(new com.jvn.core.input.Input());
+      actionMap.loadProfile(com.jvn.core.input.InputActions.defaultProfile());
+      com.jvn.scenerender.input.SceneInputRouter sceneInputRouter =
+          new com.jvn.scenerender.input.SceneInputRouter(
+              new com.jvn.scenerender.menu.MenuRenderer(renderer), vnRenderer, new UnsupportedMenuSceneFactory());
+
       WebGameLoop gameLoop = new WebGameLoop(engine, surface);
       gameLoop.setFrameRenderer(() -> vnRenderer.render(
           vnScene.getState(), vnScene.getScenario(), surface.getWidth(), surface.getHeight()));
-      WebRuntimeSession session = new WebRuntimeSession(engine, surface, renderer, gameLoop, vnScene);
+      WebRuntimeSession session =
+          new WebRuntimeSession(engine, surface, renderer, gameLoop, vnScene, actionMap, sceneInputRouter);
       gameLoop.start();
 
       log.info("Game loop started on requestAnimationFrame");
