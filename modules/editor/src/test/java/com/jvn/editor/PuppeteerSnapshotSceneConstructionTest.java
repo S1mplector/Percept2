@@ -1,11 +1,18 @@
 package com.jvn.editor;
 
 import java.lang.reflect.Method;
+import java.lang.reflect.Field;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.List;
+import java.util.Map;
 
 import com.jvn.core.scene2d.Entity2D;
+import com.jvn.core.scene2d.Sprite2D;
 import com.jvn.editor.ui.PuppeteerLauncherPanel;
 import com.jvn.scripting.jes.runtime.JesScene2D;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -13,6 +20,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /** Verifies that resolved cursor state survives the final handoff into Puppeteer's JES scene. */
 class PuppeteerSnapshotSceneConstructionTest {
+
+  @TempDir Path tempDir;
 
   @Test
   void customPositionAndZOrderReachTheLaunchScene() throws Exception {
@@ -66,8 +75,146 @@ class PuppeteerSnapshotSceneConstructionTest {
         "VNS backgrounds must stay behind negative-z scene entities in Puppeteer");
   }
 
-  private static JesScene2D buildScene(PuppeteerLauncherPanel.SceneSnapshot snapshot) throws Exception {
+  @Test
+  void inlineTimelineGroupTransformReachesEveryVisibleMemberButNotSiblingLayers() throws Exception {
+    String source = """
+        @charlayer hero body assets/hero/body.png
+        @charlayer hero eyes assets/hero/eyes.png
+        @charlayer hero mouth assets/hero/mouth.png
+        @chargroup hero face pivot=0.5,1 $eyes | $mouth
+        @charpreset hero neutral $body | $eyes | $mouth
+        [show hero center neutral]
+        timeline {
+          parallel {
+            move "hero_face" { x: 125 dur: 0 }
+            rotate "hero_face" { deg: 12 dur: 0 }
+          }
+        }
+        Narrator: between
+        timeline {
+          parallel {
+            move "hero_face" {
+              x: 230
+              dur: 0
+            }
+            rotate "hero_face" {
+              deg: -7
+              dur: 0
+            }
+          }
+        }
+        Narrator: done
+        """;
+    PuppeteerLauncherPanel.SceneSnapshot snapshot = PuppeteerLauncherPanel.resolveSnapshot(
+        source, source.split("\n", -1).length - 1);
     EditorApp app = new EditorApp();
+    JesScene2D scene = buildScene(app, snapshot);
+    Entity2D body = scene.find("hero_body");
+    Entity2D eyes = scene.find("hero_eyes");
+    Entity2D mouth = scene.find("hero_mouth");
+
+    assertNotNull(body);
+    assertNotNull(eyes);
+    assertNotNull(mouth);
+    assertNotNull(scene.find("hero_face"), "chargroup target must be registered in the launch scene");
+    double bodyX = body.getX();
+    double eyesX = eyes.getX();
+    double mouthX = mouth.getX();
+
+    Method captureBaselines = EditorApp.class.getDeclaredMethod(
+        "captureRuntimeExportBaselines", JesScene2D.class);
+    captureBaselines.setAccessible(true);
+    @SuppressWarnings("unchecked")
+    Map<String, Map<?, ?>> baselines = (Map<String, Map<?, ?>>) captureBaselines.invoke(app, scene);
+    Method applyEndState = EditorApp.class.getDeclaredMethod(
+        "applySnapshotTimelineEndStateToScene",
+        JesScene2D.class,
+        PuppeteerLauncherPanel.SceneSnapshot.class,
+        String.class,
+        Map.class);
+    applyEndState.setAccessible(true);
+    applyEndState.invoke(app, scene, snapshot, null, baselines);
+
+    assertEquals(bodyX, body.getX(), 1e-9, "non-member body layer must not inherit face transform");
+    assertEquals(eyesX + 230.0, eyes.getX(), 1e-9,
+        "later VN offsets must rebase from the original scene, not accumulate on earlier timelines");
+    assertEquals(mouthX + 230.0, mouth.getX(), 1e-9);
+    assertEquals(-7.0, eyes.getRotationDeg(), 1e-9);
+    assertEquals(-7.0, mouth.getRotationDeg(), 1e-9);
+  }
+
+  @Test
+  void overlappingGroupsUseTheSameActiveChainAsTheCanonicalRenderer() throws Exception {
+    String source = """
+        @charlayer hero body assets/hero/body.png
+        @charlayer hero eyes assets/hero/eyes.png
+        @chargroup hero whole pivot=0.5,1 $body | $eyes
+        @chargroup hero face pivot=0.5,1 $eyes
+        @charpreset hero neutral $body | $eyes
+        [show hero center neutral]
+        timeline {
+          move "hero_face" { x: 125 dur: 0 }
+        }
+        Narrator: done
+        """;
+    PuppeteerLauncherPanel.SceneSnapshot snapshot = PuppeteerLauncherPanel.resolveSnapshot(
+        source, source.split("\n", -1).length - 1);
+    assertEquals(List.of("whole", "face"), snapshot.resolveCharacterLayerGroups("hero", "neutral")
+        .stream().map(group -> group.groupId).toList());
+    EditorApp app = new EditorApp();
+    JesScene2D scene = buildScene(app, snapshot);
+    Entity2D eyes = scene.find("hero_eyes");
+    assertNotNull(eyes);
+    double originalX = eyes.getX();
+
+    Method applyEndState = EditorApp.class.getDeclaredMethod(
+        "applySnapshotTimelineEndStateToScene",
+        JesScene2D.class,
+        PuppeteerLauncherPanel.SceneSnapshot.class,
+        String.class,
+        Map.class);
+    applyEndState.setAccessible(true);
+    applyEndState.invoke(app, scene, snapshot, null, Map.of());
+
+    assertEquals(originalX, eyes.getX(), 1e-9,
+        "an overlapping group must not affect a layer outside the runtime's active chain");
+  }
+
+  @Test
+  void launchSceneUsesProjectCharacterHeightAndBaselineFraming() throws Exception {
+    Files.createDirectories(tempDir.resolve("config/ui"));
+    Files.writeString(tempDir.resolve("jvn.project"), """
+        width=1920
+        height=1080
+        dialogueLayout=config/ui/dialogue.layout
+        """);
+    Files.writeString(tempDir.resolve("config/ui/dialogue.layout"), """
+        characterHeightFactor=1.0
+        characterBaselineY=1.325
+        """);
+    String source = """
+        @charimg hero neutral assets/hero.png
+        [show hero center neutral]
+        """;
+    EditorApp app = new EditorApp();
+    Field projectRoot = EditorApp.class.getDeclaredField("projectRoot");
+    projectRoot.setAccessible(true);
+    projectRoot.set(app, tempDir.toFile());
+
+    JesScene2D scene = buildScene(app, PuppeteerLauncherPanel.resolveSnapshot(source, 1));
+    Sprite2D hero = (Sprite2D) scene.find("hero");
+
+    assertNotNull(hero);
+    assertEquals(1080.0, hero.getHeight(), 1e-9);
+    assertEquals(1431.0, hero.getY(), 1e-9);
+  }
+
+  private static JesScene2D buildScene(PuppeteerLauncherPanel.SceneSnapshot snapshot) throws Exception {
+    return buildScene(new EditorApp(), snapshot);
+  }
+
+  private static JesScene2D buildScene(
+      EditorApp app, PuppeteerLauncherPanel.SceneSnapshot snapshot) throws Exception {
     Method method = EditorApp.class.getDeclaredMethod(
         "buildSceneFromSnapshot", PuppeteerLauncherPanel.SceneSnapshot.class);
     method.setAccessible(true);

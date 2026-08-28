@@ -40,6 +40,8 @@ import org.jspecify.annotations.Nullable;
 
 import com.jvn.core.project.StoryMapPaths;
 import com.jvn.core.scene2d.Entity2D;
+import com.jvn.core.vn.ui.VnUiLayoutLoader;
+import com.jvn.core.vn.ui.VnUiStyleSpec;
 import com.jvn.editor.commands.CommandStack;
 import com.jvn.editor.runtime.GradleRuntimeLauncher;
 import com.jvn.editor.ui.AeroIcon;
@@ -7624,12 +7626,14 @@ public class EditorApp extends Application {
 	      Map<String, Map<PropertyType, Double>> vnOffsetBaselines
 	  ) {
 	    if (scene == null || snapshot == null || !snapshot.hasTimelineContext()) return;
+	    Map<String, Map<PropertyType, Double>> snapshotBaselines = snapshotTimelineBaselines(
+	        scene, snapshot, vnOffsetBaselines);
 	    if (selectedTimelineName == null && snapshot.hasInlineTimelineHistory()) {
 	      boolean applied = false;
 	      for (PuppeteerLauncherPanel.InlineTimelineContext context : snapshot.inlineTimelineHistory) {
 	        AnimationProject stateTimeline = importInlineTimelineFromSnapshot(snapshot, context, false);
 	        if (stateTimeline == null) continue;
-	        applySnapshotStateTimelineToScene(scene, snapshot, stateTimeline, true, vnOffsetBaselines);
+	        applySnapshotStateTimelineToScene(scene, snapshot, stateTimeline, true, snapshotBaselines);
 	        applied = true;
 	      }
 	      if (applied) return;
@@ -7639,7 +7643,40 @@ public class EditorApp extends Application {
 	    boolean usesVnOffsets = selectedTimelineName == null
 	        && stateTimeline.getSceneEntitySnapshotsView().isEmpty()
 	        && snapshot.hasTimelineContext();
-	    applySnapshotStateTimelineToScene(scene, snapshot, stateTimeline, usesVnOffsets, vnOffsetBaselines);
+	    applySnapshotStateTimelineToScene(scene, snapshot, stateTimeline, usesVnOffsets, snapshotBaselines);
+	  }
+
+	  private Map<String, Map<PropertyType, Double>> snapshotTimelineBaselines(
+	      JesScene2D scene,
+	      PuppeteerLauncherPanel.SceneSnapshot snapshot,
+	      Map<String, Map<PropertyType, Double>> provided
+	  ) {
+	    Map<String, Map<PropertyType, Double>> baselines = new LinkedHashMap<>();
+	    if (provided != null) baselines.putAll(provided);
+	    if (scene == null || snapshot == null) return baselines;
+	    for (PuppeteerLauncherPanel.CharacterEntry character : snapshot.characters) {
+	      if (character == null) continue;
+	      Entity2D anchor = firstSnapshotEntity(scene, snapshot, character);
+	      if (anchor != null && character.characterId != null && !character.characterId.isBlank()) {
+	        baselines.putIfAbsent(character.characterId, captureEntityProperties(anchor));
+	        String safeCharacter = selectorSafeName(character.characterId);
+	        if (!safeCharacter.isBlank()) {
+	          baselines.putIfAbsent(safeCharacter, captureEntityProperties(anchor));
+	        }
+	      }
+	      for (PuppeteerLauncherPanel.CharacterLayerGroupEntry group :
+	          snapshot.resolveCharacterLayerGroups(character.characterId, character.expression)) {
+	        if (group == null) continue;
+	        for (String alias : PuppeteerLauncherPanel.equivalentSnapshotLayerGroupEntityNames(
+	            snapshot, character, group.groupId)) {
+	          Entity2D groupAnchor = scene.find(alias);
+	          if (groupAnchor != null && alias != null && !alias.isBlank()) {
+	            baselines.putIfAbsent(alias, captureEntityProperties(groupAnchor));
+	          }
+	        }
+	      }
+	    }
+	    return baselines;
 	  }
 
 	  private void applySnapshotTimelineHistoryBeforeLoadedTimeline(
@@ -7648,6 +7685,8 @@ public class EditorApp extends Application {
 	      Map<String, Map<PropertyType, Double>> vnOffsetBaselines
 	  ) {
 	    if (scene == null || snapshot == null || !snapshot.hasInlineTimelineHistory()) return;
+	    Map<String, Map<PropertyType, Double>> snapshotBaselines = snapshotTimelineBaselines(
+	        scene, snapshot, vnOffsetBaselines);
 	    PuppeteerLauncherPanel.InlineTimelineContext loadedTimeline = snapshot.hasInlineTimeline()
 	        ? snapshot.inlineTimelineHistory.get(snapshot.inlineTimelineHistory.size() - 1)
 	        : null;
@@ -7660,7 +7699,7 @@ public class EditorApp extends Application {
 	      }
 	      AnimationProject stateTimeline = importInlineTimelineFromSnapshot(snapshot, context, false);
 	      if (stateTimeline == null) continue;
-	      applySnapshotStateTimelineToScene(scene, snapshot, stateTimeline, true, vnOffsetBaselines);
+	      applySnapshotStateTimelineToScene(scene, snapshot, stateTimeline, true, snapshotBaselines);
 	    }
 	  }
 
@@ -7700,6 +7739,17 @@ public class EditorApp extends Application {
 	        : new LinkedHashMap<>();
 	    for (EntityTrack track : project.getTracks()) {
 	      if (track == null || isCameraTrack(track)) continue;
+	      SnapshotLayerGroupTarget groupTarget = resolveSnapshotLayerGroupTarget(
+	          scene, snapshot, track.getEntityName());
+	      if (groupTarget != null) {
+	        for (Entity2D member : groupTarget.members()) {
+	          applySnapshotGroupPivot(member, groupTarget.group(), track);
+	          applyTimelineTrackFrame(member, track, t);
+	        }
+	        // A declared but inactive overlapping group is still a resolved group target. Do not
+	        // fall through and reinterpret it as a whole-character alias.
+	        continue;
+	      }
 	      String characterId = resolveSnapshotTrackCharacter(track.getEntityName(), snapshot);
 	      if (characterId != null && !characterId.isBlank()) {
 	        characterStates
@@ -7712,6 +7762,108 @@ public class EditorApp extends Application {
 	      applyTimelineTrackFrame(entity, track, t);
 	    }
 	    applySnapshotCharacterTimelineStates(scene, snapshot, characterStates);
+	  }
+
+	  private SnapshotLayerGroupTarget resolveSnapshotLayerGroupTarget(
+	      JesScene2D scene,
+	      PuppeteerLauncherPanel.SceneSnapshot snapshot,
+	      String entityName
+	  ) {
+	    if (scene == null || snapshot == null || entityName == null || entityName.isBlank()) return null;
+	    String target = entityName.trim();
+	    for (PuppeteerLauncherPanel.CharacterEntry character : snapshot.characters) {
+	      if (character == null) continue;
+	      List<PuppeteerLauncherPanel.CharacterLayerEntry> visibleLayers =
+	          snapshot.resolveCharacterLayers(character.characterId, character.expression);
+	      List<PuppeteerLauncherPanel.CharacterLayerGroupEntry> visibleGroups =
+	          snapshot.resolveCharacterLayerGroups(character.characterId, character.expression);
+	      for (PuppeteerLauncherPanel.CharacterLayerGroupEntry group : visibleGroups) {
+	        if (group == null || !PuppeteerLauncherPanel.equivalentSnapshotLayerGroupEntityNames(
+	            snapshot, character, group.groupId).contains(target)) {
+	          continue;
+	        }
+	        List<Entity2D> members = new ArrayList<>();
+	        for (PuppeteerLauncherPanel.CharacterLayerEntry layer : visibleLayers) {
+	          if (layer == null || !snapshotLayerGroupChain(layer.layerId, visibleGroups).contains(group)) {
+	            continue;
+	          }
+	          Entity2D member = scene.find(PuppeteerLauncherPanel.snapshotStableLayerEntityName(
+	              character.characterId, layer.layerId));
+	          if (member != null && !members.contains(member)) members.add(member);
+	        }
+	        return new SnapshotLayerGroupTarget(group, List.copyOf(members));
+	      }
+	    }
+	    return null;
+	  }
+
+	  private List<PuppeteerLauncherPanel.CharacterLayerGroupEntry> snapshotLayerGroupChain(
+	      String layerId,
+	      List<PuppeteerLauncherPanel.CharacterLayerGroupEntry> groups
+	  ) {
+	    if (layerId == null || layerId.isBlank() || groups == null || groups.isEmpty()) return List.of();
+	    PuppeteerLauncherPanel.CharacterLayerGroupEntry deepest = null;
+	    int deepestDepth = -1;
+	    for (PuppeteerLauncherPanel.CharacterLayerGroupEntry candidate : groups) {
+	      if (candidate == null || !candidate.layerIds.contains(layerId)) continue;
+	      int depth = snapshotLayerGroupDepth(candidate, groups, new LinkedHashSet<>());
+	      if (depth > deepestDepth) {
+	        deepest = candidate;
+	        deepestDepth = depth;
+	      }
+	    }
+	    if (deepest == null) return List.of();
+
+	    LinkedHashSet<String> seen = new LinkedHashSet<>();
+	    List<PuppeteerLauncherPanel.CharacterLayerGroupEntry> chain = new ArrayList<>();
+	    PuppeteerLauncherPanel.CharacterLayerGroupEntry current = deepest;
+	    while (current != null && current.groupId != null && seen.add(current.groupId)) {
+	      chain.add(0, current);
+	      current = snapshotLayerGroupById(groups, current.parentGroupId);
+	    }
+	    return List.copyOf(chain);
+	  }
+
+	  private int snapshotLayerGroupDepth(
+	      PuppeteerLauncherPanel.CharacterLayerGroupEntry group,
+	      List<PuppeteerLauncherPanel.CharacterLayerGroupEntry> groups,
+	      Set<String> seen
+	  ) {
+	    if (group == null || group.groupId == null || !seen.add(group.groupId)) return 0;
+	    PuppeteerLauncherPanel.CharacterLayerGroupEntry parent =
+	        snapshotLayerGroupById(groups, group.parentGroupId);
+	    return parent == null ? 0 : 1 + snapshotLayerGroupDepth(parent, groups, seen);
+	  }
+
+	  private PuppeteerLauncherPanel.CharacterLayerGroupEntry snapshotLayerGroupById(
+	      List<PuppeteerLauncherPanel.CharacterLayerGroupEntry> groups,
+	      String groupId
+	  ) {
+	    if (groupId == null || groupId.isBlank() || groups == null) return null;
+	    for (PuppeteerLauncherPanel.CharacterLayerGroupEntry group : groups) {
+	      if (group != null && groupId.equals(group.groupId)) return group;
+	    }
+	    return null;
+	  }
+
+	  private void applySnapshotGroupPivot(
+	      Entity2D entity,
+	      PuppeteerLauncherPanel.CharacterLayerGroupEntry group,
+	      EntityTrack track
+	  ) {
+	    if (entity == null || group == null || !group.hasPivot || track == null) return;
+	    if (track.hasKeyframes(PropertyType.PIVOT_X) || track.hasKeyframes(PropertyType.PIVOT_Y)) return;
+	    double originX = group.pivotX;
+	    double originY = group.pivotY;
+	    if (Math.abs(originX - entity.getOriginX()) <= 1e-9
+	        && Math.abs(originY - entity.getOriginY()) <= 1e-9) {
+	      return;
+	    }
+	    double[] size = entityVisualSize(entity);
+	    entity.setPosition(
+	        entity.getX() + ((originX - entity.getOriginX()) * size[0]),
+	        entity.getY() + ((originY - entity.getOriginY()) * size[1]));
+	    entity.setOrigin(originX, originY);
 	  }
 
 	  private void applyTimelineTrackFrame(Entity2D entity, EntityTrack track, double timeMs) {
@@ -8035,6 +8187,12 @@ public class EditorApp extends Application {
 	    }
 	  }
 
+	  private record SnapshotLayerGroupTarget(
+	      PuppeteerLauncherPanel.CharacterLayerGroupEntry group,
+	      List<Entity2D> members
+	  ) {
+	  }
+
 	  private void applyTimelineFrameEffects(Entity2D entity, EntityTrack track, double timeMs) {
     if (entity == null || track == null) return;
     if (track.hasKeyframes(PropertyType.MATRIX_MXX)
@@ -8214,7 +8372,8 @@ public class EditorApp extends Application {
     ProjectViewportSpec.Dimensions viewport = ProjectViewportSpec.resolve(projectRoot);
     double sceneW = Math.max(1.0, viewport.width());
     double sceneH = Math.max(1.0, viewport.height());
-    double characterHeight = sceneH * 0.85;
+    PuppeteerCharacterFraming framing = resolvePuppeteerCharacterFraming();
+    double characterHeight = sceneH * framing.heightFactor();
 
     if (snapshot.previousBackgroundId != null) {
       String prevBgPath = resolveProjectPathSpec(snapshot.resolvePreviousBackgroundPath());
@@ -8241,16 +8400,19 @@ public class EditorApp extends Application {
       List<PuppeteerLauncherPanel.CharacterLayerEntry> layers = snapshot.resolveCharacterLayers(ch.characterId, ch.expression);
       if (!layers.isEmpty()) {
         addLayeredSnapshotCharacter(
-            scene, snapshot, ch, layers, sceneW, sceneH, characterHeight * ch.scale);
+            scene, snapshot, ch, layers, sceneW, sceneH,
+            characterHeight * ch.scale, framing.baselineY());
         continue;
       }
       String spritePathSpec = resolveProjectPathSpec(snapshot.resolveCharacterPath(ch.characterId, ch.expression));
-      double[] spriteSize = estimateSpriteSize(
-          firstLayerPath(spritePathSpec), characterHeight * ch.scale);
+      SnapshotSpriteLayout spriteLayout = estimateSnapshotSpriteLayout(
+          firstLayerPath(spritePathSpec), characterHeight * ch.scale,
+          sceneW, sceneH, framing.baselineY());
+      double[] spriteSize = spriteLayout.size();
       double charW = spriteSize[0];
       double charH = spriteSize[1];
       double leftX = snapshotPositionToLeftX(ch, sceneW, charW);
-      double bottomY = snapshotPositionBottomY(ch, sceneH);
+      double bottomY = snapshotPositionBottomY(ch, sceneH, spriteLayout.baselineY());
       com.jvn.core.scene2d.Sprite2D sprite = new com.jvn.core.scene2d.Sprite2D(spritePathSpec, charW, charH);
       // Character-friendly pivot for puppeteering: bottom-center (feet/contact point).
       sprite.setOrigin(0.5, 1.0);
@@ -8271,25 +8433,31 @@ public class EditorApp extends Application {
       List<PuppeteerLauncherPanel.CharacterLayerEntry> layers,
       double sceneW,
       double sceneH,
-      double characterHeight
+      double characterHeight,
+      double characterBaselineY
   ) {
     if (scene == null || ch == null || layers == null || layers.isEmpty()) return;
     double charW = 1.0;
     double charH = 1.0;
+    double baselineY = characterBaselineY;
     List<String> resolvedPaths = new ArrayList<>();
     for (PuppeteerLauncherPanel.CharacterLayerEntry layer : layers) {
       if (layer == null || layer.path == null || layer.path.isBlank()) continue;
       String resolvedPath = resolveProjectPath(layer.path);
       resolvedPaths.add(resolvedPath);
-      double[] size = estimateSpriteSize(resolvedPath, characterHeight);
+      SnapshotSpriteLayout layout = estimateSnapshotSpriteLayout(
+          resolvedPath, characterHeight, sceneW, sceneH, characterBaselineY);
+      double[] size = layout.size();
       charW = Math.max(charW, size[0]);
       charH = Math.max(charH, size[1]);
+      if (layout.canvasAligned()) baselineY = 1.0;
     }
     if (resolvedPaths.isEmpty()) return;
     double leftX = snapshotPositionToLeftX(ch, sceneW, charW);
-    double bottomY = snapshotPositionBottomY(ch, sceneH);
+    double bottomY = snapshotPositionBottomY(ch, sceneH, baselineY);
     double baseZ = ch.layerOrder == null ? 0.0 : ch.layerOrder;
     int layerIndex = 0;
+    Map<String, Entity2D> visibleEntitiesByLayerId = new LinkedHashMap<>();
     for (PuppeteerLauncherPanel.CharacterLayerEntry layer : layers) {
       if (layer == null || layer.path == null || layer.path.isBlank()) continue;
       String resolvedPath = resolveProjectPath(layer.path);
@@ -8307,7 +8475,22 @@ public class EditorApp extends Application {
         if (alias == null || alias.isBlank() || alias.equals(entityName)) continue;
         scene.registerEntityAlias(alias, sprite);
       }
+      visibleEntitiesByLayerId.putIfAbsent(layer.layerId, sprite);
       layerIndex++;
+    }
+    for (PuppeteerLauncherPanel.CharacterLayerGroupEntry group :
+        snapshot.resolveCharacterLayerGroups(ch.characterId, ch.expression)) {
+      if (group == null) continue;
+      Entity2D anchor = null;
+      for (String layerId : group.layerIds) {
+        anchor = visibleEntitiesByLayerId.get(layerId);
+        if (anchor != null) break;
+      }
+      if (anchor == null) continue;
+      for (String alias : PuppeteerLauncherPanel.equivalentSnapshotLayerGroupEntityNames(
+          snapshot, ch, group.groupId)) {
+        if (alias != null && !alias.isBlank()) scene.registerEntityAlias(alias, anchor);
+      }
     }
   }
 
@@ -8359,12 +8542,64 @@ public class EditorApp extends Application {
   }
 
   private double snapshotPositionBottomY(
-      PuppeteerLauncherPanel.CharacterEntry character, double sceneH) {
+      PuppeteerLauncherPanel.CharacterEntry character, double sceneH, double baselineY) {
     if (character != null && character.customPosition
         && Double.isFinite(character.positionY) && character.positionY >= 0.0) {
       return sceneH * character.positionY;
     }
-    return sceneH;
+    return sceneH * baselineY;
+  }
+
+  private PuppeteerCharacterFraming resolvePuppeteerCharacterFraming() {
+    double heightFactor = 0.85;
+    double baselineY = 1.0;
+    if (projectRoot == null || !projectRoot.isDirectory()) {
+      return new PuppeteerCharacterFraming(heightFactor, baselineY);
+    }
+    try {
+      VnUiStyleSpec style = VnUiLayoutLoader.loadFromProjectRootWithDiagnostics(projectRoot).style();
+      if (style != null) {
+        if (style.characterHeightFactor() != null) {
+          heightFactor = Math.max(0.1, Math.min(3.0, style.characterHeightFactor()));
+        }
+        if (style.characterBaselineY() != null) {
+          baselineY = Math.max(-0.5, Math.min(2.0, style.characterBaselineY()));
+        }
+      }
+    } catch (Exception ignored) {
+      // Snapshot construction retains runtime defaults if a project's optional UI layout is bad.
+    }
+    return new PuppeteerCharacterFraming(heightFactor, baselineY);
+  }
+
+  private SnapshotSpriteLayout estimateSnapshotSpriteLayout(
+      String spritePath,
+      double targetHeight,
+      double viewportWidth,
+      double viewportHeight,
+      double baselineY
+  ) {
+    double height = Math.max(1.0, targetHeight);
+    double width = height * 0.5;
+    boolean canvasAligned = false;
+    if (spritePath != null && !spritePath.isBlank()) {
+      try {
+        javafx.scene.image.Image image = new javafx.scene.image.Image(
+            new java.io.File(spritePath).toURI().toString(), 0, 0, true, false);
+        if (image.getWidth() > 0.0 && image.getHeight() > 0.0) {
+          double imageAspect = image.getWidth() / image.getHeight();
+          double viewportAspect = viewportWidth / Math.max(1.0, viewportHeight);
+          canvasAligned = Math.abs(imageAspect - viewportAspect)
+              <= Math.max(1e-6, viewportAspect * 0.001);
+          height = canvasAligned ? Math.max(1.0, viewportHeight) : height;
+          width = image.getWidth() * (height / image.getHeight());
+        }
+      } catch (Exception ignored) {
+        // Keep the deterministic fallback size for missing or unreadable source art.
+      }
+    }
+    return new SnapshotSpriteLayout(
+        new double[] { width, height }, canvasAligned ? 1.0 : baselineY, canvasAligned);
   }
 
   private double[] estimateSpriteSize(String spritePath, double targetHeight) {
@@ -8381,6 +8616,12 @@ public class EditorApp extends Application {
             // reason: non-critical operation; exception swallowed to prevent crash propagation
     }
     return new double[] { width, height };
+  }
+
+  private record PuppeteerCharacterFraming(double heightFactor, double baselineY) {
+  }
+
+  private record SnapshotSpriteLayout(double[] size, double baselineY, boolean canvasAligned) {
   }
 
   private static String firstLayerPath(String pathSpec) {

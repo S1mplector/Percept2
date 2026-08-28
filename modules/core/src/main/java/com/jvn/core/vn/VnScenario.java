@@ -49,6 +49,7 @@ public class VnScenario {
   public VnCharacter getCharacter(String id) { return characters.get(id); }
   public Map<String, VnCharacter> getCharacters() { return Map.copyOf(characters); }
   public VnBackground getBackground(String id) { return backgrounds.get(id); }
+  public Map<String, VnBackground> getBackgrounds() { return Map.copyOf(backgrounds); }
   public VnStagePreset getStagePreset(String id) { return stagePresets.get(id); }
   public Map<String, VnStagePreset> getStagePresets() { return stagePresets; }
   public VnGroup getGroup(String id) { return groups.get(id); }
