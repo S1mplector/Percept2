@@ -2,6 +2,7 @@ package com.jvn.editor.ui;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import com.jvn.fx.testkit.FxToolkit;
 import com.jvn.fx.testkit.FxToolkitExtension;
@@ -13,6 +14,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.ListView;
+import javafx.scene.control.TableView;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import org.junit.jupiter.api.Test;
@@ -65,6 +67,34 @@ class AssetBrowserViewFxTest {
       if (image == null || image.getProgress() >= 1.0) return;
       Thread.sleep(50);
     }
+  }
+
+  @Test
+  void autoLabelDashboardHeadlesslyInventoriesProjectAssets(@TempDir Path project) throws Exception {
+    Files.createDirectories(project.resolve("assets/backgrounds"));
+    Files.write(project.resolve("assets/backgrounds/school.png"), ONE_PIXEL_PNG);
+
+    AssetBrowserView view = runFx(() -> {
+      AssetBrowserView created = new AssetBrowserView();
+      created.setProjectRoot(project.toFile());
+      created.showAutoLabelDashboard();
+      new Scene(created, 1100, 800);
+      created.applyCss();
+      created.layout();
+      return created;
+    });
+
+    for (int i = 0; i < 80; i++) {
+      int count = runFx(() -> {
+        TableView<?> table = (TableView<?>) view.lookup("#asset-auto-label-table");
+        assertNotNull(table, "Auto-label dashboard table should be attached to the scene");
+        return table.getItems().size();
+      });
+      if (count == 1) return;
+      Thread.sleep(50);
+    }
+    assertEquals(1, runFx(() ->
+        ((TableView<?>) view.lookup("#asset-auto-label-table")).getItems().size()));
   }
 
   private static <T> T runFx(Callable<T> callable) throws Exception {

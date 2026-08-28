@@ -19,6 +19,8 @@ import javafx.scene.control.Label;
 import javafx.scene.control.ListCell;
 import javafx.scene.control.ListView;
 import javafx.scene.control.SplitPane;
+import javafx.scene.control.Tab;
+import javafx.scene.control.TabPane;
 import javafx.scene.control.TextField;
 import javafx.scene.control.Tooltip;
 import javafx.scene.image.Image;
@@ -50,6 +52,11 @@ public class AssetBrowserView extends BorderPane {
   private final Button openButton = new Button("Open");
   private final Button useAssetButton = new Button("Use Asset");
   private final Button refreshButton = new Button("Refresh", SidebarToolIcon.refresh());
+  private final AssetAutoLabelDashboardView autoLabelDashboard =
+      new AssetAutoLabelDashboardView();
+  private final TabPane workspaceTabs = new TabPane();
+  private final Tab browseTab = new Tab("Browse");
+  private final Tab autoLabelTab = new Tab("Auto-label");
 
   private final List<AssetItem> allItems = new ArrayList<>();
   private File projectRoot;
@@ -166,8 +173,8 @@ panel below. From there you can:
   • Open      — open the file in the system default application
   • Use Asset — insert the asset reference at the current editor cursor
 
-Assets are read-only here; to add or remove project assets use your OS \
-file manager or version control tools."""));
+Browsing is read-only. Drop supported files anywhere on the editor to import \
+them and review or generate labels in the Auto-label tab."""));
     titleRow.setAlignment(Pos.CENTER_LEFT);
     javafx.scene.layout.Region titleSpacer = new javafx.scene.layout.Region();
     HBox.setHgrow(titleSpacer, Priority.ALWAYS);
@@ -191,13 +198,22 @@ file manager or version control tools."""));
     center.setDividerPositions(0.7);
     SplitPane.setResizableWithParent(previewBox, true);
 
-    setTop(header);
-    setCenter(center);
+    BorderPane browsePane = new BorderPane(center);
+    browsePane.setTop(header);
+    browseTab.setContent(browsePane);
+    browseTab.setClosable(false);
+    autoLabelTab.setContent(autoLabelDashboard);
+    autoLabelTab.setClosable(false);
+    workspaceTabs.getTabs().addAll(browseTab, autoLabelTab);
+    workspaceTabs.setTabClosingPolicy(TabPane.TabClosingPolicy.UNAVAILABLE);
+    autoLabelDashboard.setOnChanged(this::refresh);
+    setCenter(workspaceTabs);
     updateActionState();
   }
 
   public void setOnOpenAsset(Consumer<File> onOpenAsset) {
     this.onOpenAsset = onOpenAsset;
+    autoLabelDashboard.setOnOpenFile(onOpenAsset);
   }
 
   public void setOnAssetSelected(Consumer<String> onAssetSelected) {
@@ -212,7 +228,24 @@ file manager or version control tools."""));
 
   public void setProjectRoot(File root) {
     this.projectRoot = root;
+    autoLabelDashboard.setProjectRoot(root);
     refresh();
+  }
+
+  /** Opens the label inventory and review dashboard. */
+  public void showAutoLabelDashboard() {
+    workspaceTabs.getSelectionModel().select(autoLabelTab);
+  }
+
+  /** Handles supported files dropped on the editor and prompts for import/auto-labeling. */
+  public boolean acceptDroppedFiles(List<File> files) {
+    boolean handled = autoLabelDashboard.acceptDroppedFiles(files);
+    if (handled) showAutoLabelDashboard();
+    return handled;
+  }
+
+  public static boolean isSupportedAssetFile(File file) {
+    return file != null && AssetAutoLabelService.isSupportedAsset(file.toPath());
   }
 
   public void refresh() {

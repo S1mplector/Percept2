@@ -2637,9 +2637,18 @@ public class EditorApp extends Application {
       Dragboard db = e.getDragboard();
       boolean success = false;
       if (db != null && db.hasFiles()) {
-        File file = db.getFiles().get(0);
-        if (file != null) openFile(file);
-        success = true;
+        List<File> assets = db.getFiles().stream()
+            .filter(AssetBrowserView::isSupportedAssetFile)
+            .toList();
+        if (projectRoot != null && !assets.isEmpty()) {
+          AssetBrowserView browser = ensureAssetBrowserView();
+          success = browser.acceptDroppedFiles(assets);
+          if (success) selectAssetBrowserTab();
+        } else {
+          File file = db.getFiles().get(0);
+          if (file != null) openFile(file);
+          success = file != null;
+        }
       }
       e.setDropCompleted(success);
       e.consume();
