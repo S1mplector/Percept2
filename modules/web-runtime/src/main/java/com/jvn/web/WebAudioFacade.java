@@ -42,6 +42,7 @@ public final class WebAudioFacade implements AudioFacade {
   private boolean bgmLoop;
   private double bgmStartedAtContextTime;
   private double bgmPlaybackOffsetSeconds;
+  private volatile long lastSpectrumReadAtNanos;
 
   private final java.util.List<AudioBufferSourceNode> sfxSources = new java.util.ArrayList<>();
   private final java.util.List<AudioBufferSourceNode> voiceSources = new java.util.ArrayList<>();
@@ -161,6 +162,94 @@ public final class WebAudioFacade implements AudioFacade {
     if (bgmBuffer == null || seconds < 0) return;
     stopBgmSourceIfPlaying();
     startBgmSourceFrom(seconds);
+  }
+
+  @Override
+  public void crossfadeBgm(String trackId, long ms, boolean loop) {
+    AudioContext ctx = ensureContext();
+    if (bgmSource == null || ms <= 0L) {
+      playBgm(trackId, loop);
+      return;
+    }
+    state.loading(trackId, loop);
+    loader.getOrLoad(trackId, buffer -> {
+      AudioBufferSourceNode oldSource = bgmSource;
+      GainNode oldFadeGain = ctx.createGain();
+      GainNode newFadeGain = ctx.createGain();
+      oldFadeGain.getGain().setValue(1f);
+      newFadeGain.getGain().setValue(0f);
+
+      oldSource.disconnect();
+      oldSource.connect(oldFadeGain);
+      oldFadeGain.connect(bgmGain);
+
+      AudioBufferSourceNode newSource = ctx.createBufferSource();
+      newSource.setBuffer(buffer);
+      newSource.setLoop(loop);
+      newSource.connect(newFadeGain);
+      newFadeGain.connect(bgmGain);
+
+      double rampEndTime = ctx.getCurrentTime() + ms / 1000.0;
+      oldFadeGain.getGain().linearRampToValueAtTime(0f, rampEndTime);
+      newFadeGain.getGain().linearRampToValueAtTime(1f, rampEndTime);
+
+      // The old source's onEnded is irrelevant during the crossfade window: it is
+      // always stopped intentionally by the setTimeout below before it could ever
+      // reach a natural end (crossfade duration is finite and the old source keeps
+      // playing until then), so it needs no listener at all here.
+      //
+      // The new source's onEnded uses the exact same per-node completion-guard
+      // pattern as startBgmSourceFrom (Task 3): a boolean[] flag is created here,
+      // closed over by this source's onEnded callback, and stored as the
+      // instance-level bgmSourceStopFlag only once newSource is promoted to
+      // bgmSource below. Because the flag array is scoped to this one node (not a
+      // shared field read/written by unrelated sources), it stays correct
+      // regardless of what happens to oldSource or any subsequent source.
+      final boolean[] newSourceStopFlag = new boolean[1];
+      String trackIdAtStart = trackId;
+      newSource.onEnded(event -> {
+        if (!newSourceStopFlag[0]) {
+          state.completed(AudioChannel.BGM, trackIdAtStart);
+        }
+      });
+      newSource.start();
+
+      org.teavm.jso.browser.Window.setTimeout(() -> {
+        try {
+          oldSource.stop();
+        } catch (RuntimeException ignored) {
+          // Already stopped/ended.
+        }
+        oldSource.disconnect();
+        oldFadeGain.disconnect();
+        newSource.disconnect();
+        newFadeGain.disconnect();
+        newSource.connect(bgmGain);
+
+        bgmSource = newSource;
+        bgmSourceStopFlag = newSourceStopFlag;
+        bgmBuffer = buffer;
+        bgmTrackId = trackId;
+        bgmLoop = loop;
+        bgmStartedAtContextTime = ctx.getCurrentTime();
+        bgmPlaybackOffsetSeconds = 0.0;
+        state.started(AudioChannel.BGM, trackId);
+      }, (double) ms);
+    });
+  }
+
+  @Override
+  public void fadeOutBgm(long ms) {
+    if (bgmSource == null || context == null || ms <= 0L) {
+      stopBgm();
+      return;
+    }
+    double rampEndTime = context.getCurrentTime() + ms / 1000.0;
+    bgmGain.getGain().linearRampToValueAtTime(0f, rampEndTime);
+    org.teavm.jso.browser.Window.setTimeout(() -> {
+      stopBgm();
+      bgmGain.getGain().setValue(state.mix().bgmVolume());
+    }, (double) ms);
   }
 
   @Override
@@ -284,6 +373,25 @@ public final class WebAudioFacade implements AudioFacade {
 
   @Override public void addListener(AudioListener listener) { state.addListener(listener); }
   @Override public void removeListener(AudioListener listener) { state.removeListener(listener); }
+
+  @Override
+  public float[] getBgmSpectrumMagnitudes() {
+    if (bgmAnalyser == null) return null;
+    float[] data = new float[bgmAnalyser.getFrequencyBinCount()];
+    bgmAnalyser.getFloatFrequencyData(data);
+    lastSpectrumReadAtNanos = System.nanoTime();
+    return data;
+  }
+
+  @Override
+  public boolean supportsBgmSpectrum() {
+    return bgmAnalyser != null;
+  }
+
+  @Override
+  public long getBgmSpectrumUpdatedAtNanos() {
+    return lastSpectrumReadAtNanos;
+  }
 
   @Override
   public void close() {
