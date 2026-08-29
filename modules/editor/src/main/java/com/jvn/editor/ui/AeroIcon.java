@@ -51,7 +51,7 @@ public final class AeroIcon extends StackPane {
   private AeroIcon(Kind kind, double size) {
     this.kind = kind == null ? Kind.PROJECT : kind;
     this.iconSize = clampSize(size);
-    double artworkScale = isVnsCommand(this.kind) ? 0.88 : 0.72;
+    double artworkScale = isVnsCommand(this.kind) ? 0.88 : isSidebarPanelKind(this.kind) ? 0.92 : 0.72;
     Region glyph = glyphFor(this.kind, Math.max(10, iconSize * artworkScale));
     glyph.setMouseTransparent(true);
 
@@ -118,22 +118,11 @@ public final class AeroIcon extends StackPane {
     Palette palette = paletteFor(kind);
     String color = toCss(mix(palette.top(), palette.edge(), 0.34));
     Region glyph = switch (kind) {
-      case PROJECT, ASSETS, OPEN_PROJECT, DOCUMENTATION, REVEAL, NEW_PROJECT ->
-          CssIcon.folder(color, size);
-      case TRASHMAN -> sized(CssIcon.delete(color), size);
-      case STORY_MAP -> sized(CssIcon.timeline(color), size);
-      case INSPECTOR -> sized(CssIcon.search(color), size);
-      case DIAGNOSTICS -> diagnosticsGlyph(size);
-      case LABEL_FLOW, VERSION_CONTROL -> sized(CssIcon.branchPlus(color), size);
-      case TIMELINE_OUTLINE -> sized(CssIcon.list(color), size);
-      case LAYOUT -> sized(CssIcon.rectSelect(color), size);
-      case STORYBOARD -> sized(CssIcon.movie(color), size);
-      case LAYERS -> sized(CssIcon.copy(color), size);
-      case IMAGE_ATTRIBUTES -> sized(CssIcon.landscape(color), size);
-      case SCRIPT_EDITOR -> sized(CssIcon.document(color), size);
-      case LIGHTING -> sized(CssIcon.lightbulb(color), size);
-      case PUPPETEER -> sized(CssIcon.theater(color), size);
-      case SETTINGS -> settingsGlyph(color, size);
+      case PROJECT, TRASHMAN, STORY_MAP, INSPECTOR, DIAGNOSTICS, LABEL_FLOW,
+          TIMELINE_OUTLINE, ASSETS, LAYOUT, STORYBOARD, LAYERS, IMAGE_ATTRIBUTES,
+          LIGHTING, VERSION_CONTROL, PUPPETEER, SCRIPT_EDITOR, SETTINGS ->
+          SidebarPanelArtwork.of(kind, size);
+      case OPEN_PROJECT, DOCUMENTATION, REVEAL, NEW_PROJECT -> CssIcon.folder(color, size);
       case RUN -> sized(CssIcon.play(color), size);
       case BUILD -> sized(CssIcon.download(color), size);
       case REFRESH -> RefreshIcon.of(size);
@@ -147,7 +136,8 @@ public final class AeroIcon extends StackPane {
       case WHATS_NEW -> sized(CssIcon.sparkles(color), size);
       case NO_PROJECT -> noProjectGlyph(size);
     };
-    if (kind != Kind.HELP && kind != Kind.NO_PROJECT && kind != Kind.REFRESH && !isVnsCommand(kind)) {
+    if (kind != Kind.HELP && kind != Kind.NO_PROJECT && kind != Kind.REFRESH
+        && !isVnsCommand(kind) && !isSidebarPanelKind(kind)) {
       glyph = decorate(kind, glyph, size, palette);
     }
     DropShadow depth = new DropShadow(Math.max(2, size * 0.14), 0, Math.max(1, size * 0.08),
@@ -171,6 +161,15 @@ public final class AeroIcon extends StackPane {
         || kind == Kind.VNS_DIFF
         || kind == Kind.VNS_DIAGNOSTICS
         || kind == Kind.VNS_PREVIEW;
+  }
+
+  private static boolean isSidebarPanelKind(Kind kind) {
+    return switch (kind) {
+      case PROJECT, TRASHMAN, STORY_MAP, INSPECTOR, DIAGNOSTICS, LABEL_FLOW,
+          TIMELINE_OUTLINE, ASSETS, LAYOUT, STORYBOARD, LAYERS, IMAGE_ATTRIBUTES,
+          LIGHTING, VERSION_CONTROL, PUPPETEER, SCRIPT_EDITOR, SETTINGS -> true;
+      default -> false;
+    };
   }
 
   private static Region vnsCommandGlyph(Kind kind, double size, Palette palette) {
