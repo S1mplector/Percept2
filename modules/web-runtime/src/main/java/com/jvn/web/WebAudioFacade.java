@@ -3,6 +3,8 @@ package com.jvn.web;
 import java.io.File;
 
 import org.teavm.jso.webaudio.AnalyserNode;
+import org.teavm.jso.webaudio.AudioBuffer;
+import org.teavm.jso.webaudio.AudioBufferSourceNode;
 import org.teavm.jso.webaudio.AudioContext;
 import org.teavm.jso.webaudio.GainNode;
 
@@ -32,6 +34,14 @@ public final class WebAudioFacade implements AudioFacade {
   private AnalyserNode bgmAnalyser;
   private WebAudioAssetLoader loader;
   private volatile boolean closed;
+
+  private AudioBufferSourceNode bgmSource;
+  private AudioBuffer bgmBuffer;
+  private String bgmTrackId = "";
+  private boolean bgmLoop;
+  private double bgmStartedAtContextTime;
+  private double bgmPlaybackOffsetSeconds;
+  private boolean bgmSourceStoppedIntentionally;
 
   @Override
   public void setProjectRoot(File root) {
@@ -68,12 +78,78 @@ public final class WebAudioFacade implements AudioFacade {
 
   @Override
   public void playBgm(String trackId, boolean loop) {
-    throw new UnsupportedOperationException("implemented in Task 3");
+    AudioContext ctx = ensureContext();
+    state.loading(trackId, loop);
+    loader.getOrLoad(trackId, buffer -> {
+      stopBgmSourceIfPlaying();
+      bgmBuffer = buffer;
+      bgmTrackId = trackId;
+      bgmLoop = loop;
+      bgmPlaybackOffsetSeconds = 0.0;
+      startBgmSourceFrom(0.0);
+      state.started(AudioChannel.BGM, trackId);
+    });
   }
 
   @Override
   public void stopBgm() {
-    throw new UnsupportedOperationException("implemented in Task 3");
+    stopBgmSourceIfPlaying();
+    bgmBuffer = null;
+    bgmTrackId = "";
+    bgmPlaybackOffsetSeconds = 0.0;
+    state.stopped(AudioChannel.BGM, "");
+  }
+
+  private void startBgmSourceFrom(double offsetSeconds) {
+    AudioContext ctx = ensureContext();
+    AudioBufferSourceNode source = ctx.createBufferSource();
+    source.setBuffer(bgmBuffer);
+    source.setLoop(bgmLoop);
+    source.connect(bgmGain);
+    bgmSourceStoppedIntentionally = false;
+    source.onEnded(event -> {
+      if (!bgmSourceStoppedIntentionally) {
+        state.completed(AudioChannel.BGM, bgmTrackId);
+      }
+    });
+    source.start(0, offsetSeconds);
+    bgmSource = source;
+    bgmStartedAtContextTime = ctx.getCurrentTime();
+    bgmPlaybackOffsetSeconds = offsetSeconds;
+  }
+
+  private void stopBgmSourceIfPlaying() {
+    if (bgmSource == null) return;
+    bgmSourceStoppedIntentionally = true;
+    try {
+      bgmSource.stop();
+    } catch (RuntimeException ignored) {
+      // Already stopped/ended; nothing further to do.
+    }
+    bgmSource = null;
+  }
+
+  @Override
+  public void pauseBgm() {
+    if (bgmSource == null || bgmBuffer == null) return;
+    double elapsed = context.getCurrentTime() - bgmStartedAtContextTime;
+    bgmPlaybackOffsetSeconds += Math.max(0.0, elapsed);
+    stopBgmSourceIfPlaying();
+    state.paused();
+  }
+
+  @Override
+  public void resumeBgm() {
+    if (bgmBuffer == null) return;
+    startBgmSourceFrom(bgmPlaybackOffsetSeconds);
+    state.resumed();
+  }
+
+  @Override
+  public void seekBgmSeconds(double seconds) {
+    if (bgmBuffer == null || seconds < 0) return;
+    stopBgmSourceIfPlaying();
+    startBgmSourceFrom(seconds);
   }
 
   @Override
