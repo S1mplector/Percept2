@@ -50,7 +50,7 @@ final class HudToastLayout {
   ) {
     List<String> lines = new ArrayList<>();
     if (text == null || text.isBlank()) return lines;
-    for (String paragraph : text.split("\\R", -1)) {
+    for (String paragraph : text.split("\r\n|\r|\n", -1)) {
       if (paragraph.isBlank()) {
         lines.add("");
         continue;
