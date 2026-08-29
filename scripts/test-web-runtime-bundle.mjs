@@ -169,6 +169,75 @@ class HTMLCanvasElement extends SimpleEventTarget {
   }
 }
 
+const audioGraphCalls = [];
+
+// NOTE on property vs. method shape: TeaVM's JSO bindings compile a Java
+// method annotated with @JSProperty to plain JS property get/set (e.g.
+// AudioParam.setValue(float)/getValue() -> `obj.value = x` / `obj.value`),
+// while a plain native method compiles to a real JS method call (e.g.
+// AudioNode.connect(...) -> `obj.connect(...)`). Cross-checked against the
+// actual org.teavm.jso.webaudio/org.teavm.jso.ajax interfaces
+// (AudioParam.setValue/getValue, AnalyserNode.setFftSize/getFftSize,
+// XMLHttpRequest.setResponseType/getResponseType are all @JSProperty) —
+// these stubs use real property setters/getters for those members instead
+// of the setValue()/setFftSize()/setResponseType() *methods* one might
+// otherwise guess at from the Java-side method names.
+class StubAudioParam {
+  constructor() { this._value = 0; }
+  get value() { return this._value; }
+  set value(v) { this._value = v; audioGraphCalls.push(["gain.setValue", v]); }
+  linearRampToValueAtTime(v, t) { this._value = v; audioGraphCalls.push(["gain.ramp", v, t]); }
+}
+
+class StubAudioNode {
+  connect(dest) { audioGraphCalls.push(["connect", this.constructor.name, dest?.constructor?.name]); return dest; }
+  disconnect() { audioGraphCalls.push(["disconnect", this.constructor.name]); }
+}
+
+class StubGainNode extends StubAudioNode {
+  constructor() { super(); this.gain = new StubAudioParam(); }
+}
+
+class StubAnalyserNode extends StubAudioNode {
+  constructor() { super(); this.fftSize = 32; this.frequencyBinCount = 16; }
+  getFloatFrequencyData(arr) { for (let i = 0; i < arr.length; i++) arr[i] = -60; }
+}
+
+class StubAudioBufferSourceNode extends StubAudioNode {
+  constructor(buffer) { super(); this.buffer = buffer; this.loop = false; this._endedListeners = []; }
+  addEventListener(type, listener) { if (type === "ended") this._endedListeners.push(listener); }
+  start() { audioGraphCalls.push(["start"]); }
+  stop() { audioGraphCalls.push(["stop"]); for (const l of this._endedListeners) l({}); }
+}
+
+class StubAudioBuffer {
+  constructor() { this.duration = 1.5; }
+}
+
+class StubAudioContext {
+  constructor() { this.currentTime = 0; this.destination = new StubAudioNode(); }
+  createGain() { return new StubGainNode(); }
+  createAnalyser() { return new StubAnalyserNode(); }
+  createBufferSource() { return new StubAudioBufferSourceNode(); }
+  decodeAudioData(arrayBuffer, onSuccess) { onSuccess(new StubAudioBuffer()); }
+  close() {}
+}
+
+class StubXMLHttpRequest extends SimpleEventTarget {
+  open(method, url) { this._url = url; }
+  setResponseType(type) { this._responseType = type; }
+  send() {
+    this.status = 200;
+    this.response = new ArrayBuffer(8);
+    this.readyState = 4;
+    this.dispatchEvent("load", {});
+  }
+}
+
+globalThis.AudioContext = StubAudioContext;
+globalThis.XMLHttpRequest = StubXMLHttpRequest;
+globalThis.setTimeout = (callback) => { callback(); return 0; };
+
 const canvas = new HTMLCanvasElement();
 
 // Self-check: verify the new event-listener plumbing works before relying on
@@ -238,6 +307,13 @@ if (!document.title.startsWith("Bundle Smoke")) {
 }
 if (!status.innerText.includes("Engine loop online")) {
   throw new Error(`Expected successful status text, got ${status.innerText}`);
+}
+
+const sawBgmStart = audioGraphCalls.some(([op]) => op === "start");
+if (!sawBgmStart) {
+  throw new Error(
+    `Expected the fixture's [bgm] cue to trigger a Web Audio source start() call during startup, got: ${JSON.stringify(audioGraphCalls)}`,
+  );
 }
 
 // Drive two frames: the first frame's drawImage calls trigger the

@@ -30,6 +30,7 @@ final class WebFixtureScenario {
 
       @label start
       [bg game]
+      [bgm assets/game/audio/bgm/theme.ogg]
       [show lavender center happy]
       Lavender: Hello from the JVN web scene bootstrap!
 
