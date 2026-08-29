@@ -41,7 +41,7 @@ public final class WebLauncher {
 
       VnScenario scenario = WebFixtureScenario.load();
       VnScene vnScene = new VnScene(scenario);
-      vnScene.setAudioFacade(new NoopAudioFacade());
+      vnScene.setAudioFacade(new WebAudioFacade());
       vnScene.setPersistenceBackend(new WebLocalStoragePersistenceBackend());
       vnScene.onEnter();
       // Instant text for this fixed bootstrap fixture — it exists to prove rendering, not
