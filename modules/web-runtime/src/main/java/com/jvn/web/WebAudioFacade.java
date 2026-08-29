@@ -36,12 +36,12 @@ public final class WebAudioFacade implements AudioFacade {
   private volatile boolean closed;
 
   private AudioBufferSourceNode bgmSource;
+  private boolean[] bgmSourceStopFlag;
   private AudioBuffer bgmBuffer;
   private String bgmTrackId = "";
   private boolean bgmLoop;
   private double bgmStartedAtContextTime;
   private double bgmPlaybackOffsetSeconds;
-  private boolean bgmSourceStoppedIntentionally;
 
   @Override
   public void setProjectRoot(File root) {
@@ -106,27 +106,34 @@ public final class WebAudioFacade implements AudioFacade {
     source.setBuffer(bgmBuffer);
     source.setLoop(bgmLoop);
     source.connect(bgmGain);
-    bgmSourceStoppedIntentionally = false;
+    // Per-node completion guard: stop() fires 'ended' asynchronously, so a
+    // shared instance field could be reset by a subsequently-started source
+    // before the old source's queued event fires. Capture a flag scoped to
+    // THIS node and close over it directly.
+    final boolean[] stopFlag = new boolean[1];
+    String trackIdAtStart = bgmTrackId;
     source.onEnded(event -> {
-      if (!bgmSourceStoppedIntentionally) {
-        state.completed(AudioChannel.BGM, bgmTrackId);
+      if (!stopFlag[0]) {
+        state.completed(AudioChannel.BGM, trackIdAtStart);
       }
     });
     source.start(0, offsetSeconds);
     bgmSource = source;
+    bgmSourceStopFlag = stopFlag;
     bgmStartedAtContextTime = ctx.getCurrentTime();
     bgmPlaybackOffsetSeconds = offsetSeconds;
   }
 
   private void stopBgmSourceIfPlaying() {
     if (bgmSource == null) return;
-    bgmSourceStoppedIntentionally = true;
+    if (bgmSourceStopFlag != null) bgmSourceStopFlag[0] = true;
     try {
       bgmSource.stop();
     } catch (RuntimeException ignored) {
       // Already stopped/ended; nothing further to do.
     }
     bgmSource = null;
+    bgmSourceStopFlag = null;
   }
 
   @Override
