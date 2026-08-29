@@ -43,6 +43,10 @@ public final class WebAudioFacade implements AudioFacade {
   private double bgmStartedAtContextTime;
   private double bgmPlaybackOffsetSeconds;
 
+  private final java.util.List<AudioBufferSourceNode> sfxSources = new java.util.ArrayList<>();
+  private final java.util.List<AudioBufferSourceNode> voiceSources = new java.util.ArrayList<>();
+  private final java.util.Map<AudioBufferSourceNode, Boolean> stoppedIntentionally = new java.util.IdentityHashMap<>();
+
   @Override
   public void setProjectRoot(File root) {
     // Browser builds have no filesystem project root; asset ids resolve via
@@ -161,7 +165,68 @@ public final class WebAudioFacade implements AudioFacade {
 
   @Override
   public void playSfx(String sfxId) {
-    throw new UnsupportedOperationException("implemented in Task 3");
+    playPooled(sfxId, sfxSources, sfxGain, MAX_SFX_SOURCES, AudioChannel.SFX);
+  }
+
+  @Override
+  public void playVoice(String voiceId) {
+    playPooled(voiceId, voiceSources, voiceGain, MAX_VOICE_SOURCES, AudioChannel.VOICE);
+  }
+
+  private void playPooled(
+      String id,
+      java.util.List<AudioBufferSourceNode> pool,
+      GainNode destinationGain,
+      int cap,
+      AudioChannel channel
+  ) {
+    ensureContext();
+    loader.getOrLoad(id, buffer -> {
+      while (pool.size() >= cap) {
+        stopPooledSource(pool.remove(0));
+      }
+      AudioBufferSourceNode source = context.createBufferSource();
+      source.setBuffer(buffer);
+      source.connect(destinationGain);
+      stoppedIntentionally.put(source, false);
+      source.onEnded(event -> {
+        pool.remove(source);
+        boolean intentional = Boolean.TRUE.equals(stoppedIntentionally.remove(source));
+        if (!intentional) state.completed(channel, id);
+      });
+      source.start();
+      pool.add(source);
+      state.started(channel, id);
+    });
+  }
+
+  private void stopPooledSource(AudioBufferSourceNode source) {
+    if (source == null) return;
+    stoppedIntentionally.put(source, true);
+    try {
+      source.stop();
+    } catch (RuntimeException ignored) {
+      // Already stopped/ended.
+    }
+  }
+
+  @Override
+  public void stopSfx() {
+    for (AudioBufferSourceNode source : new java.util.ArrayList<>(sfxSources)) stopPooledSource(source);
+    sfxSources.clear();
+  }
+
+  @Override
+  public void stopVoice() {
+    for (AudioBufferSourceNode source : new java.util.ArrayList<>(voiceSources)) stopPooledSource(source);
+    voiceSources.clear();
+  }
+
+  @Override
+  public void stopAllAudio() {
+    stopVoice();
+    stopSfx();
+    stopBgm();
   }
 
   @Override
@@ -210,7 +275,11 @@ public final class WebAudioFacade implements AudioFacade {
 
   @Override
   public AudioSnapshot snapshot() {
-    return state.snapshot(0.0, 0.0, 0, 0);
+    double position = bgmSource != null && context != null
+        ? bgmPlaybackOffsetSeconds + Math.max(0.0, context.getCurrentTime() - bgmStartedAtContextTime)
+        : bgmPlaybackOffsetSeconds;
+    double duration = bgmBuffer != null ? bgmBuffer.getDuration() : 0.0;
+    return state.snapshot(position, duration, sfxSources.size(), voiceSources.size());
   }
 
   @Override public void addListener(AudioListener listener) { state.addListener(listener); }
@@ -220,6 +289,7 @@ public final class WebAudioFacade implements AudioFacade {
   public void close() {
     if (closed) return;
     closed = true;
+    stopAllAudio();
     state.closed();
     if (context != null) context.close();
   }
