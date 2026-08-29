@@ -48,6 +48,10 @@ public final class WebAudioFacade implements AudioFacade {
   private final java.util.List<AudioBufferSourceNode> voiceSources = new java.util.ArrayList<>();
   private final java.util.Map<AudioBufferSourceNode, Boolean> stoppedIntentionally = new java.util.IdentityHashMap<>();
 
+  private final java.util.Map<AudioBufferSourceNode, PausedSource> pausedPoolOffsets = new java.util.IdentityHashMap<>();
+
+  private record PausedSource(AudioBuffer buffer, double offsetSeconds, GainNode destinationGain, AudioChannel channel, String id) {}
+
   @Override
   public void setProjectRoot(File root) {
     // Browser builds have no filesystem project root; asset ids resolve via
@@ -316,6 +320,55 @@ public final class WebAudioFacade implements AudioFacade {
     stopVoice();
     stopSfx();
     stopBgm();
+  }
+
+  @Override
+  public void pauseAllAudio() {
+    pauseBgm();
+    pausePool(sfxSources, sfxGain, AudioChannel.SFX);
+    pausePool(voiceSources, voiceGain, AudioChannel.VOICE);
+  }
+
+  @Override
+  public void resumeAllAudio() {
+    resumeBgm();
+    resumePool(sfxSources);
+    resumePool(voiceSources);
+  }
+
+  private void pausePool(java.util.List<AudioBufferSourceNode> pool, GainNode destinationGain, AudioChannel channel) {
+    if (context == null) return;
+    for (AudioBufferSourceNode source : new java.util.ArrayList<>(pool)) {
+      AudioBuffer buffer = source.getBuffer();
+      // Pooled sources have no per-node "started at" bookkeeping (unlike BGM),
+      // so a paused SFX/voice resumes from the beginning of its buffer rather
+      // than mid-playback — an accepted simplification since SFX/voice clips
+      // are short fire-and-forget sounds, not long tracks like BGM.
+      pausedPoolOffsets.put(source, new PausedSource(buffer, 0.0, destinationGain, channel, ""));
+      stopPooledSource(source);
+      pool.remove(source);
+    }
+  }
+
+  private void resumePool(java.util.List<AudioBufferSourceNode> pool) {
+    if (context == null) return;
+    java.util.List<AudioBufferSourceNode> toResume = new java.util.ArrayList<>(pausedPoolOffsets.keySet());
+    for (AudioBufferSourceNode oldSource : toResume) {
+      PausedSource paused = pausedPoolOffsets.remove(oldSource);
+      if (paused == null) continue;
+      AudioBufferSourceNode fresh = context.createBufferSource();
+      fresh.setBuffer(paused.buffer());
+      fresh.connect(paused.destinationGain());
+      stoppedIntentionally.put(fresh, false);
+      java.util.List<AudioBufferSourceNode> targetPool = paused.channel() == AudioChannel.SFX ? sfxSources : voiceSources;
+      fresh.onEnded(event -> {
+        targetPool.remove(fresh);
+        boolean intentional = Boolean.TRUE.equals(stoppedIntentionally.remove(fresh));
+        if (!intentional) state.completed(paused.channel(), paused.id());
+      });
+      fresh.start(0, paused.offsetSeconds());
+      targetPool.add(fresh);
+    }
   }
 
   @Override
