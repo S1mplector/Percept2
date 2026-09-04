@@ -471,6 +471,228 @@ final class SidebarToolArtwork {
     return finish(art);
   }
 
+  static Pane open(String requested) {
+    Color accent = accent(requested, "#dfa44f");
+    Pane art = canvas();
+    Rectangle tab = roundedRect(3.0, 3.0, 8.5, 5.0, enamel(accent.brighter()),
+        accent.darker(), 0.55, 1.7);
+    Rectangle back = roundedRect(2.0, 6.0, 16.0, 11.7, enamel(accent),
+        accent.darker().darker(), 0.72, 1.8);
+    Polygon face = new Polygon(2.0, 8.0, 18.0, 8.0, 16.6, 18.0, 3.4, 18.0);
+    face.setFill(glassPanel(Color.web("#fff1ad"), accent.darker()));
+    face.setStroke(Color.web("#774718"));
+    face.setStrokeWidth(0.62);
+    Line shine = line(4.0, 9.3, 15.6, 9.3, Color.rgb(255, 255, 255, 0.68), 0.65);
+    art.getChildren().addAll(tab, back, face, shine);
+    return finish(art);
+  }
+
+  static Pane speech(String requested) {
+    Color accent = accent(requested, "#58bce4");
+    Pane art = canvas();
+    SVGPath bubble = svg("M3 3.2 H17 Q18.5 3.2 18.5 4.8 V13.0 Q18.5 14.6 17 14.6 "
+            + "H9.0 L4.2 18.2 L5.2 14.6 H3 Q1.5 14.6 1.5 13 V4.8 Q1.5 3.2 3 3.2 Z",
+        glassPanel(Color.web("#e9faff"), accent.darker()), Color.web("#31566b"), 0.7);
+    bubble.setEffect(new InnerShadow(1.0, Color.rgb(0, 31, 48, 0.58)));
+    art.getChildren().add(bubble);
+    for (double x : new double[] {6.0, 10.0, 14.0}) {
+      Circle dot = new Circle(x, 9.0, 1.2, radial(accent));
+      dot.setStroke(Color.rgb(255, 255, 255, 0.74));
+      dot.setStrokeWidth(0.35);
+      art.getChildren().add(dot);
+    }
+    return finish(art);
+  }
+
+  static Pane apply(String requested) {
+    Color accent = accent(requested, "#58c975");
+    Pane art = canvas();
+    Circle rim = new Circle(10, 10, 8.7, metal());
+    rim.setStroke(Color.web("#385044"));
+    rim.setStrokeWidth(0.68);
+    Circle glass = new Circle(10, 10, 7.25, radial(accent));
+    glass.setEffect(new InnerShadow(1.2, Color.rgb(5, 45, 24, 0.68)));
+    SVGPath shadow = svg("M5.2 10.2 L8.5 13.5 L15.4 6.6", Color.TRANSPARENT,
+        Color.rgb(11, 59, 29, 0.78), 3.2);
+    shadow.setTranslateY(0.6);
+    SVGPath check = svg("M5.2 9.7 L8.5 13.0 L15.4 6.1", Color.TRANSPARENT,
+        Color.WHITE, 1.85);
+    art.getChildren().addAll(rim, glass, shadow, check);
+    return finish(art);
+  }
+
+  static Pane home(String requested) {
+    Color accent = accent(requested, "#62cb72");
+    Pane art = canvas();
+    Polygon roofShadow = new Polygon(1.6, 9.3, 10.0, 1.8, 18.4, 9.3, 16.2, 11.0,
+        10.0, 5.5, 3.8, 11.0);
+    roofShadow.setFill(Color.rgb(0, 35, 20, 0.75));
+    roofShadow.setTranslateY(0.7);
+    Polygon roof = new Polygon(1.6, 8.7, 10.0, 1.2, 18.4, 8.7, 16.2, 10.4,
+        10.0, 4.9, 3.8, 10.4);
+    roof.setFill(enamel(accent));
+    roof.setStroke(Color.web("#285c39"));
+    roof.setStrokeWidth(0.6);
+    Rectangle house = roundedRect(4.2, 8.3, 11.6, 9.8,
+        glassPanel(Color.web("#edfff1"), accent.darker()), Color.web("#2a5838"), 0.65, 1.2);
+    Rectangle door = roundedRect(8.1, 12.0, 3.8, 6.1, enamel(Color.web("#58a5d0")),
+        Color.web("#27546d"), 0.45, 0.65);
+    Circle knob = new Circle(10.9, 15.1, 0.38, Color.web("#fff1a5"));
+    art.getChildren().addAll(house, roofShadow, roof, door, knob);
+    return finish(art);
+  }
+
+  static Pane copy(String requested) {
+    Color accent = accent(requested, "#62bde5");
+    Pane art = canvas();
+    Rectangle rear = roundedRect(2.5, 2.5, 11.7, 13.8,
+        glassPanel(Color.web("#f8fdff"), Color.web("#7798aa")), Color.web("#405866"), 0.62, 1.5);
+    Rectangle front = roundedRect(6.0, 5.3, 11.7, 13.0,
+        glassPanel(Color.web("#effbff"), accent.darker()), Color.web("#315a70"), 0.7, 1.5);
+    Rectangle title = roundedRect(7.2, 6.5, 9.2, 2.0, enamel(accent), accent.darker(), 0.3, 0.6);
+    Line row1 = line(8.0, 11.1, 15.7, 11.1, Color.rgb(231, 249, 255, 0.82), 0.75);
+    Line row2 = line(8.0, 14.0, 14.3, 14.0, Color.rgb(231, 249, 255, 0.68), 0.75);
+    art.getChildren().addAll(rear, front, title, row1, row2);
+    return finish(art);
+  }
+
+  static Pane select(String requested) {
+    Color accent = accent(requested, "#62b9e4");
+    Pane art = canvas();
+    Rectangle panel = roundedRect(2.0, 2.0, 16.0, 16.0,
+        glassPanel(Color.web("#edfaff"), Color.web("#486f86")), Color.web("#314b5a"), 0.65, 2.0);
+    Rectangle selection = new Rectangle(5.0, 5.0, 10.0, 10.0);
+    selection.setFill(Color.rgb(103, 198, 238, 0.18));
+    selection.setStroke(accent.brighter());
+    selection.setStrokeWidth(0.8);
+    selection.getStrokeDashArray().setAll(1.8, 1.5);
+    art.getChildren().addAll(panel, selection);
+    for (double x : new double[] {5.0, 15.0}) {
+      for (double y : new double[] {5.0, 15.0}) {
+        Rectangle handle = roundedRect(x - 1.0, y - 1.0, 2.0, 2.0, metal(), Color.web("#31566b"), 0.35, 0.45);
+        art.getChildren().add(handle);
+      }
+    }
+    return finish(art);
+  }
+
+  static Pane person(String requested) {
+    Color accent = accent(requested, "#62bce3");
+    Pane art = canvas();
+    Circle medallion = new Circle(10, 10, 8.6, metal());
+    Circle glass = new Circle(10, 10, 7.25,
+        new RadialGradient(-35, 0.25, 7.5, 6.5, 9, false, CycleMethod.NO_CYCLE,
+            new Stop(0, Color.web("#effbff")), new Stop(0.45, accent.brighter()),
+            new Stop(1, accent.darker().darker())));
+    Circle head = new Circle(10, 7.2, 3.0, whiteEnamel());
+    head.setStroke(Color.web("#526b78"));
+    head.setStrokeWidth(0.45);
+    SVGPath shoulders = svg("M4.5 17.0 Q5.3 11.6 10 11.6 Q14.7 11.6 15.5 17.0 Z",
+        whiteEnamel(), Color.web("#465e6b"), 0.55);
+    art.getChildren().addAll(medallion, glass, shoulders, head);
+    return finish(art);
+  }
+
+  static Pane image(String requested) {
+    Color accent = accent(requested, "#62b9e1");
+    Pane art = canvas();
+    Rectangle frame = roundedRect(1.8, 2.2, 16.4, 15.8, metal(), Color.web("#354954"), 0.72, 1.8);
+    Rectangle photo = roundedRect(3.3, 3.7, 13.4, 12.8,
+        glassPanel(Color.web("#e9fbff"), accent.darker()), Color.web("#dff8ff"), 0.4, 0.8);
+    Polygon mountain = new Polygon(4.2, 15.5, 8.0, 9.7, 10.4, 12.3, 13.0, 8.5, 16.0, 15.5);
+    mountain.setFill(enamel(Color.web("#5fc877")));
+    Circle sun = new Circle(13.8, 6.6, 1.55, radial(Color.web("#f2bd50")));
+    art.getChildren().addAll(frame, photo, mountain, sun);
+    return finish(art);
+  }
+
+  static Pane edit(String requested) {
+    Color accent = accent(requested, "#59b9e2");
+    Pane art = copy(requested);
+    art.getChildren().clear();
+    Rectangle page = roundedRect(2.2, 2.0, 13.3, 16.3,
+        glassPanel(Color.web("#ffffff"), Color.web("#9fc4d5")), Color.web("#456373"), 0.65, 1.4);
+    Line row1 = line(4.5, 6.0, 12.3, 6.0, Color.web("#617e8d"), 0.65);
+    Line row2 = line(4.5, 9.0, 11.4, 9.0, Color.web("#617e8d"), 0.65);
+    Rectangle pencil = roundedRect(11.2, 5.0, 3.4, 13.0, enamel(accent), accent.darker(), 0.5, 0.8);
+    pencil.getTransforms().add(new Rotate(38, 12.9, 11.5));
+    Polygon nib = new Polygon(15.7, 16.0, 18.5, 18.5, 14.4, 19.0);
+    nib.setFill(metal());
+    art.getChildren().addAll(page, row1, row2, pencil, nib);
+    return finish(art);
+  }
+
+  static Pane sparkles(String requested) {
+    Color accent = accent(requested, "#e5a24e");
+    Pane art = canvas();
+    Line wandShadow = line(4.0, 16.3, 13.8, 6.5, Color.rgb(55, 28, 5, 0.78), 4.0);
+    Line wand = line(3.8, 15.7, 13.6, 5.9,
+        new LinearGradient(0, 0, 1, 1, true, CycleMethod.NO_CYCLE,
+            new Stop(0, Color.web("#74452a")), new Stop(0.48, accent),
+            new Stop(0.72, Color.web("#fff1aa")), new Stop(1, Color.web("#85501f"))), 2.4);
+    art.getChildren().addAll(wandShadow, wand);
+    sparkle(art, 14.7, 4.4, 2.5, Color.web("#ffe174"));
+    sparkle(art, 5.0, 5.5, 1.55, Color.web("#7ed8f2"));
+    sparkle(art, 16.2, 11.7, 1.35, Color.web("#e690db"));
+    return finish(art);
+  }
+
+  static Pane movie(String requested) {
+    Color accent = accent(requested, "#5eb8df");
+    Pane art = canvas();
+    Rectangle body = roundedRect(2.0, 5.0, 16.0, 12.8,
+        glassPanel(Color.web("#ecfaff"), accent.darker()), Color.web("#344e5e"), 0.7, 1.5);
+    Rectangle screen = roundedRect(5.0, 7.8, 10.0, 7.2, Color.web("#18394d"),
+        Color.web("#dff8ff"), 0.45, 0.7);
+    for (double x : new double[] {3.5, 16.5}) {
+      for (double y : new double[] {7.2, 10.7, 14.2}) {
+        Rectangle hole = roundedRect(x - 0.6, y - 0.7, 1.2, 1.4,
+            Color.web("#dff6ff"), Color.TRANSPARENT, 0, 0.2);
+        art.getChildren().add(hole);
+      }
+    }
+    Polygon play = new Polygon(8.6, 9.2, 13.0, 11.4, 8.6, 13.6);
+    play.setFill(enamel(Color.web("#f2ae50")));
+    art.getChildren().addAll(body, screen, play);
+    body.toBack();
+    return finish(art);
+  }
+
+  static Pane locate(String requested) {
+    Color accent = accent(requested, "#5abbe4");
+    Pane art = canvas();
+    Circle rim = new Circle(10, 10, 8.7, metal());
+    Circle face = new Circle(10, 10, 7.3,
+        new RadialGradient(-35, 0.25, 7.5, 6.4, 9.2, false, CycleMethod.NO_CYCLE,
+            new Stop(0, Color.web("#f2fbff")), new Stop(0.5, accent.brighter()),
+            new Stop(1, accent.darker().darker())));
+    Polygon needleShadow = new Polygon(10.6, 3.5, 12.4, 10.2, 9.4, 16.5, 7.7, 9.8);
+    needleShadow.setFill(Color.rgb(0, 28, 44, 0.72));
+    needleShadow.setTranslateY(0.55);
+    Polygon needle = new Polygon(10.5, 3.0, 12.0, 10.0, 9.5, 16.0, 8.0, 10.0);
+    needle.setFill(new LinearGradient(0, 0, 0, 1, true, CycleMethod.NO_CYCLE,
+        new Stop(0, Color.web("#f15d65")), new Stop(0.5, Color.WHITE),
+        new Stop(1, Color.web("#317da7"))));
+    Circle hub = new Circle(10, 10, 1.25, metal());
+    art.getChildren().addAll(rim, face, needleShadow, needle, hub);
+    return finish(art);
+  }
+
+  static Pane dock(String requested) {
+    Color accent = accent(requested, "#5dbce3");
+    Pane art = canvas();
+    Rectangle window = roundedRect(2.0, 2.0, 16.0, 16.0,
+        glassPanel(Color.web("#effaff"), Color.web("#486c82")), Color.web("#304754"), 0.7, 2.0);
+    Rectangle title = roundedRect(3.2, 3.2, 13.6, 2.4, enamel(accent), accent.darker(), 0.35, 0.7);
+    Rectangle stage = roundedRect(4.0, 6.7, 8.4, 8.9, Color.web("#d9eef8"),
+        Color.web("#456575"), 0.4, 0.8);
+    Rectangle rail = roundedRect(13.3, 6.7, 3.1, 8.9, enamel(accent), accent.darker(), 0.4, 0.7);
+    Line grip1 = line(14.4, 9.0, 15.3, 9.0, Color.web("#eefaff"), 0.55);
+    Line grip2 = line(14.4, 11.1, 15.3, 11.1, Color.web("#eefaff"), 0.55);
+    art.getChildren().addAll(window, title, stage, rail, grip1, grip2);
+    return finish(art);
+  }
+
   private static Pane canvas() {
     Pane pane = new Pane();
     pane.setMinSize(SIZE, SIZE);

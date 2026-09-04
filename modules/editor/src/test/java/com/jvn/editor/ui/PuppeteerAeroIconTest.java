@@ -14,7 +14,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 @ExtendWith(FxToolkitExtension.class)
 class PuppeteerAeroIconTest {
   @Test
-  void everyKeyframeCommandRendersACompactAeroSurface() throws Exception {
+  void everyKeyframeCommandRendersACompactWindows7Object() throws Exception {
     for (PuppeteerAeroIcon.Kind kind : PuppeteerAeroIcon.Kind.values()) {
       WritableImage image = onFxThread(() -> {
         PuppeteerAeroIcon icon = PuppeteerAeroIcon.of(kind);
@@ -24,8 +24,20 @@ class PuppeteerAeroIconTest {
         root.layout();
         return root.snapshot(null, new WritableImage(32, 32));
       });
-      assertTrue(nonTransparentPixels(image) > 180, kind + " should render a visible Aero plate and glyph");
+      assertTrue(nonTransparentPixels(image) > 120, kind + " should render a visible Aero object and glyph");
     }
+  }
+
+  @Test
+  void everyCommandUsesAFunctionSpecificPhysicalShell() throws Exception {
+    onFxThread(() -> {
+      for (PuppeteerAeroIcon.Kind kind : PuppeteerAeroIcon.Kind.values()) {
+        PuppeteerAeroIcon icon = PuppeteerAeroIcon.of(kind);
+        assertTrue(icon.getChildren().getFirst().getStyleClass()
+            .contains("jvn-puppeteer-bespoke-shell"));
+      }
+      return null;
+    });
   }
 
   @Test

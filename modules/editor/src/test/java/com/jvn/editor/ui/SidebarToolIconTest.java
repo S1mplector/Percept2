@@ -56,7 +56,20 @@ class SidebarToolIconTest {
       SidebarToolIcon.Kind.TIMELINE,
       SidebarToolIcon.Kind.AUTO,
       SidebarToolIcon.Kind.LABEL,
-      SidebarToolIcon.Kind.MEMORY);
+      SidebarToolIcon.Kind.MEMORY,
+      SidebarToolIcon.Kind.OPEN,
+      SidebarToolIcon.Kind.SPEECH,
+      SidebarToolIcon.Kind.APPLY,
+      SidebarToolIcon.Kind.HOME,
+      SidebarToolIcon.Kind.COPY,
+      SidebarToolIcon.Kind.SELECT,
+      SidebarToolIcon.Kind.PERSON,
+      SidebarToolIcon.Kind.IMAGE,
+      SidebarToolIcon.Kind.EDIT,
+      SidebarToolIcon.Kind.SPARKLES,
+      SidebarToolIcon.Kind.MOVIE,
+      SidebarToolIcon.Kind.LOCATE,
+      SidebarToolIcon.Kind.DOCK);
 
   @Test
   void everyUtilityRoleRendersVisibleDimensionalArtwork() throws Exception {

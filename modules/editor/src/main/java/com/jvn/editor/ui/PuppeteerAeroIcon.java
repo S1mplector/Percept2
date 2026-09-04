@@ -1,6 +1,7 @@
 package com.jvn.editor.ui;
 
 import javafx.scene.CacheHint;
+import javafx.scene.Group;
 import javafx.scene.control.ButtonBase;
 import javafx.scene.effect.DropShadow;
 import javafx.scene.effect.InnerShadow;
@@ -9,9 +10,14 @@ import javafx.scene.layout.StackPane;
 import javafx.scene.paint.Color;
 import javafx.scene.paint.CycleMethod;
 import javafx.scene.paint.LinearGradient;
+import javafx.scene.paint.RadialGradient;
 import javafx.scene.paint.Stop;
 import javafx.scene.shape.Circle;
+import javafx.scene.shape.Ellipse;
+import javafx.scene.shape.Line;
+import javafx.scene.shape.Polygon;
 import javafx.scene.shape.Rectangle;
+import javafx.scene.shape.StrokeLineCap;
 
 /** Compact Aero artwork shared by Puppeteer's floating command dockers. */
 public final class PuppeteerAeroIcon extends StackPane {
@@ -37,27 +43,7 @@ public final class PuppeteerAeroIcon extends StackPane {
     this.iconSize = Math.max(18, Math.min(28, requestedSize));
     Palette palette = paletteFor(this.kind);
 
-    Rectangle plate = new Rectangle(iconSize * 0.91, iconSize * 0.91);
-    plate.setArcWidth(iconSize * 0.34);
-    plate.setArcHeight(iconSize * 0.34);
-    plate.setFill(new LinearGradient(0, 0, 0, 1, true, CycleMethod.NO_CYCLE,
-        new Stop(0, palette.light()),
-        new Stop(0.18, palette.mid()),
-        new Stop(0.58, palette.dark()),
-        new Stop(1, palette.dark().deriveColor(0, 0.78, 0.48, 1))));
-    plate.setStroke(Color.rgb(218, 234, 247, 0.76));
-    plate.setStrokeWidth(Math.max(0.75, iconSize * 0.045));
-    plate.setEffect(new InnerShadow(iconSize * 0.16, Color.rgb(1, 7, 13, 0.82)));
-
-    Rectangle highlight = new Rectangle(iconSize * 0.69, iconSize * 0.25);
-    highlight.setArcWidth(iconSize * 0.20);
-    highlight.setArcHeight(iconSize * 0.20);
-    highlight.setTranslateY(-iconSize * 0.23);
-    highlight.setFill(new LinearGradient(0, 0, 1, 0, true, CycleMethod.NO_CYCLE,
-        new Stop(0, Color.rgb(255, 255, 255, 0.13)),
-        new Stop(0.42, Color.rgb(255, 255, 255, 0.48)),
-        new Stop(1, Color.rgb(255, 255, 255, 0.08))));
-    highlight.setMouseTransparent(true);
+    Region shell = shellFor(this.kind, palette, iconSize);
 
     Region glyph = glyphFor(this.kind, iconSize * 0.54);
     glyph.setMouseTransparent(true);
@@ -76,7 +62,7 @@ public final class PuppeteerAeroIcon extends StackPane {
     setCache(true);
     setCacheHint(CacheHint.SPEED);
     getStyleClass().add("puppeteer-aero-icon");
-    getChildren().setAll(plate, highlight, glyph, status);
+    getChildren().setAll(shell, glyph, status);
     parentProperty().addListener((observable, oldParent, newParent) -> {
       if (newParent instanceof ButtonBase button) installButtonTreatment(button, palette);
     });
@@ -172,6 +158,149 @@ public final class PuppeteerAeroIcon extends StackPane {
     glyph.setScaleX(scale);
     glyph.setScaleY(scale);
     return glyph;
+  }
+
+  private static Region shellFor(Kind kind, Palette palette, double size) {
+    return switch (kind) {
+      case PREVIOUS, NEXT, REWIND, PLAY, PAUSE, STOP, UNDO, REDO, LOOP, CLEAR ->
+          transportShell(palette, size);
+      case COPY, PASTE, HISTORY, DUPLICATE, ADD_ALL, SAVE_CLIP, LOAD_CLIP,
+          COMPACT_EXPORT, PRESET, REGISTER, COPY_CODE -> documentShell(palette, size);
+      case FOCUS, ZOOM_FIT, DISTRIBUTE, REVERSE, STRETCH, COMPRESS, FIT_DURATION,
+          SNAP, VIEWPORT_STABILIZE, SNAP_GRID, SNAP_ENTITY, ORBIT, ORBIT_ALIGN ->
+          transformShell(palette, size);
+      case RIPPLE, LOOP_IN, LOOP_OUT, RUNTIME_PREVIEW, AUTO_KEY, RECORD_GIF, SYNC ->
+          timelineShell(palette, size);
+      case CHARACTER_SLOT, HELP, ADD_AUDIO_CUE, ADD_EXPRESSION_CUE, MANAGE_EVENTS, VERIFY ->
+          eventShell(palette, size);
+    };
+  }
+
+  private static StackPane transportShell(Palette palette, double size) {
+    Circle chrome = new Circle(size * 0.42, metal());
+    chrome.setStroke(Color.web("#364650"));
+    chrome.setStrokeWidth(Math.max(0.6, size * 0.035));
+    Circle glass = new Circle(size * 0.355, glassOrb(palette));
+    glass.setStroke(Color.rgb(239, 250, 255, 0.82));
+    glass.setStrokeWidth(Math.max(0.45, size * 0.025));
+    glass.setEffect(new InnerShadow(size * 0.055, 0, size * 0.025, Color.rgb(2, 19, 31, 0.76)));
+    Ellipse shine = new Ellipse(size * 0.16, size * 0.072);
+    shine.setTranslateX(-size * 0.07);
+    shine.setTranslateY(-size * 0.18);
+    shine.setFill(Color.rgb(255, 255, 255, 0.54));
+    return shell(size, chrome, glass, shine);
+  }
+
+  private static StackPane documentShell(Palette palette, double size) {
+    Rectangle rear = rounded(size * 0.56, size * 0.67, size * 0.08, metal(), Color.web("#455863"));
+    rear.setTranslateX(-size * 0.11);
+    rear.setTranslateY(-size * 0.07);
+    Rectangle page = rounded(size * 0.66, size * 0.72, size * 0.08,
+        glassPanel(palette.light(), palette.dark()), Color.rgb(226, 246, 255, 0.82));
+    page.setTranslateX(size * 0.07);
+    page.setTranslateY(size * 0.05);
+    page.setEffect(new InnerShadow(size * 0.05, Color.rgb(2, 22, 36, 0.62)));
+    Polygon fold = new Polygon(0, 0, size * 0.17, 0, size * 0.17, size * 0.17);
+    fold.setFill(metal());
+    fold.setTranslateX(size * 0.24);
+    fold.setTranslateY(-size * 0.22);
+    return shell(size, rear, page, fold);
+  }
+
+  private static StackPane transformShell(Palette palette, double size) {
+    Rectangle chassis = rounded(size * 0.80, size * 0.80, size * 0.12,
+        metal(), Color.web("#3c4d57"));
+    Rectangle glass = rounded(size * 0.68, size * 0.68, size * 0.09,
+        glassPanel(palette.light(), palette.dark()), Color.rgb(226, 246, 255, 0.72));
+    glass.setEffect(new InnerShadow(size * 0.055, Color.rgb(3, 23, 37, 0.67)));
+    Group corners = new Group();
+    double offset = size * 0.29;
+    for (double x : new double[] {-offset, offset}) {
+      for (double y : new double[] {-offset, offset}) {
+        Circle rivet = new Circle(size * 0.038, metal());
+        rivet.setTranslateX(x);
+        rivet.setTranslateY(y);
+        corners.getChildren().add(rivet);
+      }
+    }
+    return shell(size, chassis, glass, corners);
+  }
+
+  private static StackPane timelineShell(Palette palette, double size) {
+    Rectangle chassis = rounded(size * 0.86, size * 0.70, size * 0.11,
+        metal(), Color.web("#394b56"));
+    Rectangle panel = rounded(size * 0.76, size * 0.60, size * 0.08,
+        glassPanel(palette.light(), palette.dark()), Color.rgb(226, 246, 255, 0.72));
+    panel.setEffect(new InnerShadow(size * 0.05, Color.rgb(2, 20, 33, 0.7)));
+    Line trackA = shellLine(-size * 0.27, size * 0.20, size * 0.27, size * 0.20,
+        Color.rgb(232, 250, 255, 0.56), Math.max(0.5, size * 0.025));
+    Line playhead = shellLine(0, -size * 0.27, 0, size * 0.27,
+        palette.glow(), Math.max(0.6, size * 0.032));
+    return shell(size, chassis, panel, trackA, playhead);
+  }
+
+  private static StackPane eventShell(Palette palette, double size) {
+    Rectangle frame = rounded(size * 0.84, size * 0.74, size * 0.12,
+        metal(), Color.web("#40515b"));
+    Rectangle card = rounded(size * 0.73, size * 0.63, size * 0.09,
+        glassPanel(palette.light(), palette.dark()), Color.rgb(231, 248, 255, 0.78));
+    card.setEffect(new InnerShadow(size * 0.05, Color.rgb(2, 22, 35, 0.68)));
+    Rectangle title = rounded(size * 0.53, size * 0.09, size * 0.04,
+        new LinearGradient(0, 0, 1, 0, true, CycleMethod.NO_CYCLE,
+            new Stop(0, palette.mid().brighter()), new Stop(1, palette.dark())), Color.TRANSPARENT);
+    title.setTranslateY(-size * 0.23);
+    return shell(size, frame, card, title);
+  }
+
+  private static StackPane shell(double size, javafx.scene.Node... nodes) {
+    StackPane pane = new StackPane(nodes);
+    pane.setMinSize(size, size);
+    pane.setPrefSize(size, size);
+    pane.setMaxSize(size, size);
+    pane.setMouseTransparent(true);
+    pane.getStyleClass().add("jvn-puppeteer-bespoke-shell");
+    pane.setEffect(new DropShadow(Math.max(1.4, size * 0.09), 0, Math.max(0.6, size * 0.045),
+        Color.rgb(0, 0, 0, 0.82)));
+    return pane;
+  }
+
+  private static Rectangle rounded(double width, double height, double arc,
+      javafx.scene.paint.Paint fill, javafx.scene.paint.Paint stroke) {
+    Rectangle rectangle = new Rectangle(width, height);
+    rectangle.setArcWidth(arc * 2);
+    rectangle.setArcHeight(arc * 2);
+    rectangle.setFill(fill);
+    rectangle.setStroke(stroke);
+    rectangle.setStrokeWidth(Math.max(0.45, width * 0.035));
+    return rectangle;
+  }
+
+  private static Line shellLine(double x1, double y1, double x2, double y2,
+      Color color, double width) {
+    Line line = new Line(x1, y1, x2, y2);
+    line.setStroke(color);
+    line.setStrokeWidth(width);
+    line.setStrokeLineCap(StrokeLineCap.ROUND);
+    return line;
+  }
+
+  private static LinearGradient metal() {
+    return new LinearGradient(0, 0, 0, 1, true, CycleMethod.NO_CYCLE,
+        new Stop(0, Color.WHITE), new Stop(0.18, Color.web("#eaf1f4")),
+        new Stop(0.48, Color.web("#83929c")), new Stop(0.70, Color.web("#dbe3e7")),
+        new Stop(1, Color.web("#53616a")));
+  }
+
+  private static LinearGradient glassPanel(Color top, Color bottom) {
+    return new LinearGradient(0, 0, 0, 1, true, CycleMethod.NO_CYCLE,
+        new Stop(0, top.brighter()), new Stop(0.22, top),
+        new Stop(0.48, bottom.brighter()), new Stop(1, bottom.darker()));
+  }
+
+  private static RadialGradient glassOrb(Palette palette) {
+    return new RadialGradient(-35, 0.28, 0.35, 0.30, 0.65, true, CycleMethod.NO_CYCLE,
+        new Stop(0, Color.WHITE), new Stop(0.2, palette.light()),
+        new Stop(0.52, palette.mid()), new Stop(1, palette.dark().darker()));
   }
 
   private static Palette paletteFor(Kind kind) {

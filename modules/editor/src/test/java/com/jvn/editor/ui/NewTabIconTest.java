@@ -9,14 +9,13 @@ import javafx.scene.Group;
 import javafx.scene.Scene;
 import javafx.scene.image.WritableImage;
 import javafx.scene.layout.StackPane;
-import javafx.scene.shape.SVGPath;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 @ExtendWith(FxToolkitExtension.class)
 class NewTabIconTest {
   @Test
-  void rendersPlainPlusAtCompactSize() throws Exception {
+  void rendersDimensionalGlassPlusAtCompactSize() throws Exception {
     WritableImage image = onFxThread(() -> {
       NewTabIcon icon = NewTabIcon.compact();
       StackPane root = new StackPane(icon);
@@ -25,8 +24,7 @@ class NewTabIconTest {
       root.layout();
       assertEquals(20, icon.iconSize());
       Group artwork = (Group) icon.getChildren().get(0);
-      assertEquals(2, artwork.getChildren().size());
-      assertTrue(artwork.getChildren().get(1) instanceof SVGPath);
+      assertEquals(6, artwork.getChildren().size());
       return root.snapshot(null, new WritableImage(28, 28));
     });
     assertTrue(nonTransparentPixels(image) > 20);
